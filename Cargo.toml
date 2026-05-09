@@ -1,0 +1,55 @@
+# Rust workspace root for Safety Kernel.
+#
+# Per ADR-014 (Rust + Postgres migration), the codebase migrates business
+# logic / RPC / state surfaces from Python to Rust via strangler fig.
+# Python remains at python/ai-service/ for AI/ML/science work.
+#
+# Workspace layout (per agent/boundaries.toml — Jankurai reference profile):
+#   crates/domain/        — pure types and traits, NO I/O / network / clock / RNG
+#   crates/application/   — use cases that orchestrate the domain
+#   crates/adapters/      — HTTP / DB / queue clients (the only place I/O lives)
+#   crates/workers/       — background jobs and long-running processes
+#
+# Build:    cargo build --workspace
+# Test:     cargo test --workspace
+# Lint:     cargo clippy --workspace --all-targets -- -D warnings
+# Format:   cargo fmt --all
+[workspace]
+resolver = "2"
+members = [
+    "crates/domain",
+    "crates/application",
+    "crates/adapters",
+    "crates/workers",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "Proprietary"
+repository = "https://github.com/ARYA-Labs-Public/unfireable-safety-kernel"
+authors = ["ARYA Labs <eng@aryalabs.io>"]
+
+[workspace.dependencies]
+# Held intentionally minimal at boot-up. Add deps to per-crate Cargo.toml
+# files first; promote here only when ≥2 crates pin the same version.
+# Common future picks (per Jankurai reference profile):
+#   serde         = { version = "1", features = ["derive"] }
+#   serde_json    = "1"
+#   thiserror     = "2"
+#   axum          = "0.8"
+#   tokio         = { version = "1", features = ["rt-multi-thread", "macros"] }
+#   sqlx          = { version = "0.8", features = ["postgres", "runtime-tokio-rustls", "macros", "chrono"] }
+#   tracing       = "0.1"
+#   uuid          = { version = "1", features = ["v4", "v7", "serde"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+
+[profile.dev]
+# Faster iteration; debug info on. Trade-off: larger binaries (we don't ship dev).
+debug = true
+incremental = true

@@ -1,0 +1,6 @@
+# Pinned Rust toolchain for Safety Kernel.
+# Per ADR-014 — keeps local dev and CI on the exact same compiler.
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
+profile = "minimal"
