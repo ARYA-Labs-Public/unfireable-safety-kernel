@@ -1,0 +1,404 @@
+# Safety Kernel HTTP contract.
+#
+# Per ADR-014, this is Slice 1 of the Rust + Postgres migration. The
+# spec below mirrors the current Python (FastAPI) implementation at
+# `apps/safety_kernel/routes/{authorize,approvals,meta}.py`. The Rust
+# port lands in `crates/services/safety-kernel/` (future) and MUST
+# conform byte-equivalently to this contract.
+#
+# Authorization model: every endpoint inspects the caller's role via
+# `request.state.kernel_caller_role`, set by middleware based on the
+# pre-shared API key (`x-api-key`). Roles: `worker`, `api`, `operator`.
+# Roles are NOT in the OpenAPI schema (they're set out-of-band by the
+# middleware) but are documented per-endpoint.
+openapi: 3.1.0
+info:
+  title: Safety Kernel Safety Kernel
+  version: 1.0.0
+  description: |
+    Authorization, attestation, and audit-chain service for sensitive
+    operations across the Safety Kernel system. The kernel is the
+    only component authorized to mint signed tokens for actions like
+    `sio_run_cycles`, self-improvement cycle persistence, and approval decisions.
+
+    Caller roles (set by middleware via `x-api-key`):
+    - `worker` — primary caller; authorized to request tokens for
+      self-improvement/SIO/training actions
+    - `api` — REST API; restricted to governance-only actions per
+      `is_api_action_allowed()` allowlist
+    - `operator` — human approvals/rejections only
+  contact:
+    name: ARYA Labs Safety Kernel team
+    url: https://github.com/ARYA-Labs-Public/unfireable-safety-kernel
+  license:
+    name: Proprietary
+servers:
+  - url: http://safety-kernel:9000
+    description: Internal docker network (production)
+  - url: http://localhost:9001
+    description: Host port mapping (local development)
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: |
+        Pre-shared key set in `.env` per role:
+        - `QORCH_KERNEL_API_KEY_WORKER`
+        - `QORCH_KERNEL_API_KEY_API`
+        - `QORCH_KERNEL_API_KEY_OPERATOR`
+
+  schemas:
+    HealthResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          description: Always `true` when the kernel is up
+        version:
+          type: string
+          description: Kernel build version (semver)
+        uptime_s:
+          type: number
+          format: double
+          description: Seconds since process start
+
+    PublicKeyResponse:
+      type: object
+      required: [public_key_b64, public_key_fingerprint]
+      properties:
+        public_key_b64:
+          type: string
+          description: Base64-encoded Ed25519 public key (raw bytes)
+        public_key_fingerprint:
+          type: string
+          description: SHA-256 fingerprint of the public key (hex)
+
+    AuthorizeRequest:
+      type: object
+      required: [action, run_id, subject, params_fingerprint]
+      properties:
+        action:
+          type: string
+          minLength: 1
+          description: Sensitive action to authorize (e.g., `sio_run_cycles`)
+        run_id:
+          type: string
+          minLength: 1
+          description: Run identifier bound into the token
+        subject:
+          type: string
+          minLength: 1
+          description: Worker identity / subject requesting authorization
+        params_fingerprint:
+          type: string
+          minLength: 1
+          pattern: ^[0-9a-f]{64}$
+          description: SHA-256 fingerprint of parameters (stable JSON)
+        params:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Optional params used for policy decisions (fingerprinted)
+        ttl_s:
+          type: integer
+          minimum: 1
+          maximum: 3600
+          nullable: true
+          description: Requested TTL seconds (kernel will clamp)
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Optional metadata for audit (not used in token binding)
+
+    AuthorizeResponse:
+      type: object
+      required: [ok, token, token_sha256, claims]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        token:
+          type: string
+          description: Ed25519-signed compact JWT token
+        token_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          description: SHA-256 of the token string (for audit)
+        claims:
+          type: object
+          additionalProperties: true
+          description: Decoded claims (action, run_id, subject, exp, etc.)
+
+    ApproveRequest:
+      type: object
+      required: [approver, proposal_fingerprint]
+      properties:
+        approver:
+          type: string
+          minLength: 1
+          description: Approver identifier (email/name/system)
+        proposal_fingerprint:
+          type: string
+          minLength: 1
+          description: Fingerprint of proposal content being approved
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+    RejectRequest:
+      type: object
+      required: [approver, proposal_fingerprint]
+      properties:
+        approver:
+          type: string
+          minLength: 1
+        proposal_fingerprint:
+          type: string
+          minLength: 1
+        reason:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+    SignedDecisionResponse:
+      type: object
+      required: [ok, item_id, decision, token, token_sha256, claims]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        item_id:
+          type: string
+        decision:
+          type: string
+          enum: [approved, rejected]
+        token:
+          type: string
+        token_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        claims:
+          type: object
+          additionalProperties: true
+
+    ErrorResponse:
+      type: object
+      required: [ok, error]
+      properties:
+        ok:
+          type: boolean
+          enum: [false]
+        error:
+          type: string
+          description: Stable machine-readable error code
+        reason:
+          type: string
+          description: Optional human-readable reason
+
+  responses:
+    Unauthorized:
+      description: Missing / invalid `x-api-key`
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: |
+        Role-based forbidden. `caller_role_forbidden` (unknown role) or
+        `caller_role_not_operator` (operator-only endpoint) or
+        `api_action_forbidden` (API role attempting non-governance action).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+paths:
+  /health:
+    get:
+      operationId: getLegacyHealth
+      summary: Health check (legacy path)
+      description: |
+        Legacy health endpoint kept for backward compatibility with
+        clients that haven't migrated to `/kernel/v1/health`. Both
+        return identical payloads.
+      tags: [meta]
+      security: []  # public
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /kernel/v1/health:
+    get:
+      operationId: getHealth
+      summary: Health check
+      tags: [meta]
+      security: []  # public
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /kernel/v1/public_key:
+    get:
+      operationId: getPublicKey
+      summary: Get kernel public key for token verification
+      description: |
+        Returns the Ed25519 public key clients use to verify signed
+        tokens (authorize / approve / reject responses). Public —
+        no authentication required.
+      tags: [meta]
+      security: []  # public
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicKeyResponse'
+
+  /kernel/v1/authorize:
+    post:
+      operationId: postAuthorize
+      summary: Authorize a sensitive action (signed token)
+      description: |
+        Returns a signed Ed25519 token authorizing the specified action
+        for the specified subject. The token's `exp` claim is the kernel's
+        clamped TTL; clients MUST honour it. The audit chain records
+        the authorization decision before the token is returned.
+      tags: [kernel]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorizeRequest'
+      responses:
+        '200':
+          description: Token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: Validation error (Pydantic / FastAPI default body)
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /kernel/v1/approvals/{item_id}/approve:
+    post:
+      operationId: postApprove
+      summary: Sign an approval decision
+      description: |
+        Operator-only endpoint. Mints a signed token attesting the
+        approver decided `approved` on `item_id`. Records the decision
+        in the audit chain.
+      tags: [approvals]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveRequest'
+      responses:
+        '200':
+          description: Decision signed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignedDecisionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /kernel/v1/approvals/{item_id}/reject:
+    post:
+      operationId: postReject
+      summary: Sign a rejection decision
+      description: |
+        Operator-only endpoint. Mints a signed token attesting the
+        approver decided `rejected` on `item_id`. The optional `reason`
+        is bound into the token claims for audit.
+      tags: [approvals]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectRequest'
+      responses:
+        '200':
+          description: Decision signed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignedDecisionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+tags:
+  - name: meta
+    description: Health and metadata endpoints (public)
+  - name: kernel
+    description: Token issuance for sensitive worker actions
+  - name: approvals
+    description: Operator-signed approve/reject decisions
