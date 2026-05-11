@@ -1,0 +1,67 @@
+# crates/services/safety-kernel — Rust port of the Safety Kernel HTTP
+# service (ADR-014 / internal-ref Phase 3a).
+#
+# W1 commit was the boot stub. W2 (this commit) wires the axum router,
+# auth middleware, the 6 endpoints, and the Unix-socket policy IPC.
+[package]
+name = "qorch-safety-kernel"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Rust port of the Safety Kernel Safety Kernel HTTP service."
+
+[[bin]]
+name = "qorch-safety-kernel"
+path = "src/main.rs"
+
+[features]
+# `test-seams`: enable header-based clock/nonce overrides so the
+# equivalence harness can pin both impls to identical wall-clock and
+# nonce values without spawning one binary process per fixture.
+#
+# The override is silently rejected (no override applied) when this
+# feature is OFF — production builds (default features) do NOT honor
+# `x-test-fixed-clock` / `x-test-fixed-nonce` headers.
+test-seams = []
+
+[dependencies]
+qorch-domain = { path = "../../domain" }
+qorch-application = { path = "../../application" }
+qorch-adapters = { path = "../../adapters" }
+
+axum = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+bytes = { workspace = true }
+
+# Slice 1 / Phase 3a additions for W2:
+ed25519-dalek = { workspace = true }
+base64 = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+
+[dev-dependencies]
+# Smoke test harness (e2e: spawn Python sidecar + bind Rust binary +
+# curl the endpoints). `reqwest` only used in `tests/smoke_e2e.rs`.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tempfile = "3"
+rand_core = { workspace = true }
+sha2 = { workspace = true }
+
+[lints.rust]
+unused_imports = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }

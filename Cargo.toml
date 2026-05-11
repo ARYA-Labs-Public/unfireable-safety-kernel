@@ -21,6 +21,7 @@ members = [
     "crates/application",
     "crates/adapters",
     "crates/workers",
+    "crates/services/safety-kernel",
 ]
 
 [workspace.package]
@@ -32,17 +33,31 @@ repository = "https://github.com/ARYA-Labs-Public/unfireable-safety-kernel"
 authors = ["ARYA Labs <eng@aryalabs.io>"]
 
 [workspace.dependencies]
-# Held intentionally minimal at boot-up. Add deps to per-crate Cargo.toml
-# files first; promote here only when ≥2 crates pin the same version.
-# Common future picks (per Jankurai reference profile):
-#   serde         = { version = "1", features = ["derive"] }
-#   serde_json    = "1"
-#   thiserror     = "2"
-#   axum          = "0.8"
-#   tokio         = { version = "1", features = ["rt-multi-thread", "macros"] }
-#   sqlx          = { version = "0.8", features = ["postgres", "runtime-tokio-rustls", "macros", "chrono"] }
-#   tracing       = "0.1"
-#   uuid          = { version = "1", features = ["v4", "v7", "serde"] }
+# Phase 3a / Slice 1 (Safety Kernel Rust port) pins.
+# Per ADR-014 §6.2 (`docs/adr/adr-014-slice-1-equivalence.md`):
+#   - NO `jsonwebtoken` (custom compact form, not JWT — see §6.3 anti-pin).
+#   - NO `serde_json` `preserve_order` feature: byte stability comes from
+#     sorting via `BTreeMap`, not insertion order.
+#   - `tracing` / `tracing-subscriber` are NOT for the domain crate
+#     (forbidden by `agent/boundaries.toml`); service + adapters only.
+axum = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "time", "io-util", "process", "fs", "sync"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["trace", "timeout", "limit"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ed25519-dalek = { version = "2", features = ["pkcs8", "rand_core"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
+base64 = "0.22"
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+uuid = { version = "1", features = ["v7", "serde"] }
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+bytes = "1"
 
 [profile.release]
 lto = "thin"
