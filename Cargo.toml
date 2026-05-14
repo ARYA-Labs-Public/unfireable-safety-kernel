@@ -1,0 +1,82 @@
+# Track B0: hexagonal-architecture Rust workspace bootstrap.
+#
+# Per Jankurai's rust-ts-postgres profile (agent/boundaries.toml), the four
+# canonical crates are: domain (pure types, no deps), application (use cases,
+# depends on domain), adapters (infra: db, retrieval, registry; depends on
+# domain + application traits), workers (background tasks; depends on
+# application).
+#
+# B0 ships these as EMPTY placeholders that compile cleanly — real types land
+# at B1 (domain) and onward. The bootstrap exists primarily to (a) unpark
+# .github/workflows/jankurai.yml's rust steps, which have been hashFiles-gated
+# on Cargo.toml presence, and (b) give Track A1 (R-0060 qun ONNX) + A3 (atom
+# registry) a workspace to land their PyO3 crates into.
+#
+# Members are alphabetized for stable layout. Add new crates here as they land.
+
+[workspace]
+members = [
+    "apps/api",
+    "crates/adapters",
+    "crates/adapters/atom-registry",
+    "crates/adapters/ce-onnx",
+    "crates/adapters/ce-onnx-py",
+    "crates/adapters/colbert-onnx",
+    "crates/adapters/colbert-onnx-py",
+    "crates/adapters/pun-onnx",
+    "crates/adapters/pun-onnx-py",
+    "crates/adapters/qun-onnx",
+    "crates/adapters/qun-onnx-py",
+    "crates/adapters/subject-classifier-onnx",
+    "crates/adapters/subject-classifier-onnx-py",
+    "crates/application",
+    "crates/domain",
+    "crates/workers",
+]
+resolver = "2"
+
+# Workspace-level shared metadata. Per-crate Cargo.toml inherits via
+# `field.workspace = true`. Single source of truth for version + license.
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "Proprietary"
+authors = [
+    "Dr. Seth Dobrin <seth@aryalabs.io>",
+    "ARYA Labs <engineering@aryalabs.io>",
+]
+repository = "https://github.com/ARYA-Labs-PBC/arya-speaks-language-core"
+publish = false  # Tier-3 private weights + proprietary; never publish to crates.io
+
+# Workspace-level shared dependencies. Track B1 lands serde for value-object
+# round-trip across the eventual Postgres adapter (B3, sqlx::FromRow), HTTP
+# layer (B4, axum::Json), and ONNX telemetry (Track A1, R-0060).
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+# Track B4: axum HTTP server + tokio async runtime + tower service trait
+# (axum is layered on tower). Pinned to current stable tracks; bump in
+# lockstep across the workspace.
+axum = { version = "0.7", default-features = false, features = ["http1", "json", "tokio"] }
+tokio = { version = "1.0", default-features = false, features = ["macros", "rt-multi-thread", "net", "signal"] }
+tower = { version = "0.5", features = ["util"] }
+# Track A3 (atom-registry) error-derive convenience. Lightweight,
+# no-deps proc-macro for `#[derive(Error)]` on enum variants. Used in
+# adapter crates; not in `domain` (domain stays std-only-ish).
+thiserror = "2.0"
+
+# Profile tuning. Stock release defaults are fine for B0; revisit at B1+ once
+# real code exists and benchmarking establishes targets.
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"
+
+[profile.dev]
+opt-level = 0
+debug = true
