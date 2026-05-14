@@ -1,0 +1,8 @@
+[toolchain]
+# Pinned to match the Jankurai build environment (rust:1.95-slim-bookworm)
+# so local development, CI (.github/workflows/jankurai.yml), and the
+# Jankurai installation pipeline at E:/ARYA/jankurai-bin all use the same
+# compiler. Bump in lockstep with Jankurai upgrades.
+channel = "1.95"
+components = ["rustfmt", "clippy"]
+profile = "minimal"
