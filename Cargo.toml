@@ -33,13 +33,18 @@ repository = "https://github.com/ARYA-Labs-PBC/QantmOrchstrtr-RSI"
 authors = ["ARYA Labs <eng@aryalabs.io>"]
 
 [workspace.dependencies]
-# Phase 3a / Slice 1 (Safety Kernel Rust port) pins.
-# Per ADR-014 §6.2 (`docs/adr/adr-014-slice-1-equivalence.md`):
+# Promoted here once ≥2 crates pin the same version. Union of Slice 1
+# (Safety Kernel, ADR-014 §"First four slices") + Slice 2 (DDI dispatch).
+#
+# Per ADR-014 Slice 1 §6.2 (`docs/adr/adr-014-slice-1-equivalence.md`):
 #   - NO `jsonwebtoken` (custom compact form, not JWT — see §6.3 anti-pin).
-#   - NO `serde_json` `preserve_order` feature: byte stability comes from
-#     sorting via `BTreeMap`, not insertion order.
+#   - NO `serde_json` `preserve_order`: byte stability via `BTreeMap`, not insertion order.
 #   - `tracing` / `tracing-subscriber` are NOT for the domain crate
 #     (forbidden by `agent/boundaries.toml`); service + adapters only.
+#
+# Slice 2 (DDI dispatch) shares serde/serde_json/thiserror/sha2/hex/tokio
+# and adds nothing the Slice 1 set does not already cover; tokio's feature
+# set is the union of both slices' needs.
 axum = "0.8"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "time", "io-util", "process", "fs", "sync"] }
 tower = { version = "0.5", features = ["util"] }
@@ -58,6 +63,12 @@ anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 bytes = "1"
+# Slice 2 SK-client integration (ARY-1991 MED-2 remediation): reqwest
+# is the DDI dispatcher's HTTP client for POST /kernel/v1/authorize.
+# Forbidden in the domain crate per `agent/boundaries.toml`; lives in
+# adapters only. `rustls-tls` (not native-tls) so we don't pull
+# OpenSSL — matches the SK service's own TLS choice.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 
 [profile.release]
 lto = "thin"
