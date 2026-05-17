@@ -203,6 +203,14 @@ pub async fn auth_layer(
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::manual_string_new,
+    clippy::uninlined_format_args,
+    clippy::doc_markdown
+)]
 mod tests {
     use super::*;
 
