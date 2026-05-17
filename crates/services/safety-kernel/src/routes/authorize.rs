@@ -29,9 +29,9 @@ use qorch_domain::safety::{
     sign_kernel_token, token_sha256, ToClaimsMap,
 };
 
+use crate::auth::CallerRole;
 #[cfg(feature = "test-seams")]
 use crate::auth::TestOverrides;
-use crate::auth::CallerRole;
 use crate::dto::{AuthorizeRequest, AuthorizeResponse, ErrorResponse};
 use crate::state::AppState;
 
