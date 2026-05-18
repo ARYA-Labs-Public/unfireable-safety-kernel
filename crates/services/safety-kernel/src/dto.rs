@@ -11,6 +11,12 @@
 //! `#[serde(deny_unknown_fields)]` on REQUEST types is intentional:
 //! unexpected fields produce 422 (matches `FastAPI`'s `extra="forbid"`
 //! Pydantic default).
+//!
+//! File-level allow: doc comments below reference `serde_json` /
+//! `request_id` / `subject` in English prose. Adding backticks per
+//! occurrence is visual noise; the allow keeps the docs readable.
+
+#![allow(clippy::doc_markdown)]
 
 use std::collections::BTreeMap;
 
@@ -230,7 +236,10 @@ mod tests {
     #[test]
     fn t5_panic_fuzz_authorize_dto() {
         // Build a battery of hostile inputs.
-        let giant_string = format!(r#"{{"action":"{}","run_id":"x","subject":"x","params_fingerprint":"x"}}"#, "A".repeat(10_000_000));
+        let giant_string = format!(
+            r#"{{"action":"{}","run_id":"x","subject":"x","params_fingerprint":"x"}}"#,
+            "A".repeat(10_000_000)
+        );
         let inputs: Vec<String> = vec![
             // Deep nesting — must NOT panic.
             nested_object(1000),
@@ -254,7 +263,7 @@ mod tests {
             // Control chars in key.
             r#"{" ":"x","action":"x","run_id":"x","subject":"x","params_fingerprint":"x"}"#.to_string(),
             // Empty body.
-            "".to_string(),
+            String::new(),
             // Whitespace only.
             "    \n\t".to_string(),
             // Just `null`.
@@ -293,8 +302,10 @@ mod tests {
         // Sanity: at least some inputs were rejected (we expect most
         // to fail; if they all pass, the test isn't testing what we
         // think it is).
-        assert!(err_count >= inputs.len() / 2,
-            "expected most fuzz inputs to be rejected; got ok={ok_count} err={err_count}");
+        assert!(
+            err_count >= inputs.len() / 2,
+            "expected most fuzz inputs to be rejected; got ok={ok_count} err={err_count}"
+        );
     }
 
     /// Reject deeply-nested literal (depth ~10000) does NOT cause a
