@@ -314,6 +314,13 @@ pub fn verify_kernel_token(
 // ============================================================================
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::float_cmp,
+    clippy::similar_names
+)]
 mod tests {
     use super::*;
     use crate::safety::claims::AuthorizeClaims;
@@ -506,7 +513,12 @@ mod tests {
         let mutated = String::from_utf8(bytes).expect("ascii");
         let result = verify_kernel_token(&mutated, &vk, 1_715_212_350.0, 0.0);
         assert!(
-            matches!(result, Err(KernelTokenError::Signature(_) | KernelTokenError::Format(_) | KernelTokenError::Claims(_))),
+            matches!(
+                result,
+                Err(KernelTokenError::Signature(_)
+                    | KernelTokenError::Format(_)
+                    | KernelTokenError::Claims(_))
+            ),
             "expected error variant; got {result:?}"
         );
     }
@@ -542,8 +554,7 @@ mod tests {
         let sig_b64 = URL_SAFE_NO_PAD.encode(sig.to_bytes());
         let token = format!("{payload_b64}.{sig_b64}");
 
-        let verified =
-            verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0).expect("must verify");
+        let verified = verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0).expect("must verify");
         assert_eq!(
             verified.claims.get("future_field").and_then(Value::as_str),
             Some("not_in_required")
