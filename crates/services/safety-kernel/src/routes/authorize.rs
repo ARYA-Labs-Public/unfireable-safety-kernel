@@ -25,8 +25,9 @@ use tracing::warn;
 
 use qorch_adapters::policy_engine_client::{AuditAppendRequest, AuthorizePolicyRequest};
 use qorch_domain::safety::{
-    api_action_allowlist::is_api_action_allowed, claims::AuthorizeClaims, params_fingerprint,
-    sign_kernel_token, token_sha256, ToClaimsMap,
+    api_action_allowlist::is_api_action_allowed,
+    claims::{AuthorizeClaims, KERNEL_AUTHORIZE_AUD},
+    params_fingerprint, sign_kernel_token, token_sha256, ToClaimsMap,
 };
 
 use crate::auth::CallerRole;
@@ -237,6 +238,11 @@ pub async fn authorize(
         .unwrap_or_else(|| state.nonce.nonce_b64());
     let claims_struct = AuthorizeClaims {
         action: body.action.clone(),
+        // PT-S2-M1 (internal-ref slice 5): mint with the canonical
+        // kernel/authorize audience tag. Verifiers that pass
+        // `Some("kernel/authorize")` to `verify_kernel_token` will
+        // reject policy-engine tokens replayed against this endpoint.
+        aud: KERNEL_AUTHORIZE_AUD.to_string(),
         run_id: body.run_id.clone(),
         // §10 note 4: signed subject is the trusted caller_role.
         subject: caller_role.to_string(),

@@ -280,8 +280,17 @@ async fn smoke_authorize_health_publickey() {
         .get("issued_at")
         .and_then(Value::as_f64)
         .expect("issued_at f64");
-    let verified = verify_kernel_token(token, &verifying_key, now + 1.0, 5.0)
-        .expect("token must verify against kernel public key");
+    // PT-S2-M1 (internal-ref slice 5): the kernel now mints `aud=kernel/authorize`
+    // on every `/kernel/v1/authorize` token. Verify with the matching
+    // expected_aud to exercise the new cross-tenant replay defense.
+    let verified = verify_kernel_token(
+        token,
+        &verifying_key,
+        now + 1.0,
+        5.0,
+        Some(qorch_domain::safety::KERNEL_AUTHORIZE_AUD),
+    )
+    .expect("token must verify against kernel public key");
     // Subject in claims is the trusted caller_role, not body.subject.
     assert_eq!(
         verified.claims.get("subject").and_then(Value::as_str),

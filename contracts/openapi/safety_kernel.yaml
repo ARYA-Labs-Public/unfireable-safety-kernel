@@ -204,6 +204,113 @@ components:
           type: string
           description: Optional human-readable reason
 
+    # ------------------------------------------------------------------
+    # /policy/* (ADR-018, internal-ref) — module-load / exec / compile
+    # authorization. Slice 1 freezes ONLY PolicyModuleAuthorize{Request,
+    # AllowResponse, DenyResponse}. The /policy/module/register,
+    # /policy/audit-event, /policy/module/{path}/status endpoints are
+    # listed in `paths:` with a DRAFT description and 501-only
+    # responses; slice 2 fixes their request/response schemas.
+    # ------------------------------------------------------------------
+    PolicyModuleAuthorizeRequest:
+      type: object
+      required: [event_kind, module_path, caller_subject, caller_run_id, event_fingerprint]
+      properties:
+        event_kind:
+          type: string
+          enum: [import, exec, compile]
+          description: CPython audit-event class that triggered the call
+        module_path:
+          type: string
+          minLength: 1
+          description: |
+            For `import`: the dotted module name (`pkg.sub.mod`).
+            For `exec` / `compile`: the SHA-256 hex of the source string
+            (the source itself is NOT sent over the wire).
+        caller_subject:
+          type: string
+          minLength: 1
+          description: |
+            Worker identity (matches the `subject` field on
+            `/kernel/v1/authorize`). Lets the kernel correlate this
+            event to an in-flight action authorization.
+        caller_run_id:
+          type: string
+          minLength: 1
+          description: Run identifier bound into the resulting decision token
+        event_fingerprint:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          description: |
+            SHA-256 of the canonicalized event payload
+            (event_kind, module_path, caller_subject, caller_run_id).
+            Bound into the signed decision so a recorded ALLOW cannot
+            be replayed against a different event.
+        expected_required_patterns:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: |
+            Optional regex patterns the caller expects this `module_path`
+            to require. Slice 2 uses these for drift validation: if the
+            registry's recorded patterns do not equal the caller's
+            expected set, the kernel returns 412 Precondition Failed.
+            Lets the caller detect registry / code skew before the
+            operation runs. Reflects the Rust `ModuleAuthorizeRequest`
+            type in `crates/domain/src/safety/policy/types.rs`; ADR-018
+            §"OpenAPI delta" amendment documents the slice-2 semantics.
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Optional audit metadata (not bound into the token)
+
+    PolicyModuleAuthorizeAllowResponse:
+      type: object
+      required: [ok, decision, token, token_sha256, claims]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        decision:
+          type: string
+          enum: [allow]
+        token:
+          type: string
+          description: Ed25519-signed compact JWT, same envelope as `/kernel/v1/authorize`
+        token_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        claims:
+          type: object
+          additionalProperties: true
+          description: Decoded claims (event_kind, module_path, exp, etc.)
+
+    PolicyModuleAuthorizeDenyResponse:
+      type: object
+      required: [ok, decision, token, token_sha256, claims, reason]
+      properties:
+        ok:
+          type: boolean
+          enum: [false]
+        decision:
+          type: string
+          enum: [deny]
+        token:
+          type: string
+          description: Ed25519-signed DENY decision (replayable for audit)
+        token_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        claims:
+          type: object
+          additionalProperties: true
+        reason:
+          type: string
+          minLength: 1
+          description: Machine-readable refusal reason (e.g., `module_not_registered`)
+
   responses:
     Unauthorized:
       description: Missing / invalid `x-api-key`
@@ -395,6 +502,129 @@ paths:
                 type: object
                 additionalProperties: true
 
+  # ------------------------------------------------------------------
+  # /policy/* — ADR-018 (internal-ref) policy engine surface.
+  #
+  # Slice 1 FREEZES `POST /policy/module/authorize`. The other three
+  # endpoints are DRAFT (501-only response) until slice 2 fixes their
+  # request/response shapes. Clients MUST NOT implement against draft
+  # endpoints — they are listed here only so the surface is discoverable
+  # and the URL shapes are reserved.
+  # ------------------------------------------------------------------
+
+  /policy/module/authorize:
+    post:
+      operationId: policyModuleAuthorize
+      summary: Authorize a module-load or code-execution event
+      description: |
+        Called by the in-process Python audit hook (or any language
+        runtime guard) on `import`, `exec`, or `compile` events.
+        Returns an Ed25519-signed ALLOW token on success, an Ed25519-
+        signed DENY decision with a `reason` on policy refusal, or
+        503 `KernelUnavailable` if the kernel cannot reach its
+        decision backend.
+
+        Caller role: `worker` (the audit-hook reference uses the
+        worker API key — it is part of the live workload process).
+        `api` role is forbidden here (api actions go through
+        `/kernel/v1/authorize`).
+      tags: [policy]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyModuleAuthorizeRequest'
+      responses:
+        '200':
+          description: ALLOW — signed decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyModuleAuthorizeAllowResponse'
+        '403':
+          description: DENY — signed decision with `reason`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyModuleAuthorizeDenyResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          description: KernelUnavailable — decision backend unreachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /policy/module/register:
+    post:
+      operationId: policyModuleRegister
+      summary: (DRAFT) Register a module path with required-pattern set
+      description: |
+        DRAFT — schema may change in slice 2; do not implement clients
+        against this shape. Slice 2 will register a module path plus
+        the regex pattern set required for future authorize calls on
+        that path.
+      tags: [policy]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '501':
+          description: Not Implemented — slice-1 scaffold
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /policy/audit-event:
+    post:
+      operationId: policyAuditEvent
+      summary: (DRAFT) Surface a non-decision policy audit event
+      description: |
+        DRAFT — schema may change in slice 2; do not implement clients
+        against this shape. Slice 2 will accept non-decision audit
+        events (e.g., a hook that detected modules loaded before
+        installation; see ADR-018 §"Open questions").
+      tags: [policy]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '501':
+          description: Not Implemented — slice-1 scaffold
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /policy/module/{module_path}/status:
+    get:
+      operationId: policyModuleStatus
+      summary: (DRAFT) Query module registration and recent decisions
+      description: |
+        DRAFT — schema may change in slice 2; do not implement clients
+        against this shape. Slice 2 will return the current
+        registration and recent decision history for a module path.
+      tags: [policy]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: module_path
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '501':
+          description: Not Implemented — slice-1 scaffold
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 tags:
   - name: meta
     description: Health and metadata endpoints (public)
@@ -402,3 +632,9 @@ tags:
     description: Token issuance for sensitive worker actions
   - name: approvals
     description: Operator-signed approve/reject decisions
+  - name: policy
+    description: |
+      ADR-018 (internal-ref) policy engine — module-load / exec / compile
+      authorization. Slice 1 freezes `/policy/module/authorize`; the
+      register / audit-event / status endpoints are DRAFT and 501-only
+      until slice 2.

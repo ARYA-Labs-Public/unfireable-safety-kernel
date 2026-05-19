@@ -156,6 +156,8 @@ async fn main() -> Result<()> {
             "/kernel/v1/approvals/{item_id}/reject",
             post(routes::approvals::reject),
         )
+        // ADR-018 (internal-ref) — `/policy/*` slice-1 scaffold (501s).
+        .merge(routes::policy::router())
         .layer(RequestBodyLimitLayer::new(MAX_BODY_BYTES))
         .layer(TraceLayer::new_for_http())
         .layer(axum::middleware::from_fn_with_state(

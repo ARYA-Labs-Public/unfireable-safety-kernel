@@ -51,13 +51,40 @@ base64 = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
 
+# internal-ref slice 2 — kernel-side regex pre-validation per ADR-018 §5.
+# RE2-style DFA engine, NO backtracking — `fancy-regex`, `pcre2`, `onig`
+# are explicitly forbidden by the ADR. Pre-validation in the kernel
+# guarantees that patterns reaching the Python sidecar are
+# RE2-compatible (cross-language equivalence note in ADR-018 §5).
+regex = "1"
+
 [dev-dependencies]
 # Smoke test harness (e2e: spawn Python sidecar + bind Rust binary +
-# curl the endpoints). `reqwest` only used in `tests/smoke_e2e.rs`.
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# curl the endpoints). `reqwest` used in `tests/smoke_e2e.rs` AND in
+# `benches/policy_authorize_p99.rs` (blocking client for criterion).
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "blocking"] }
 tempfile = "3"
 rand_core = { workspace = true }
 sha2 = { workspace = true }
+# In-process router exercise (internal-ref slice 1 scaffold tests). `tower`
+# brings `ServiceExt::oneshot` for firing requests at the router without
+# binding a socket; `http-body-util` collects response bodies.
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tower = { workspace = true, features = ["util"] }
+http-body-util = "0.1"
+# internal-ref slice 5 §3.2: criterion microbench for `POST /policy/module/authorize`.
+# Informational only — the gating p99 number is the pytest-benchmark
+# e2e harness at `tests/perf/policy_authorize_e2e.py`. `harness = false`
+# on the `[[bench]]` entry below tells cargo to defer to criterion's
+# `criterion_main!` macro instead of the default libtest harness.
+criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+
+# internal-ref slice 5 §3.2: criterion bench for `POST /policy/module/authorize`.
+# `harness = false` -> criterion provides its own `main()`. Run via:
+#   cargo bench -p qorch-safety-kernel --bench policy_authorize_p99 -- --quick
+[[bench]]
+name = "policy_authorize_p99"
+harness = false
 
 [lints.rust]
 unused_imports = "warn"

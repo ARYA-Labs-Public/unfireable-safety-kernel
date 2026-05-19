@@ -27,16 +27,52 @@ pub trait ToClaimsMap {
     fn to_btreemap(&self) -> BTreeMap<String, Value>;
 }
 
+/// Canonical `aud` claim value for `/kernel/v1/authorize` tokens.
+///
+/// Introduced in internal-ref slice 5 (Bundle A, PT-S2-M1 carry-forward).
+/// The kernel signing key is shared across `/kernel/v1/authorize` and
+/// the policy-engine endpoints; the `aud` claim partitions the audience
+/// space so a token minted for one endpoint cannot be replayed against
+/// another. Verifiers MUST opt-in to enforcement by passing
+/// `Some(KERNEL_AUTHORIZE_AUD)` to `verify_kernel_token`.
+pub const KERNEL_AUTHORIZE_AUD: &str = "kernel/authorize";
+
+/// Canonical `aud` claim value for `/kernel/v1/approvals/decision` tokens.
+///
+/// Introduced in internal-ref-followup item 1 (PT-S5-M1). Slice 5 closed the
+/// `aud` cross-tenant replay surface on the authorize + policy claim
+/// types only; `ApprovalClaims` was left without an audience tag, so an
+/// approval-decision token signed by the shared kernel key could in
+/// principle be replayed against the `/kernel/v1/authorize` or
+/// `/policy/*` verifiers (or vice versa). This constant partitions the
+/// approval-decision audience space exactly as `KERNEL_AUTHORIZE_AUD`
+/// does for authorize. Verifiers MUST opt-in to enforcement by passing
+/// `Some(APPROVAL_AUD)` to `verify_kernel_token`; legacy callers that
+/// pass `expected_aud = None` keep working (backwards-compat).
+pub const APPROVAL_AUD: &str = "kernel/approvals/decision";
+
 /// Authorize-token claim set — required keys per ADR-014 Slice 1 §1.2.
 ///
 /// `subject` is overwritten by the Rust HTTP handler with `caller_role`
 /// before signing — the request-body subject is recorded only as audit
 /// metadata (ADR-014 Slice 1 §10 inconsistency note 4). This struct
 /// holds whatever the handler decides to sign; it is shape-only.
+///
+/// **`aud` claim (internal-ref slice 5, PT-S2-M1 fold-in):** the kernel
+/// signing key is the SAME key used by the policy-engine endpoints;
+/// without an audience tag, a `/kernel/v1/authorize` token could in
+/// principle be presented to a `/policy/*` verifier (or vice versa).
+/// The `aud` claim closes that cross-tenant replay surface. New
+/// handlers set `aud` to `KERNEL_AUTHORIZE_AUD`; legacy callers that
+/// do not pass `expected_aud` to `verify_kernel_token` keep working
+/// (backwards-compat, see `token::verify_kernel_token`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AuthorizeClaims {
     /// Sensitive action being authorized (e.g. `sio_run_cycles`).
     pub action: String,
+    /// Audience tag — for `/kernel/v1/authorize` always
+    /// `KERNEL_AUTHORIZE_AUD` (`"kernel/authorize"`). PT-S2-M1 fold-in.
+    pub aud: String,
     /// Run identifier bound into the token.
     pub run_id: String,
     /// Subject (typically the `caller_role`: `worker` or `api`).
@@ -55,6 +91,10 @@ impl ToClaimsMap for AuthorizeClaims {
     fn to_btreemap(&self) -> BTreeMap<String, Value> {
         let mut m = BTreeMap::new();
         m.insert("action".to_string(), Value::String(self.action.clone()));
+        // `aud` claim (PT-S2-M1). `BTreeMap` already gives lex-sorted
+        // iteration so the insertion order here is decorative — the
+        // emitted byte stream is sorted at serialization time.
+        m.insert("aud".to_string(), Value::String(self.aud.clone()));
         m.insert("run_id".to_string(), Value::String(self.run_id.clone()));
         m.insert("subject".to_string(), Value::String(self.subject.clone()));
         m.insert(
@@ -91,6 +131,12 @@ impl ToClaimsMap for AuthorizeClaims {
 pub struct ApprovalClaims {
     /// Sensitive action being attested (e.g. `kernel_signed_approval`).
     pub action: String,
+    /// Audience tag — for `/kernel/v1/approvals/decision` always
+    /// `APPROVAL_AUD` (`"kernel/approvals/decision"`). PT-S5-M1 fold-in
+    /// (internal-ref-followup item 1). Mirrors `AuthorizeClaims::aud`: closes
+    /// the cross-tenant approval-token replay surface left open by
+    /// slice 5 (which tagged authorize + policy claims only).
+    pub aud: String,
     /// Run identifier bound into the token.
     pub run_id: String,
     /// Subject — always `"operator"` for approval claims
@@ -118,6 +164,12 @@ impl ToClaimsMap for ApprovalClaims {
     fn to_btreemap(&self) -> BTreeMap<String, Value> {
         let mut m = BTreeMap::new();
         m.insert("action".to_string(), Value::String(self.action.clone()));
+        // `aud` claim (PT-S5-M1, internal-ref-followup item 1). `BTreeMap`
+        // already gives lex-sorted iteration so the insertion order here
+        // is decorative — the emitted byte stream is sorted at
+        // serialization time ("aud" sorts between "approver" and
+        // "decision").
+        m.insert("aud".to_string(), Value::String(self.aud.clone()));
         m.insert("approver".to_string(), Value::String(self.approver.clone()));
         m.insert("decision".to_string(), Value::String(self.decision.clone()));
         m.insert(

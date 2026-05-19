@@ -168,12 +168,29 @@ const REQUIRED_FIELDS: &[&str] = &[
 /// `KernelTokenError` on any failure. Mirrors Python
 /// `verify_kernel_token` (`safety_tokens.py:170-267`) exactly.
 ///
+/// # `expected_aud` parameter (internal-ref slice 5, PT-S2-M1 fold-in)
+///
+/// When `Some(aud)`, the verifier requires the token's `aud` claim to
+/// be present AND equal to the supplied string. Failure modes:
+///
+/// - Token has no `aud` claim ⇒ `KernelTokenError::Claims("missing_claim:aud")`
+/// - Token's `aud` is the wrong type ⇒ `KernelTokenError::Claims("invalid_aud")`
+/// - Token's `aud` doesn't match ⇒ `KernelTokenError::Claims("invalid_audience")`
+///
+/// When `None`, the `aud` claim (if present) is NOT inspected. This is
+/// the **backwards-compatible** mode — pre-slice-5 callers and legacy
+/// tokens that don't have an `aud` claim keep working. New callers
+/// (Bundle A handlers, future verifiers) MUST pass `Some(&...)` to opt
+/// in to enforcement. PT-S2-M1 closes the cross-tenant replay surface
+/// between `/kernel/v1/authorize` and `/policy/*` tokens; the surface
+/// only closes for callers that opt in.
+///
 /// # Errors
 ///
 /// Returns `Err` for: malformed token (Format), failed signature
 /// (Signature), missing or wrong-typed claim (Claims), expired token
-/// (Expired). Specific error code strings match Python message strings
-/// for cross-implementation equivalence.
+/// (Expired), audience mismatch (Claims). Specific error code strings
+/// match Python message strings for cross-implementation equivalence.
 // Long but linear: each block ports one Python step from
 // `safety_tokens.py:170-267`. Splitting it would make the equivalence
 // review harder.
@@ -183,6 +200,7 @@ pub fn verify_kernel_token(
     public_key: &VerifyingKey,
     now_s: f64,
     leeway_s: f64,
+    expected_aud: Option<&str>,
 ) -> Result<VerifiedClaims, KernelTokenError> {
     let t = token.trim();
     let parts: Vec<&str> = t.split('.').collect();
@@ -295,6 +313,29 @@ pub fn verify_kernel_token(
         return Err(KernelTokenError::claims("invalid_expiry_window"));
     }
 
+    // Audience check (PT-S2-M1, internal-ref slice 5).
+    //
+    // The audience claim partitions the signing-key space between
+    // `/kernel/v1/authorize` and `/policy/*` so a token minted for
+    // one endpoint cannot be presented to the verifier of another.
+    // When `expected_aud == None`, the check is skipped entirely to
+    // preserve backwards-compatibility with pre-slice-5 callers (and
+    // tokens that pre-date the claim). When `Some(...)`, the `aud`
+    // claim MUST be a string and MUST equal the expected value.
+    if let Some(want_aud) = expected_aud {
+        let aud_val = obj
+            .get("aud")
+            .ok_or_else(|| KernelTokenError::claims("missing_claim:aud"))?;
+        let got_aud = aud_val
+            .as_str()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| KernelTokenError::claims("invalid_aud"))?;
+        if got_aud != want_aud {
+            return Err(KernelTokenError::claims("invalid_audience"));
+        }
+    }
+
     // Store the claims as BTreeMap for caller convenience (sorted
     // ordering matches the signed form).
     let mut claims = BTreeMap::new();
@@ -323,7 +364,7 @@ pub fn verify_kernel_token(
 )]
 mod tests {
     use super::*;
-    use crate::safety::claims::AuthorizeClaims;
+    use crate::safety::claims::{AuthorizeClaims, ApprovalClaims, APPROVAL_AUD};
     use ed25519_dalek::SigningKey;
     use serde_json::json;
 
@@ -335,12 +376,17 @@ mod tests {
         SigningKey::from_bytes(&seed)
     }
 
-    /// ADR-014 Slice 1 Appendix A — the binding test vector.
-    /// Asserts `stable_json` produces the exact expected ASCII string.
+    /// Slice-5 binding vector — `AuthorizeClaims` with the `aud` field
+    /// (PT-S2-M1) produces a stable JSON string with `aud` in lex
+    /// position. The ADR-014 Appendix A original vector (no `aud`) is
+    /// preserved in `stable_json_matches_legacy_pre_slice5_vector`
+    /// because old tokens without `aud` MUST still verify when
+    /// `expected_aud=None`.
     #[test]
-    fn stable_json_matches_adr_appendix_a_vector() {
+    fn stable_json_matches_slice5_authorize_vector_with_aud() {
         let claims = AuthorizeClaims {
             action: "sio_run_cycles".to_string(),
+            aud: crate::safety::claims::KERNEL_AUTHORIZE_AUD.to_string(),
             run_id: "run_abc".to_string(),
             subject: "worker".to_string(),
             params_fingerprint: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -353,6 +399,42 @@ mod tests {
         let s = stable_json(&map);
         // Note: serde_json renders `1715212345.0` as `1715212345.0`
         // (Ryu) — identical to Python's `repr(float)` here.
+        // "aud" sorts after "action" and before "expires_at".
+        assert_eq!(
+            s,
+            r#"{"action":"sio_run_cycles","aud":"kernel/authorize","expires_at":1715212405.0,"issued_at":1715212345.0,"nonce":"abcdEFgh-12_AB","params_fingerprint":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","run_id":"run_abc","subject":"worker"}"#
+        );
+    }
+
+    /// ADR-014 Slice 1 Appendix A — the legacy binding test vector
+    /// (no `aud` claim). Pre-slice-5 tokens MUST still serialize the
+    /// same way when emitted via a hand-built `BTreeMap`. The
+    /// `AuthorizeClaims` struct itself now always carries `aud`, so
+    /// this test builds the map directly to mirror what a pre-slice-5
+    /// signer would have produced.
+    #[test]
+    fn stable_json_matches_legacy_pre_slice5_vector() {
+        use serde_json::json;
+        let mut map: BTreeMap<String, Value> = BTreeMap::new();
+        map.insert(
+            "action".to_string(),
+            Value::String("sio_run_cycles".to_string()),
+        );
+        map.insert("run_id".to_string(), Value::String("run_abc".to_string()));
+        map.insert("subject".to_string(), Value::String("worker".to_string()));
+        map.insert(
+            "params_fingerprint".to_string(),
+            Value::String(
+                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
+            ),
+        );
+        map.insert("issued_at".to_string(), json!(1_715_212_345.0_f64));
+        map.insert("expires_at".to_string(), json!(1_715_212_405.0_f64));
+        map.insert(
+            "nonce".to_string(),
+            Value::String("abcdEFgh-12_AB".to_string()),
+        );
+        let s = stable_json(&map);
         assert_eq!(
             s,
             r#"{"action":"sio_run_cycles","expires_at":1715212405.0,"issued_at":1715212345.0,"nonce":"abcdEFgh-12_AB","params_fingerprint":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","run_id":"run_abc","subject":"worker"}"#
@@ -373,6 +455,7 @@ mod tests {
     /// Sign + verify round-trip with a fixed key. Confirms the
     /// signature input contract (b64-encoded ASCII bytes, NOT raw
     /// JSON) is consistent across both halves of the implementation.
+    /// Passes `expected_aud=None` (legacy permissive verifier mode).
     #[test]
     #[allow(clippy::panic)]
     fn sign_verify_roundtrip() {
@@ -381,6 +464,7 @@ mod tests {
 
         let claims = AuthorizeClaims {
             action: "sio_run_cycles".to_string(),
+            aud: crate::safety::claims::KERNEL_AUTHORIZE_AUD.to_string(),
             run_id: "run_abc".to_string(),
             subject: "worker".to_string(),
             params_fingerprint: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -391,8 +475,8 @@ mod tests {
         };
         let token = sign_kernel_token(&claims, &sk);
 
-        // Verify with `now_s` inside the validity window.
-        let verified = match verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0) {
+        // Verify with `now_s` inside the validity window. None=>legacy.
+        let verified = match verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0, None) {
             Ok(v) => v,
             Err(e) => panic!("token should verify, got {e:?}"),
         };
@@ -414,6 +498,7 @@ mod tests {
         let vk: VerifyingKey = sk.verifying_key();
         let claims = AuthorizeClaims {
             action: "sio_run_cycles".to_string(),
+            aud: crate::safety::claims::KERNEL_AUTHORIZE_AUD.to_string(),
             run_id: "run_abc".to_string(),
             subject: "worker".to_string(),
             params_fingerprint: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -427,7 +512,7 @@ mod tests {
         let mut tampered = token.clone();
         let _ = tampered.pop();
         tampered.push(if token.ends_with('A') { 'B' } else { 'A' });
-        let result = verify_kernel_token(&tampered, &vk, 1_715_212_350.0, 0.0);
+        let result = verify_kernel_token(&tampered, &vk, 1_715_212_350.0, 0.0, None);
         assert!(matches!(
             result,
             Err(KernelTokenError::Signature(_) | KernelTokenError::Format(_))
@@ -441,6 +526,7 @@ mod tests {
         let vk: VerifyingKey = sk.verifying_key();
         let claims = AuthorizeClaims {
             action: "sio_run_cycles".to_string(),
+            aud: crate::safety::claims::KERNEL_AUTHORIZE_AUD.to_string(),
             run_id: "run_abc".to_string(),
             subject: "worker".to_string(),
             params_fingerprint: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -451,7 +537,7 @@ mod tests {
         };
         let token = sign_kernel_token(&claims, &sk);
         // `now_s` past expiry by 100s.
-        let result = verify_kernel_token(&token, &vk, 1_715_212_505.0, 0.0);
+        let result = verify_kernel_token(&token, &vk, 1_715_212_505.0, 0.0, None);
         assert!(matches!(result, Err(KernelTokenError::Expired(_))));
     }
 
@@ -460,7 +546,7 @@ mod tests {
     fn verify_rejects_malformed_token() {
         let sk = fixed_signing_key();
         let vk: VerifyingKey = sk.verifying_key();
-        let result = verify_kernel_token("not-a-token", &vk, 1_715_212_345.0, 0.0);
+        let result = verify_kernel_token("not-a-token", &vk, 1_715_212_345.0, 0.0, None);
         assert!(matches!(result, Err(KernelTokenError::Format(_))));
     }
 
@@ -495,6 +581,7 @@ mod tests {
         let vk: VerifyingKey = sk.verifying_key();
         let claims = AuthorizeClaims {
             action: "sio_run_cycles".to_string(),
+            aud: crate::safety::claims::KERNEL_AUTHORIZE_AUD.to_string(),
             run_id: "run_abc".to_string(),
             subject: "worker".to_string(),
             params_fingerprint: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -511,7 +598,7 @@ mod tests {
         let target = if bytes[dot - 1] == b'A' { b'B' } else { b'A' };
         bytes[dot - 1] = target;
         let mutated = String::from_utf8(bytes).expect("ascii");
-        let result = verify_kernel_token(&mutated, &vk, 1_715_212_350.0, 0.0);
+        let result = verify_kernel_token(&mutated, &vk, 1_715_212_350.0, 0.0, None);
         assert!(
             matches!(
                 result,
@@ -535,6 +622,7 @@ mod tests {
         let vk: VerifyingKey = sk.verifying_key();
         let claims = AuthorizeClaims {
             action: "sio_run_cycles".to_string(),
+            aud: crate::safety::claims::KERNEL_AUTHORIZE_AUD.to_string(),
             run_id: "run_abc".to_string(),
             subject: "worker".to_string(),
             params_fingerprint: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -554,7 +642,8 @@ mod tests {
         let sig_b64 = URL_SAFE_NO_PAD.encode(sig.to_bytes());
         let token = format!("{payload_b64}.{sig_b64}");
 
-        let verified = verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0).expect("must verify");
+        let verified =
+            verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0, None).expect("must verify");
         assert_eq!(
             verified.claims.get("future_field").and_then(Value::as_str),
             Some("not_in_required")
@@ -585,6 +674,7 @@ mod tests {
         let vk: VerifyingKey = sk.verifying_key();
         let claims = AuthorizeClaims {
             action: "sio_run_cycles".to_string(),
+            aud: crate::safety::claims::KERNEL_AUTHORIZE_AUD.to_string(),
             run_id: "run_abc".to_string(),
             subject: "worker".to_string(),
             params_fingerprint: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -608,7 +698,7 @@ mod tests {
         let sig_b64 = URL_SAFE_NO_PAD.encode(sig_bytes);
         let bad_token = format!("{payload_b64}.{sig_b64}");
 
-        let result = verify_kernel_token(&bad_token, &vk, 1_715_212_350.0, 0.0);
+        let result = verify_kernel_token(&bad_token, &vk, 1_715_212_350.0, 0.0, None);
         assert!(
             matches!(result, Err(KernelTokenError::Signature(_))),
             "non-canonical S MUST be rejected; got {result:?}"
@@ -640,10 +730,458 @@ mod tests {
         let sig_b64 = URL_SAFE_NO_PAD.encode(sig.to_bytes());
         let token = format!("{payload_b64}.{sig_b64}");
 
-        let result = verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0);
+        let result = verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0, None);
         assert!(
             matches!(result, Err(KernelTokenError::Claims(_))),
             "expected KernelTokenError::Claims; got {result:?}"
         );
+    }
+
+    // ========================================================================
+    // PT-S2-M1 (internal-ref slice 5) — `aud` claim + verifier allowlist tests.
+    //
+    // The kernel signing key is shared between `/kernel/v1/authorize` and
+    // `/policy/*`. Without an audience tag, a token minted for one endpoint
+    // could in principle be presented to the verifier of another. The `aud`
+    // claim + `expected_aud` verifier parameter close that cross-tenant
+    // replay surface. The tests below pin the wire contract.
+    // ========================================================================
+
+    /// Helper — sign a slice-5-shape `AuthorizeClaims` with the given
+    /// `aud` value. Used by the PT-S2-M1 tests.
+    fn sign_authorize_with_aud(sk: &SigningKey, aud: &str) -> String {
+        let claims = AuthorizeClaims {
+            action: "sio_run_cycles".to_string(),
+            aud: aud.to_string(),
+            run_id: "run_abc".to_string(),
+            subject: "worker".to_string(),
+            params_fingerprint: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                .to_string(),
+            issued_at: 1_715_212_345.0,
+            expires_at: 1_715_212_405.0,
+            nonce: "abcdEFgh-12_AB".to_string(),
+        };
+        sign_kernel_token(&claims, sk)
+    }
+
+    /// PT-S2-M1 case (a) — token signed with `aud=A` verifies under
+    /// `expected_aud=A`. Happy-path.
+    #[test]
+    #[allow(clippy::panic)]
+    fn aud_claim_matches_expected_aud_verifies() {
+        let sk = fixed_signing_key();
+        let vk = sk.verifying_key();
+        let token = sign_authorize_with_aud(&sk, "kernel/authorize");
+        let result =
+            verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0, Some("kernel/authorize"));
+        match result {
+            Ok(v) => assert_eq!(
+                v.claims.get("aud").and_then(Value::as_str),
+                Some("kernel/authorize"),
+            ),
+            Err(e) => panic!("token with matching aud must verify; got {e:?}"),
+        }
+    }
+
+    /// PT-S2-M1 case (b) — token signed with `aud=A` rejected under
+    /// `expected_aud=B`. The negative-direction of the aud check.
+    #[test]
+    fn aud_claim_mismatch_is_rejected() {
+        let sk = fixed_signing_key();
+        let vk = sk.verifying_key();
+        let token = sign_authorize_with_aud(&sk, "kernel/authorize");
+        let result = verify_kernel_token(
+            &token,
+            &vk,
+            1_715_212_350.0,
+            0.0,
+            Some("policy/module/authorize"),
+        );
+        match result {
+            Err(KernelTokenError::Claims(msg)) => assert_eq!(msg.0.as_str(), "invalid_audience"),
+            other => panic!("expected Claims(invalid_audience); got {other:?}"),
+        }
+    }
+
+    /// PT-S2-M1 case (c) — token signed with `aud=A` and verified with
+    /// `expected_aud=None` STAYS PERMISSIVE. This is the documented
+    /// backwards-compat behaviour — pre-slice-5 callers (and verifiers
+    /// that don't opt in) keep working. New callers MUST pass
+    /// `Some(...)` to actually close the cross-tenant replay surface.
+    #[test]
+    #[allow(clippy::panic)]
+    fn aud_claim_with_expected_aud_none_stays_permissive() {
+        let sk = fixed_signing_key();
+        let vk = sk.verifying_key();
+        let token = sign_authorize_with_aud(&sk, "kernel/authorize");
+        let result = verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0, None);
+        match result {
+            Ok(v) => assert_eq!(
+                v.claims.get("aud").and_then(Value::as_str),
+                Some("kernel/authorize"),
+            ),
+            Err(e) => panic!("None=>permissive: token must verify; got {e:?}"),
+        }
+    }
+
+    /// PT-S2-M1 case (d) — old-shape tokens with NO `aud` claim are
+    /// rejected when the verifier opts in via `Some(...)`. The check
+    /// produces `KernelTokenError::Claims("missing_claim:aud")`.
+    #[test]
+    fn missing_aud_claim_rejected_when_expected_aud_set() {
+        use serde_json::json;
+        let sk = fixed_signing_key();
+        let vk = sk.verifying_key();
+        // Hand-craft a pre-slice-5-shape claims map (no `aud`).
+        let mut map: BTreeMap<String, Value> = BTreeMap::new();
+        map.insert(
+            "action".to_string(),
+            Value::String("sio_run_cycles".to_string()),
+        );
+        map.insert("run_id".to_string(), Value::String("run_abc".into()));
+        map.insert("subject".to_string(), Value::String("worker".into()));
+        map.insert(
+            "params_fingerprint".to_string(),
+            Value::String(
+                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
+            ),
+        );
+        map.insert("issued_at".to_string(), json!(1_715_212_345.0_f64));
+        map.insert("expires_at".to_string(), json!(1_715_212_405.0_f64));
+        map.insert("nonce".to_string(), Value::String("abcdEFgh-12_AB".into()));
+        let payload_json = stable_json(&map);
+        let payload_b64 = URL_SAFE_NO_PAD.encode(payload_json.as_bytes());
+        let sig = sk.sign(payload_b64.as_bytes());
+        let sig_b64 = URL_SAFE_NO_PAD.encode(sig.to_bytes());
+        let token = format!("{payload_b64}.{sig_b64}");
+
+        let result =
+            verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0, Some("kernel/authorize"));
+        match result {
+            Err(KernelTokenError::Claims(msg)) => assert_eq!(msg.0.as_str(), "missing_claim:aud"),
+            other => panic!("expected Claims(missing_claim:aud); got {other:?}"),
+        }
+    }
+
+    /// PT-S2-M1 case (e) — cross-tenant replay scenario. A token minted
+    /// for `/kernel/v1/authorize` (aud=`kernel/authorize`) presented to
+    /// a `/policy/module/authorize` verifier (expected
+    /// `policy/module/authorize`) MUST be rejected. This is the
+    /// load-bearing test for the slice-2 purple-team finding.
+    #[test]
+    fn cross_tenant_replay_kernel_authorize_to_policy_rejected() {
+        let sk = fixed_signing_key();
+        let vk = sk.verifying_key();
+        // Sign a token with the kernel/authorize aud.
+        let token = sign_authorize_with_aud(&sk, "kernel/authorize");
+        // The policy/module/authorize verifier expects a different aud.
+        let result = verify_kernel_token(
+            &token,
+            &vk,
+            1_715_212_350.0,
+            0.0,
+            Some("policy/module/authorize"),
+        );
+        assert!(
+            matches!(result, Err(KernelTokenError::Claims(ref msg)) if msg.0 == "invalid_audience"),
+            "cross-tenant replay MUST be rejected; got {result:?}"
+        );
+    }
+
+    /// PT-S2-M1 case (f) — allowlist with multiple tokens: token signed
+    /// with `aud=A` verifies under `expected_aud=A`, but the
+    /// *complementary* token (aud=B) is rejected under
+    /// `expected_aud=A`. Demonstrates a single-element allowlist via
+    /// `Option<&str>`. Multi-element allowlists are deferred to a
+    /// future helper; for slice 5 every verifier site knows exactly one
+    /// expected `aud` value, so `Option<&str>` is sufficient.
+    #[test]
+    fn aud_allowlist_two_tokens_only_matching_accepted() {
+        let sk = fixed_signing_key();
+        let vk = sk.verifying_key();
+        let kernel_token = sign_authorize_with_aud(&sk, "kernel/authorize");
+        let policy_token = sign_authorize_with_aud(&sk, "policy/module/authorize");
+
+        // Verifier expecting "kernel/authorize":
+        assert!(verify_kernel_token(
+            &kernel_token,
+            &vk,
+            1_715_212_350.0,
+            0.0,
+            Some("kernel/authorize")
+        )
+        .is_ok());
+        assert!(matches!(
+            verify_kernel_token(
+                &policy_token,
+                &vk,
+                1_715_212_350.0,
+                0.0,
+                Some("kernel/authorize")
+            ),
+            Err(KernelTokenError::Claims(_))
+        ));
+
+        // Verifier expecting "policy/module/authorize":
+        assert!(verify_kernel_token(
+            &policy_token,
+            &vk,
+            1_715_212_350.0,
+            0.0,
+            Some("policy/module/authorize")
+        )
+        .is_ok());
+        assert!(matches!(
+            verify_kernel_token(
+                &kernel_token,
+                &vk,
+                1_715_212_350.0,
+                0.0,
+                Some("policy/module/authorize")
+            ),
+            Err(KernelTokenError::Claims(_))
+        ));
+    }
+
+    /// PT-S2-M1 — wrong-typed `aud` (number, not string) is rejected
+    /// with `Claims("invalid_aud")`. Hardens against attackers who
+    /// might try to bypass the audience check by emitting `aud: 0`
+    /// (which is falsy in Python `if aud:` but not in our explicit
+    /// string check).
+    #[test]
+    fn aud_claim_wrong_type_is_rejected() {
+        use serde_json::json;
+        let sk = fixed_signing_key();
+        let vk = sk.verifying_key();
+        // Hand-craft a payload with `aud` as a number.
+        let mut map: BTreeMap<String, Value> = BTreeMap::new();
+        map.insert(
+            "action".to_string(),
+            Value::String("sio_run_cycles".to_string()),
+        );
+        map.insert("aud".to_string(), json!(42_i64));
+        map.insert("run_id".to_string(), Value::String("run_abc".into()));
+        map.insert("subject".to_string(), Value::String("worker".into()));
+        map.insert(
+            "params_fingerprint".to_string(),
+            Value::String(
+                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
+            ),
+        );
+        map.insert("issued_at".to_string(), json!(1_715_212_345.0_f64));
+        map.insert("expires_at".to_string(), json!(1_715_212_405.0_f64));
+        map.insert("nonce".to_string(), Value::String("abcdEFgh-12_AB".into()));
+        let payload_json = stable_json(&map);
+        let payload_b64 = URL_SAFE_NO_PAD.encode(payload_json.as_bytes());
+        let sig = sk.sign(payload_b64.as_bytes());
+        let sig_b64 = URL_SAFE_NO_PAD.encode(sig.to_bytes());
+        let token = format!("{payload_b64}.{sig_b64}");
+        let result =
+            verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0, Some("kernel/authorize"));
+        match result {
+            Err(KernelTokenError::Claims(msg)) => assert_eq!(msg.0.as_str(), "invalid_aud"),
+            other => panic!("expected Claims(invalid_aud); got {other:?}"),
+        }
+    }
+
+    // ========================================================================
+    // PT-S5-M1 (internal-ref-followup item 1) — `aud` on the APPROVALS path.
+    //
+    // Slice 5 (PT-S2-M1) closed the `aud` cross-tenant replay surface on the
+    // authorize + policy claim types only. `ApprovalClaims` was left without
+    // an audience tag, so an approval-decision token signed by the shared
+    // kernel key could in principle be replayed against the
+    // `/kernel/v1/authorize` or `/policy/*` verifiers (or vice versa). The
+    // tests below mirror the slice-5 authorize cases (token.rs:771-985) but
+    // exercise `ApprovalClaims` minted with `APPROVAL_AUD`.
+    // ========================================================================
+
+    /// Helper — sign a PT-S5-M1-shape `ApprovalClaims` with the given
+    /// `aud` value. Mirrors `sign_authorize_with_aud`.
+    fn sign_approval_with_aud(sk: &SigningKey, aud: &str) -> String {
+        let claims = ApprovalClaims {
+            action: "approval_decision".to_string(),
+            aud: aud.to_string(),
+            run_id: "item_42".to_string(),
+            subject: "operator".to_string(),
+            params_fingerprint:
+                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
+            issued_at: 1_715_212_345.0,
+            expires_at: 1_715_212_405.0,
+            nonce: "abcdEFgh-12_AB".to_string(),
+            decision: "approved".to_string(),
+            reason: None,
+            approver: "seth@aryalabs.io".to_string(),
+            proposal_fingerprint: "f".repeat(64),
+        };
+        sign_kernel_token(&claims, sk)
+    }
+
+    /// PT-S5-M1 case (a) — approval token signed with `aud=APPROVAL_AUD`
+    /// verifies under `expected_aud=APPROVAL_AUD`. Happy-path.
+    #[test]
+    #[allow(clippy::panic)]
+    fn approval_aud_matches_expected_aud_verifies() {
+        let sk = fixed_signing_key();
+        let vk = sk.verifying_key();
+        let token = sign_approval_with_aud(&sk, APPROVAL_AUD);
+        let result = verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0, Some(APPROVAL_AUD));
+        match result {
+            Ok(v) => assert_eq!(
+                v.claims.get("aud").and_then(Value::as_str),
+                Some(APPROVAL_AUD),
+            ),
+            Err(e) => panic!("approval token with matching aud must verify; got {e:?}"),
+        }
+    }
+
+    /// PT-S5-M1 case (b) — approval token signed with `aud=APPROVAL_AUD`
+    /// rejected under a different `expected_aud`. Negative direction.
+    #[test]
+    fn approval_aud_mismatch_is_rejected() {
+        let sk = fixed_signing_key();
+        let vk = sk.verifying_key();
+        let token = sign_approval_with_aud(&sk, APPROVAL_AUD);
+        let result =
+            verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0, Some("kernel/authorize"));
+        match result {
+            Err(KernelTokenError::Claims(msg)) => assert_eq!(msg.0.as_str(), "invalid_audience"),
+            other => panic!("expected Claims(invalid_audience); got {other:?}"),
+        }
+    }
+
+    /// PT-S5-M1 case (c) — approval token verified with `expected_aud=None`
+    /// STAYS PERMISSIVE (documented backwards-compat: legacy verifiers that
+    /// have not opted in keep working). Do not regress authorize/policy.
+    #[test]
+    #[allow(clippy::panic)]
+    fn approval_aud_with_expected_aud_none_stays_permissive() {
+        let sk = fixed_signing_key();
+        let vk = sk.verifying_key();
+        let token = sign_approval_with_aud(&sk, APPROVAL_AUD);
+        let result = verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0, None);
+        match result {
+            Ok(v) => assert_eq!(
+                v.claims.get("aud").and_then(Value::as_str),
+                Some(APPROVAL_AUD),
+            ),
+            Err(e) => panic!("None=>permissive: approval token must verify; got {e:?}"),
+        }
+    }
+
+    /// PT-S5-M1 case (d) — pre-followup-shape approval tokens with NO
+    /// `aud` claim are rejected when the verifier opts in via `Some(...)`.
+    #[test]
+    fn approval_missing_aud_rejected_when_expected_aud_set() {
+        let sk = fixed_signing_key();
+        let vk = sk.verifying_key();
+        // Hand-craft a pre-PT-S5-M1-shape approval claims map (no `aud`).
+        let mut map: BTreeMap<String, Value> = BTreeMap::new();
+        map.insert(
+            "action".to_string(),
+            Value::String("approval_decision".to_string()),
+        );
+        map.insert(
+            "approver".to_string(),
+            Value::String("seth@aryalabs.io".into()),
+        );
+        map.insert("decision".to_string(), Value::String("approved".into()));
+        map.insert("expires_at".to_string(), json!(1_715_212_405.0_f64));
+        map.insert("issued_at".to_string(), json!(1_715_212_345.0_f64));
+        map.insert("nonce".to_string(), Value::String("abcdEFgh-12_AB".into()));
+        map.insert(
+            "params_fingerprint".to_string(),
+            Value::String(
+                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
+            ),
+        );
+        map.insert(
+            "proposal_fingerprint".to_string(),
+            Value::String("f".repeat(64)),
+        );
+        map.insert("reason".to_string(), Value::Null);
+        map.insert("run_id".to_string(), Value::String("item_42".into()));
+        map.insert("subject".to_string(), Value::String("operator".into()));
+        let payload_json = stable_json(&map);
+        let payload_b64 = URL_SAFE_NO_PAD.encode(payload_json.as_bytes());
+        let sig = sk.sign(payload_b64.as_bytes());
+        let sig_b64 = URL_SAFE_NO_PAD.encode(sig.to_bytes());
+        let token = format!("{payload_b64}.{sig_b64}");
+
+        let result = verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0, Some(APPROVAL_AUD));
+        match result {
+            Err(KernelTokenError::Claims(msg)) => assert_eq!(msg.0.as_str(), "missing_claim:aud"),
+            other => panic!("expected Claims(missing_claim:aud); got {other:?}"),
+        }
+    }
+
+    /// PT-S5-M1 case (e) — cross-tenant replay scenario. An approval
+    /// token (aud=`kernel/approvals/decision`) presented to a
+    /// `/kernel/v1/authorize` verifier (expected `kernel/authorize`) MUST
+    /// be rejected. Load-bearing test for the PT-S5-M1 finding.
+    #[test]
+    fn cross_tenant_replay_approval_to_authorize_rejected() {
+        let sk = fixed_signing_key();
+        let vk = sk.verifying_key();
+        let token = sign_approval_with_aud(&sk, APPROVAL_AUD);
+        let result =
+            verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0, Some("kernel/authorize"));
+        assert!(
+            matches!(result, Err(KernelTokenError::Claims(ref msg)) if msg.0 == "invalid_audience"),
+            "cross-tenant approval->authorize replay MUST be rejected; got {result:?}"
+        );
+    }
+
+    /// PT-S5-M1 case (f) — allowlist: an approval token verifies under
+    /// `expected_aud=APPROVAL_AUD`, but the complementary authorize token
+    /// (aud=`kernel/authorize`) is rejected under `expected_aud=APPROVAL_AUD`
+    /// — and symmetrically. Confirms the approvals tag does not regress
+    /// the authorize/policy verifier sites.
+    #[test]
+    fn approval_aud_allowlist_two_tokens_only_matching_accepted() {
+        let sk = fixed_signing_key();
+        let vk = sk.verifying_key();
+        let approval_token = sign_approval_with_aud(&sk, APPROVAL_AUD);
+        let authorize_token = sign_authorize_with_aud(&sk, "kernel/authorize");
+
+        // Verifier expecting the approvals aud:
+        assert!(verify_kernel_token(
+            &approval_token,
+            &vk,
+            1_715_212_350.0,
+            0.0,
+            Some(APPROVAL_AUD)
+        )
+        .is_ok());
+        assert!(matches!(
+            verify_kernel_token(
+                &authorize_token,
+                &vk,
+                1_715_212_350.0,
+                0.0,
+                Some(APPROVAL_AUD)
+            ),
+            Err(KernelTokenError::Claims(_))
+        ));
+
+        // Verifier expecting the authorize aud (must NOT accept approval):
+        assert!(verify_kernel_token(
+            &authorize_token,
+            &vk,
+            1_715_212_350.0,
+            0.0,
+            Some("kernel/authorize")
+        )
+        .is_ok());
+        assert!(matches!(
+            verify_kernel_token(
+                &approval_token,
+                &vk,
+                1_715_212_350.0,
+                0.0,
+                Some("kernel/authorize")
+            ),
+            Err(KernelTokenError::Claims(_))
+        ));
     }
 }

@@ -24,7 +24,8 @@ use tracing::warn;
 
 use qorch_adapters::policy_engine_client::AuditAppendRequest;
 use qorch_domain::safety::{
-    claims::ApprovalClaims, params_fingerprint, sign_kernel_token, token_sha256, ToClaimsMap,
+    claims::{ApprovalClaims, APPROVAL_AUD},
+    params_fingerprint, sign_kernel_token, token_sha256, ToClaimsMap,
 };
 
 use crate::auth::CallerRole;
@@ -98,6 +99,12 @@ async fn sign_decision(
     let nonce = fixed_nonce.unwrap_or_else(|| state.nonce.nonce_b64());
     let claims_struct = ApprovalClaims {
         action: "approval_decision".to_string(),
+        // Audience tag (PT-S5-M1, internal-ref-followup item 1). Partitions
+        // the approval-decision audience so this token cannot be
+        // replayed against the `/kernel/v1/authorize` or `/policy/*`
+        // verifiers (shared kernel signing key). Mirrors the
+        // authorize/policy `aud` mint added in slice 5.
+        aud: APPROVAL_AUD.to_string(),
         run_id: item_id.to_string(),
         subject: "operator".to_string(),
         params_fingerprint: fp,

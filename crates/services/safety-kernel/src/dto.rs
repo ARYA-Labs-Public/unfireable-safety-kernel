@@ -182,6 +182,13 @@ impl ErrorResponse {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::doc_markdown,
+    clippy::manual_string_new
+)]
 mod tests {
     //! W4 purple-team T5 — panic-fuzz the request DTOs.
     //!

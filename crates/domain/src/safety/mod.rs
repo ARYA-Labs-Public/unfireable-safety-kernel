@@ -24,10 +24,11 @@ pub mod api_action_allowlist;
 pub mod claims;
 pub mod client_state;
 pub mod error;
+pub mod policy;
 pub mod token;
 
 pub use api_action_allowlist::is_api_action_allowed;
-pub use claims::{ApprovalClaims, AuthorizeClaims, ToClaimsMap};
+pub use claims::{ApprovalClaims, AuthorizeClaims, ToClaimsMap, APPROVAL_AUD, KERNEL_AUTHORIZE_AUD};
 pub use client_state::{CircuitConfig, CircuitState, CircuitTransition};
 pub use error::{
     KernelTokenClaimsError, KernelTokenError, KernelTokenExpiredError, KernelTokenFormatError,

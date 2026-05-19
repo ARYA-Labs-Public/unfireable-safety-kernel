@@ -209,7 +209,10 @@ pub async fn auth_layer(
     clippy::panic,
     clippy::manual_string_new,
     clippy::uninlined_format_args,
-    clippy::doc_markdown
+    clippy::doc_markdown,
+    clippy::similar_names,
+    clippy::float_cmp,
+    clippy::items_after_statements
 )]
 mod tests {
     use super::*;
