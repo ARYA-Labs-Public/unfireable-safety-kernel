@@ -9,6 +9,7 @@
 #   crates/application/   — use cases that orchestrate the domain
 #   crates/adapters/      — HTTP / DB / queue clients (the only place I/O lives)
 #   crates/workers/       — background jobs and long-running processes
+#   crates/services/      — HTTP service binaries (axum routers, transport setup)
 #
 # Build:    cargo build --workspace
 # Test:     cargo test --workspace
@@ -22,6 +23,7 @@ members = [
     "crates/adapters",
     "crates/workers",
     "crates/services/safety-kernel",
+    "crates/services/biotech_nanofold",
 ]
 
 [workspace.package]
@@ -34,7 +36,8 @@ authors = ["ARYA Labs <eng@aryalabs.io>"]
 
 [workspace.dependencies]
 # Promoted here once ≥2 crates pin the same version. Union of Slice 1
-# (Safety Kernel, ADR-014 §"First four slices") + Slice 2 (DDI dispatch).
+# (Safety Kernel, ADR-014 §"First four slices") + Slice 2 (DDI dispatch)
+# + Slice 3 (Phase 3c nanofold service) + Slice 4 (Phase 3d atlas runner).
 #
 # Per ADR-014 Slice 1 §6.2 (`docs/adr/adr-014-slice-1-equivalence.md`):
 #   - NO `jsonwebtoken` (custom compact form, not JWT — see §6.3 anti-pin).
@@ -44,7 +47,13 @@ authors = ["ARYA Labs <eng@aryalabs.io>"]
 #
 # Slice 2 (DDI dispatch) shares serde/serde_json/thiserror/sha2/hex/tokio
 # and adds nothing the Slice 1 set does not already cover; tokio's feature
-# set is the union of both slices' needs.
+# set is the union of all slices' needs.
+#
+# Slice 3 (Phase 3c biotech_nanofold service) consumes axum/tokio/serde/
+# serde_json/tracing/tower already pinned here; it additionally needs the
+# `json` feature on tracing-subscriber (structured service logs) — folded
+# into the union below. tokio's Slice-1 feature set already covers Slice 3's
+# needs (net/process/signal/io-util/time), so no tokio change is required.
 axum = "0.8"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "time", "io-util", "process", "fs", "sync"] }
 tower = { version = "0.5", features = ["util"] }
@@ -61,7 +70,9 @@ uuid = { version = "1", features = ["v7", "serde"] }
 thiserror = "2"
 anyhow = "1"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+# Union: Slice 1 needs ["env-filter", "fmt"]; Slice 3 (nanofold service)
+# needs "json" for structured service logs. Superset kept here.
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 bytes = "1"
 # Slice 2 SK-client integration (internal-ref MED-2 remediation): reqwest
 # is the DDI dispatcher's HTTP client for POST /kernel/v1/authorize.
