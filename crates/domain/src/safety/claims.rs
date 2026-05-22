@@ -202,3 +202,279 @@ impl ToClaimsMap for ApprovalClaims {
         m
     }
 }
+
+// ---------------------------------------------------------------------------
+// Core constraints — per ARY-2103.
+//
+// Customer-supplied compliance / brand / privacy / scope rules that the
+// Safety Kernel loads per tenant at request time. The cogcore `CoreLane`
+// (arya-speaks-language-core commit `a0dc571`) stores `CoreConstraint`
+// structs in the Core lane — this is the shared domain type both repos
+// must use so per-tenant compliance can be enforced at the type level.
+// ---------------------------------------------------------------------------
+
+/// Discriminator for the kind of customer-supplied rule. `Custom(name)`
+/// allows verticals to introduce new categories without changing the
+/// domain crate.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConstraintKind {
+    /// Regulatory compliance rule (HIPAA, SOX, FINRA, GDPR, etc.).
+    ComplianceRule,
+    /// Brand / messaging / tone-of-voice rule.
+    BrandRule,
+    /// Privacy / data-handling rule (PII redaction, retention, etc.).
+    PrivacyRule,
+    /// Scope-of-deployment rule (what topics ARYA may engage on).
+    ScopeRule,
+    /// Vertical-specific kind. Free-text name; the verticals own
+    /// taxonomy outside this crate.
+    Custom(String),
+}
+
+/// A single per-tenant compliance / brand / privacy / scope rule that
+/// the Safety Kernel must enforce at request time. Versioned and
+/// provenance-tracked so cogcore's `CoreLane` can store, retrieve, and
+/// supersede rules without losing history.
+///
+/// Construction is direct field-by-field — there is no builder. The
+/// struct is logically immutable: cogcore writes a new entry with
+/// `version + 1` rather than mutating in place (see ARY-2103 design
+/// notes). Note however that Rust ownership rules do not forbid an
+/// owner of a `CoreConstraintSet` from mutating fields in place;
+/// callers wishing to expose a `CoreConstraintSet` as read-only should
+/// hand out `&CoreConstraintSet` rather than `&mut`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CoreConstraint {
+    /// Unique constraint identifier within `tenant_id`.
+    pub id: String,
+    /// Customer / tenant that owns this rule.
+    pub tenant_id: String,
+    /// Discriminator (compliance / brand / privacy / scope / custom).
+    pub kind: ConstraintKind,
+    /// Free-text rule body — what the Safety Kernel actually
+    /// enforces.
+    pub rule_text: String,
+    /// Priority. `0` = must-never-violate (hard); higher values are
+    /// progressively softer. `255` is the softest the type allows.
+    pub priority: u8,
+    /// RFC3339 UTC timestamp from which this rule is in force
+    /// (inclusive lower bound).
+    pub valid_from: String,
+    /// RFC3339 UTC timestamp after which this rule is retired
+    /// (exclusive upper bound). `None` = open-ended (still in force).
+    pub valid_to: Option<String>,
+    /// Free-text provenance (e.g. `"HIPAA §164.502(a)"`, `"customer
+    /// email 2026-05-15"`). Audit-grade; never empty in production.
+    pub provenance: String,
+    /// Monotonic version, starting at `1`. Increment on any text
+    /// edit; older versions stay in the cogcore Core lane as history.
+    pub version: u32,
+}
+
+/// All Core constraints loaded for a given tenant. The Safety Kernel
+/// loads a `CoreConstraintSet` per tenant at request time from the
+/// cogcore Core lane.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CoreConstraintSet {
+    /// Tenant this set belongs to.
+    pub tenant_id: String,
+    /// All constraints for this tenant. Order is insertion order;
+    /// uniqueness by `id` is the caller's responsibility (not enforced
+    /// at the type level so the wire format is round-tripable).
+    pub constraints: Vec<CoreConstraint>,
+}
+
+impl CoreConstraintSet {
+    /// Return constraints with `priority == 0` (must-never-violate).
+    ///
+    /// AC3 — the returned slice contains exclusively `priority == 0`
+    /// entries; any non-zero-priority constraint is filtered out.
+    #[must_use]
+    pub fn hard_constraints(&self) -> Vec<&CoreConstraint> {
+        self.constraints
+            .iter()
+            .filter(|c| c.priority == 0)
+            .collect()
+    }
+
+    /// Return constraints active at the given RFC3339 timestamp.
+    ///
+    /// A constraint is active iff
+    /// `valid_from <= ts && (valid_to.is_none() || ts < valid_to)`.
+    /// The lower bound is inclusive and the upper bound is exclusive:
+    /// a constraint whose `valid_to` exactly equals `ts` is considered
+    /// already retired.
+    ///
+    /// Comparison is lexicographic on the RFC3339 strings, which is
+    /// correct when `ts`, `valid_from`, and `valid_to` are all
+    /// well-formed RFC3339 UTC (`Z` suffix, identical precision).
+    /// Mixed offsets, missing `Z`, or differing fractional-second
+    /// precision are the caller's responsibility — `active_at` does
+    /// not parse.
+    ///
+    /// AC4 — filters by `valid_from`/`valid_to` boundaries.
+    #[must_use]
+    pub fn active_at<'a>(&'a self, ts: &str) -> Vec<&'a CoreConstraint> {
+        self.constraints
+            .iter()
+            .filter(|c| {
+                c.valid_from.as_str() <= ts
+                    && c.valid_to.as_ref().map_or(true, |v| ts < v.as_str())
+            })
+            .collect()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod core_constraint_tests {
+    use super::*;
+
+    fn mk(id: &str, priority: u8, valid_from: &str, valid_to: Option<&str>) -> CoreConstraint {
+        CoreConstraint {
+            id: id.to_string(),
+            tenant_id: "acme".to_string(),
+            kind: ConstraintKind::ComplianceRule,
+            rule_text: format!("rule-{id}"),
+            priority,
+            valid_from: valid_from.to_string(),
+            valid_to: valid_to.map(str::to_string),
+            provenance: "test".to_string(),
+            version: 1,
+        }
+    }
+
+    /// AC3 — `hard_constraints` returns ONLY `priority == 0`.
+    #[test]
+    fn hard_constraints_returns_only_priority_zero() {
+        let set = CoreConstraintSet {
+            tenant_id: "acme".to_string(),
+            constraints: vec![
+                mk("hipaa", 0, "2026-01-01T00:00:00Z", None),
+                mk("brand-1", 5, "2026-01-01T00:00:00Z", None),
+                mk("sox", 0, "2026-01-01T00:00:00Z", None),
+                mk("preference", 200, "2026-01-01T00:00:00Z", None),
+            ],
+        };
+        let hard = set.hard_constraints();
+        assert_eq!(hard.len(), 2);
+        assert!(hard.iter().all(|c| c.priority == 0));
+        let ids: Vec<&str> = hard.iter().map(|c| c.id.as_str()).collect();
+        assert_eq!(ids, vec!["hipaa", "sox"]);
+    }
+
+    /// AC3 (negative) — `hard_constraints` excludes priority > 0
+    /// even when only one constraint exists at the higher priority.
+    #[test]
+    fn hard_constraints_excludes_any_non_zero_priority() {
+        let set = CoreConstraintSet {
+            tenant_id: "acme".to_string(),
+            constraints: vec![mk("soft", 1, "2026-01-01T00:00:00Z", None)],
+        };
+        assert!(set.hard_constraints().is_empty());
+    }
+
+    /// AC4 — `active_at` filters by `valid_from`/`valid_to` boundaries.
+    #[test]
+    fn active_at_filters_by_validity_window() {
+        let set = CoreConstraintSet {
+            tenant_id: "acme".to_string(),
+            constraints: vec![
+                mk("never-yet", 0, "2027-01-01T00:00:00Z", None),
+                mk(
+                    "retired",
+                    0,
+                    "2025-01-01T00:00:00Z",
+                    Some("2026-01-01T00:00:00Z"),
+                ),
+                mk("open-ended", 0, "2024-01-01T00:00:00Z", None),
+                mk(
+                    "active-window",
+                    0,
+                    "2026-01-01T00:00:00Z",
+                    Some("2027-01-01T00:00:00Z"),
+                ),
+            ],
+        };
+        let active = set.active_at("2026-06-01T00:00:00Z");
+        let ids: Vec<&str> = active.iter().map(|c| c.id.as_str()).collect();
+        assert_eq!(ids, vec!["open-ended", "active-window"]);
+    }
+
+    /// Boundary — `ts` exactly equal to `valid_from` is INCLUSIVE.
+    #[test]
+    fn active_at_inclusive_at_valid_from() {
+        let set = CoreConstraintSet {
+            tenant_id: "acme".to_string(),
+            constraints: vec![mk("boundary", 0, "2026-05-22T18:00:00Z", None)],
+        };
+        let active = set.active_at("2026-05-22T18:00:00Z");
+        assert_eq!(active.len(), 1);
+    }
+
+    /// Boundary — `ts` exactly equal to `valid_to` is EXCLUSIVE
+    /// (already retired).
+    #[test]
+    fn active_at_exclusive_at_valid_to() {
+        let set = CoreConstraintSet {
+            tenant_id: "acme".to_string(),
+            constraints: vec![mk(
+                "boundary",
+                0,
+                "2026-05-22T18:00:00Z",
+                Some("2026-05-22T19:00:00Z"),
+            )],
+        };
+        let active = set.active_at("2026-05-22T19:00:00Z");
+        assert!(active.is_empty());
+    }
+
+    /// Open-ended constraint (`valid_to = None`) stays active at any
+    /// far-future timestamp.
+    #[test]
+    fn active_at_open_ended_is_active_far_future() {
+        let set = CoreConstraintSet {
+            tenant_id: "acme".to_string(),
+            constraints: vec![mk("open", 0, "2020-01-01T00:00:00Z", None)],
+        };
+        let active = set.active_at("2099-01-01T00:00:00Z");
+        assert_eq!(active.len(), 1);
+    }
+
+    /// AC5 — serde round-trip preserves all fields, including the
+    /// `Custom(_)` variant of `ConstraintKind`.
+    #[test]
+    fn core_constraint_serde_roundtrip_custom_kind() {
+        let c = CoreConstraint {
+            id: "x".to_string(),
+            tenant_id: "acme".to_string(),
+            kind: ConstraintKind::Custom("vertical-specific".to_string()),
+            rule_text: "r".to_string(),
+            priority: 0,
+            valid_from: "2026-01-01T00:00:00Z".to_string(),
+            valid_to: None,
+            provenance: "p".to_string(),
+            version: 1,
+        };
+        let s = serde_json::to_string(&c).expect("serialize CoreConstraint");
+        let back: CoreConstraint = serde_json::from_str(&s).expect("deserialize CoreConstraint");
+        assert_eq!(back, c);
+    }
+
+    /// AC5 — `CoreConstraintSet` serde round-trip preserves order and
+    /// every field.
+    #[test]
+    fn core_constraint_set_serde_roundtrip() {
+        let set = CoreConstraintSet {
+            tenant_id: "acme".to_string(),
+            constraints: vec![
+                mk("a", 0, "2026-01-01T00:00:00Z", None),
+                mk("b", 5, "2026-01-01T00:00:00Z", Some("2027-01-01T00:00:00Z")),
+            ],
+        };
+        let s = serde_json::to_string(&set).expect("serialize set");
+        let back: CoreConstraintSet = serde_json::from_str(&s).expect("deserialize set");
+        assert_eq!(back, set);
+    }
+}
