@@ -33,7 +33,7 @@ info:
   license:
     name: Proprietary
 servers:
-  - url: http://safety-kernel:9000
+  - url: http://safety-kernel-rust:9000
     description: Internal docker network (production)
   - url: http://localhost:9001
     description: Host port mapping (local development)
