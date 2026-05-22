@@ -23,13 +23,24 @@
 pub mod api_action_allowlist;
 pub mod claims;
 pub mod client_state;
+pub mod episodic_chain;
 pub mod error;
 pub mod policy;
 pub mod token;
 
 pub use api_action_allowlist::is_api_action_allowed;
-pub use claims::{ApprovalClaims, AuthorizeClaims, ToClaimsMap, APPROVAL_AUD, KERNEL_AUTHORIZE_AUD};
+// ARY-2103 — Core constraint types re-exported for the cogcore Core
+// lane callers and Safety Kernel per-tenant enforcement.
+pub use claims::{
+    ApprovalClaims, AuthorizeClaims, ConstraintKind, CoreConstraint, CoreConstraintSet,
+    ToClaimsMap, APPROVAL_AUD, KERNEL_AUTHORIZE_AUD,
+};
 pub use client_state::{CircuitConfig, CircuitState, CircuitTransition};
+// ARY-2102 — Episodic chain audit types re-exported for cross-layer
+// audit-chain integrity verification at the Safety Kernel boundary.
+pub use episodic_chain::{
+    compute_entry_hash, verify_chain_integrity, EpisodicChainEntry, GENESIS_PREV_HASH,
+};
 pub use error::{
     KernelTokenClaimsError, KernelTokenError, KernelTokenExpiredError, KernelTokenFormatError,
     KernelTokenSignatureError,
