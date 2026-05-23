@@ -1,0 +1,46 @@
+# Reference compose stack for the internal-ref 2c-python reference app.
+# Brings up the FastAPI app + the mock Safety Kernel (see
+# examples/testing/mock_kernel.py) so the full enforcement chain can
+# be exercised end-to-end without the production Rust kernel.
+
+version: "3.9"
+
+services:
+
+  mock-kernel:
+    image: python:3.11-slim
+    container_name: ref1889-mock-kernel
+    working_dir: /work
+    environment:
+      - PYTHONPATH=/work
+    volumes:
+      - ../../:/work
+    command: >
+      bash -c "pip install --quiet fastapi uvicorn cryptography &&
+               python -c 'from examples.testing.mock_kernel import build_mock_kernel_app; import uvicorn; uvicorn.run(build_mock_kernel_app(), host=\"0.0.0.0\", port=9000)'"
+    ports:
+      - "9001:9000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9000/kernel/v1/health').read()"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  reference-app:
+    image: python:3.11-slim
+    container_name: ref1889-reference-app
+    depends_on:
+      mock-kernel:
+        condition: service_healthy
+    working_dir: /work
+    environment:
+      - PYTHONPATH=/work
+      - QORCH_KERNEL_URL=http://mock-kernel:9000
+      - QORCH_KERNEL_API_KEY_WORKER=demo-worker-key
+    volumes:
+      - ../../:/work
+    command: >
+      bash -c "pip install --quiet fastapi uvicorn httpx cryptography prometheus-client &&
+               uvicorn examples.reference_app.app:app --host 0.0.0.0 --port 8080"
+    ports:
+      - "8080:8080"

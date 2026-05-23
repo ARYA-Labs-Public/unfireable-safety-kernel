@@ -1,0 +1,126 @@
+{
+  "title": "Safety Kernel — internal-ref 2c-python reference",
+  "uid": "safety-kernel-ref1889-py",
+  "schemaVersion": 38,
+  "version": 1,
+  "tags": ["safety-kernel", "ref-1889", "ref-1881"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Kernel calls per second by outcome",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "sum by (outcome) (rate(kernel_call_total[5m]))",
+          "legendFormat": "{{outcome}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "reqps"}
+      }
+    },
+    {
+      "id": 2,
+      "title": "Kernel call latency (p50/p95/p99)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(kernel_call_duration_seconds_bucket[5m])))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(kernel_call_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(kernel_call_duration_seconds_bucket[5m])))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "s"}
+      }
+    },
+    {
+      "id": 3,
+      "title": "Kernel bypass attempts (SECURITY INCIDENT if non-zero)",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 24, "x": 0, "y": 8},
+      "targets": [
+        {
+          "expr": "sum by (seam) (increase(kernel_bypass_attempts_total[5m]))",
+          "legendFormat": "{{seam}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 1}
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "alerting": {
+    "rules": [
+      {
+        "uid": "kernel-bypass-attempt-alert",
+        "title": "Kernel Bypass Attempt",
+        "condition": "B",
+        "for": "0s",
+        "data": [
+          {
+            "refId": "A",
+            "queryType": "",
+            "datasourceUid": "prometheus",
+            "model": {
+              "expr": "sum(increase(kernel_bypass_attempts_total[5m]))",
+              "refId": "A"
+            },
+            "relativeTimeRange": {"from": 600, "to": 0}
+          },
+          {
+            "refId": "B",
+            "queryType": "",
+            "datasourceUid": "__expr__",
+            "model": {
+              "type": "threshold",
+              "expression": "A",
+              "conditions": [
+                {
+                  "evaluator": {"type": "gt", "params": [0]},
+                  "operator": {"type": "and"},
+                  "query": {"params": ["A"]},
+                  "reducer": {"type": "last", "params": []},
+                  "type": "query"
+                }
+              ],
+              "refId": "B"
+            }
+          }
+        ],
+        "annotations": {
+          "summary": "A request reached a guarded resource without a kernel ALLOW audit. Investigate the named seam immediately."
+        },
+        "labels": {
+          "severity": "critical",
+          "team": "security"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,60 @@
+# examples/reference_app_rs — Rust reference application for the
+# Safety Kernel middleware (internal-ref Phase 2c sub-deliverable 2c-rust).
+#
+# This is the Rust analogue of `examples/reference_app/` (Python +
+# FastAPI) and is the minimal end-to-end demo of the
+# `qorch-safety-kernel-middleware` crate. The app boots an axum
+# server with:
+#
+#   GET  /public/hello   (Unrestricted)
+#   POST /gated/run      (Gated)
+#
+# Local dev uses an in-process `MockSafetyKernelClient` so the app
+# runs without a real kernel. Production deployments swap the mock
+# for `qorch_safety_kernel_client::SafetyKernelClient` (the trait
+# blanket-impl is in the middleware crate).
+[package]
+name = "reference_app_rs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Reference axum app demonstrating qorch-safety-kernel-middleware."
+publish = false
+
+[lib]
+name = "reference_app_rs"
+path = "src/lib.rs"
+
+[[bin]]
+name = "reference_app_rs"
+path = "src/main.rs"
+
+[dependencies]
+qorch-safety-kernel-middleware = { path = "../../crates/adapters/safety_kernel_middleware" }
+qorch-safety-kernel-client = { path = "../../crates/adapters/safety_kernel_client" }
+qorch-domain = { path = "../../crates/domain" }
+
+axum = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tower = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+http = "1"
+ed25519-dalek = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+tower = { workspace = true, features = ["util"] }
+http-body-util = "0.1"
+
+[lints.rust]
+unused_imports = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }

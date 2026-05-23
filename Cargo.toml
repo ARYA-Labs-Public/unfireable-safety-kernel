@@ -22,11 +22,13 @@ members = [
     "crates/application",
     "crates/adapters",
     "crates/adapters/safety_kernel_client",
+    "crates/adapters/safety_kernel_middleware",
     "crates/adapters/transparency_store",
     "crates/workers",
     "crates/services/safety-kernel",
     "crates/services/safety-kernel-reconciler",
     "crates/services/biotech_nanofold",
+    "examples/reference_app_rs",
     "crates/services/transparency-log",
 ]
 
@@ -59,31 +61,47 @@ authors = ["ARYA Labs <eng@aryalabs.io>"]
 # into the union below. tokio's Slice-1 feature set already covers Slice 3's
 # needs (net/process/signal/io-util/time), so no tokio change is required.
 axum = "0.8"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "time", "io-util", "process", "fs", "sync"] }
+tokio = { version = "1", features = ["rt-multi-thread",
+    "macros",
+    "net",
+    "signal",
+    "time",
+    "io-util",
+    "process",
+    "fs",
+    "sync"] }
 tower = { version = "0.5", features = ["util"] }
-tower-http = { version = "0.6", features = ["trace", "timeout", "limit"] }
+tower-http = { version = "0.6", features = ["trace",
+    "timeout",
+    "limit"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-ed25519-dalek = { version = "2", features = ["pkcs8", "rand_core"] }
+ed25519-dalek = { version = "2", features = ["pkcs8",
+    "rand_core"] }
 rand_core = { version = "0.6", features = ["getrandom"] }
 base64 = "0.22"
 hmac = "0.12"
 sha2 = "0.10"
 hex = "0.4"
-uuid = { version = "1", features = ["v7", "serde"] }
+uuid = { version = "1", features = ["v7",
+    "serde"] }
 thiserror = "2"
 anyhow = "1"
 tracing = "0.1"
 # Union: Slice 1 needs ["env-filter", "fmt"]; Slice 3 (nanofold service)
 # needs "json" for structured service logs. Superset kept here.
-tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter",
+    "fmt",
+    "json"] }
 bytes = "1"
 # Slice 2 SK-client integration (internal-ref MED-2 remediation): reqwest
 # is the DDI dispatcher's HTTP client for POST /kernel/v1/authorize.
 # Forbidden in the domain crate per `agent/boundaries.toml`; lives in
 # adapters only. `rustls-tls` (not native-tls) so we don't pull
 # OpenSSL — matches the SK service's own TLS choice.
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+reqwest = { version = "0.12", default-features = false, features = ["json",
+    "rustls-tls",
+    "stream"] }
 # internal-ref Phase 3 Step 2: pinned at the workspace level so the
 # transparency-log service and the future
 # `crates/adapters/transparency_store/` agree on the version + feature
@@ -92,7 +110,10 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 # the adapter boundary if/when prod needs it. Explicitly no
 # `aws-lc-rs` feature anywhere (internal-ref ban). `default-features = false`
 # so we don't accidentally pull in the older v0.7 macro engine.
-sqlx = { version = "0.8", default-features = false, features = ["postgres", "runtime-tokio", "macros", "chrono"] }
+sqlx = { version = "0.8", default-features = false, features = ["postgres",
+    "runtime-tokio",
+    "macros",
+    "chrono"] }
 
 [profile.release]
 lto = "thin"

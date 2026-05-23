@@ -2069,6 +2069,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "qorch-safety-kernel-middleware"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "bytes",
+ "ed25519-dalek",
+ "futures",
+ "hex",
+ "http",
+ "http-body-util",
+ "qorch-domain",
+ "qorch-safety-kernel-client",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.18",
+ "tokio",
+ "tower",
+ "tracing",
+]
+
+[[package]]
 name = "qorch-safety-kernel-reconciler"
 version = "0.1.0"
 dependencies = [
@@ -2341,6 +2365,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4666a1a60d8412eab19d94f6d13dcc9cea0a5ef4fdf6a5db306537413c661b1b"
 dependencies = [
  "bitflags",
+]
+
+[[package]]
+name = "reference_app_rs"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "ed25519-dalek",
+ "http",
+ "http-body-util",
+ "qorch-domain",
+ "qorch-safety-kernel-client",
+ "qorch-safety-kernel-middleware",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
