@@ -84,6 +84,7 @@ pub const API_ALLOWED_PREFIXES: &[&str] = &[
     "/api/v1/pulse/",     // Initech / quantum_computing (internal-ref)
     "/api/v1/qec/",       // Initech / quantum_computing (internal-ref)
     "/api/v1/wps/",       // Globex / wireless_power_systems (internal-ref)
+    "/api/v1/models/",    // per-model invocation surface (initech-quantum/models.jsx primary path)
     // Metrics and system
     "/api/v1/metrics/",
     "/api/v1/system/",
