@@ -319,8 +319,7 @@ impl CoreConstraintSet {
         self.constraints
             .iter()
             .filter(|c| {
-                c.valid_from.as_str() <= ts
-                    && c.valid_to.as_ref().map_or(true, |v| ts < v.as_str())
+                c.valid_from.as_str() <= ts && c.valid_to.as_ref().is_none_or(|v| ts < v.as_str())
             })
             .collect()
     }

@@ -453,7 +453,7 @@ mod tests {
             "(a+){2,}b",
             "(foo|bar)*x",
         ] {
-            assert!(has_nested_quantifier(pat), "MUST flag ReDoS pattern: {pat}",);
+            assert!(has_nested_quantifier(pat), "MUST flag ReDoS pattern: {pat}");
         }
     }
 

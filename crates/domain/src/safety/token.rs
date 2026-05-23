@@ -364,7 +364,7 @@ pub fn verify_kernel_token(
 )]
 mod tests {
     use super::*;
-    use crate::safety::claims::{AuthorizeClaims, ApprovalClaims, APPROVAL_AUD};
+    use crate::safety::claims::{ApprovalClaims, AuthorizeClaims, APPROVAL_AUD};
     use ed25519_dalek::SigningKey;
     use serde_json::json;
 
@@ -1004,8 +1004,8 @@ mod tests {
             aud: aud.to_string(),
             run_id: "item_42".to_string(),
             subject: "operator".to_string(),
-            params_fingerprint:
-                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
+            params_fingerprint: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                .to_string(),
             issued_at: 1_715_212_345.0,
             expires_at: 1_715_212_405.0,
             nonce: "abcdEFgh-12_AB".to_string(),

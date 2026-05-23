@@ -148,12 +148,18 @@ fn u32_len(s: &str) -> u32 {
 /// * every non-genesis entry's `prev_hash` matches the previous
 ///   entry's `entry_hash`.
 ///
-/// Returns `Err(i)` where `i` is the index of the first failing
-/// entry. `Err(0)` means the genesis entry's `entry_hash` is
-/// tampered. Empty slices return `Ok(())` (vacuous truth — no
-/// integrity claim to make).
+/// Empty slices return `Ok(())` (vacuous truth — no integrity claim
+/// to make).
 ///
 /// Cost: O(n) hashes — one SHA-256 per entry.
+///
+/// # Errors
+///
+/// Returns `Err(i)` where `i` is the index of the first failing
+/// entry. `Err(0)` means the genesis entry's `entry_hash` is
+/// tampered; `Err(i)` for `i > 0` means either the entry's own
+/// `entry_hash` was tampered OR its `prev_hash` does not match the
+/// previous entry's `entry_hash` (chain break).
 pub fn verify_chain_integrity(entries: &[EpisodicChainEntry]) -> Result<(), usize> {
     for (i, entry) in entries.iter().enumerate() {
         let expected = compute_entry_hash(entry);

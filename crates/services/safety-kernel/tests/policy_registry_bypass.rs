@@ -167,7 +167,7 @@ async fn authorize_without_register_is_denied() {
             .send()
             .await
             .unwrap();
-        assert_eq!(r.status(), 403, "unregistered module MUST 403",);
+        assert_eq!(r.status(), 403, "unregistered module MUST 403");
         let parsed: Value = r.json().await.unwrap();
         assert_eq!(
             parsed.get("decision").and_then(Value::as_str),

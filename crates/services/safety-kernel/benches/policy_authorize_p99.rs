@@ -5,7 +5,7 @@
 //! `pytest-benchmark` harness at
 //! `crates/services/safety-kernel/tests/perf/policy_authorize_e2e.py`.
 //!
-//! Methodology (per slice5_design.md §3.1):
+//! Methodology (per `slice5_design.md` §3.1):
 //!  * One Rust kernel binary + one Python sidecar (mock mode) — both
 //!    spawned once in `setup_stack()` and shared by every iteration.
 //!  * Body is a pre-built `ModuleAuthorizeRequest` with an
@@ -233,7 +233,10 @@ fn setup_stack() -> Option<PerfStack> {
     let bin_path = root.join("target/release/qorch-safety-kernel");
     if !bin_path.exists() {
         let _ = sidecar.kill();
-        eprintln!("[perf-bench] release binary missing at {bin_path:?}");
+        eprintln!(
+            "[perf-bench] release binary missing at {}",
+            bin_path.display()
+        );
         return None;
     }
 
@@ -336,15 +339,12 @@ fn setup_stack() -> Option<PerfStack> {
 // ---------------------------------------------------------------------------
 
 fn bench_policy_authorize_hot_path(c: &mut Criterion) {
-    let stack = match setup_stack() {
-        Some(s) => s,
-        None => {
-            // Skip the bench entirely. Criterion has no
-            // first-class skip; the next-best is to register a bench
-            // that exits immediately so the binary itself stays green.
-            eprintln!("[perf-bench] stack setup unavailable — skipping bench");
-            return;
-        }
+    let Some(stack) = setup_stack() else {
+        // Skip the bench entirely. Criterion has no
+        // first-class skip; the next-best is to register a bench
+        // that exits immediately so the binary itself stays green.
+        eprintln!("[perf-bench] stack setup unavailable — skipping bench");
+        return;
     };
 
     // Reuse one blocking client across all iterations to amortize
