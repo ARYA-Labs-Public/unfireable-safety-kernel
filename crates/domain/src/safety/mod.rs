@@ -23,6 +23,10 @@
 pub mod api_action_allowlist;
 pub mod claims;
 pub mod client_state;
+// internal-ref Phase 2a Step 2 — kernel-decision pure types promoted from
+// the adapter so the SDK can re-export them across the domain boundary
+// (Addendum 2a §4 "Pure-types inventory").
+pub mod decision;
 pub mod episodic_chain;
 pub mod error;
 pub mod policy;
@@ -36,6 +40,7 @@ pub use claims::{
     ToClaimsMap, APPROVAL_AUD, KERNEL_AUTHORIZE_AUD,
 };
 pub use client_state::{CircuitConfig, CircuitState, CircuitTransition};
+pub use decision::{KernelDecision, KernelDecisionError};
 // internal-ref — Episodic chain audit types re-exported for cross-layer
 // audit-chain integrity verification at the Safety Kernel boundary.
 pub use episodic_chain::{

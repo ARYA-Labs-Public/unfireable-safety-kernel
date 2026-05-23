@@ -80,6 +80,13 @@ fn test_settings() -> Settings {
         // they exercise method matching, OPTIONS handling, and the
         // role-rejection short-circuit (which happens BEFORE IPC).
         policy_sock_path: PathBuf::from("/tmp/qorch-test-nonexistent-scaffold.sock"),
+        // ADR-014 Slice 1 Addendum 2a §2 — TLS fields. In-process tests
+        // never bind, so tls_enable=false matches dev-default Settings.
+        tls_cert_path: None,
+        tls_key_path: None,
+        tls_client_ca_path: None,
+        tls_sni: "safety-kernel-rust.internal".to_string(),
+        tls_enable: false,
     }
 }
 

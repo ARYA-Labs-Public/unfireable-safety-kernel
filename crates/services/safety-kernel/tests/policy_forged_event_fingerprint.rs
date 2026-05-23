@@ -81,6 +81,13 @@ fn test_settings() -> Settings {
         build_version: "test-forged-fp".to_string(),
         listen_addr: "127.0.0.1:0".to_string(),
         policy_sock_path: PathBuf::from("/tmp/qorch-test-nonexistent-forged-fp.sock"),
+        // ADR-014 Slice 1 Addendum 2a §2 — TLS fields. In-process tests
+        // never bind, so tls_enable=false matches dev-default Settings.
+        tls_cert_path: None,
+        tls_key_path: None,
+        tls_client_ca_path: None,
+        tls_sni: "safety-kernel-rust.internal".to_string(),
+        tls_enable: false,
     }
 }
 

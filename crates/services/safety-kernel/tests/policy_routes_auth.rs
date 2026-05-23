@@ -105,6 +105,14 @@ fn test_settings() -> Settings {
         // touched by 401 / 501 paths.
         listen_addr: "127.0.0.1:0".to_string(),
         policy_sock_path: PathBuf::from("/tmp/qorch-test-nonexistent.sock"),
+        // ADR-014 Slice 1 Addendum 2a §2 — TLS dual-ingress fields. The
+        // in-process router tests never bind a socket; tls_enable=false
+        // and all paths None matches the dev-default Settings shape.
+        tls_cert_path: None,
+        tls_key_path: None,
+        tls_client_ca_path: None,
+        tls_sni: "safety-kernel-rust.internal".to_string(),
+        tls_enable: false,
     }
 }
 

@@ -1,0 +1,10 @@
+{
+  "method": "POST",
+  "path": "/kernel/v1/authorize",
+  "headers": {
+    "content-type": "application/json",
+    "traceparent": "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01",
+    "x-api-key": "test-key-rsi"
+  },
+  "body": "{\"action\":\"sio_run_cycles\",\"params_fingerprint\":\"deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef\",\"run_id\":\"run-rsi-001\",\"subject\":\"worker\"}"
+}

@@ -76,6 +76,13 @@ fn test_settings() -> Settings {
         // Non-existent socket — the handlers' charset check runs
         // BEFORE the IPC call, so we never reach the sidecar.
         policy_sock_path: PathBuf::from("/tmp/qorch-test-nonexistent-charset.sock"),
+        // ADR-014 Slice 1 Addendum 2a §2 — TLS fields. In-process tests
+        // never bind, so tls_enable=false matches dev-default Settings.
+        tls_cert_path: None,
+        tls_key_path: None,
+        tls_client_ca_path: None,
+        tls_sni: "safety-kernel-rust.internal".to_string(),
+        tls_enable: false,
     }
 }
 

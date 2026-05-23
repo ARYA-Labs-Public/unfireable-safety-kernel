@@ -27,6 +27,10 @@ const DEFAULT_POLICY_SOCK: &str = "/var/run/qorch/safety_policy.sock";
 /// mapped to this in `docker-compose.yml`.
 const DEFAULT_LISTEN_ADDR: &str = "0.0.0.0:9000";
 
+/// Default SNI used by in-cluster Rust callers when connecting to the
+/// rustls dual-ingress. Matches ADR-014 Slice 1 Addendum 2a §2.
+const DEFAULT_TLS_SNI: &str = "safety-kernel-rust.internal";
+
 /// Process-level Safety Kernel configuration. Built once at startup
 /// from the environment and held inside `AppState` for the lifetime
 /// of the process.
@@ -75,6 +79,33 @@ pub struct Settings {
 
     /// Path to the Python policy sidecar's Unix socket.
     pub policy_sock_path: PathBuf,
+
+    /// ADR-014 Slice 1 Addendum 2a §2 — server-side rustls termination.
+    /// Path to the PEM-encoded server certificate (kernel-side TLS cert
+    /// presented to in-cluster Rust callers). Env: `QORCH_KERNEL_TLS_CERT`.
+    /// `None` disables the rustls ingress; the plaintext listener stays.
+    pub tls_cert_path: Option<PathBuf>,
+
+    /// Path to the PEM-encoded server private key. Env:
+    /// `QORCH_KERNEL_TLS_KEY`. Pairs with `tls_cert_path`.
+    pub tls_key_path: Option<PathBuf>,
+
+    /// Path to the PEM-encoded CA bundle used to verify *client*
+    /// certificates (mTLS). Env: `QORCH_KERNEL_CLIENT_CA_PEM`. When
+    /// `None`, the rustls listener accepts any TLS handshake without
+    /// requesting a client certificate — useful for dev. ADR §2
+    /// mandates `Some(_)` in prod; enforced at runtime.
+    pub tls_client_ca_path: Option<PathBuf>,
+
+    /// SNI value the kernel will advertise / accept on the rustls
+    /// listener. Env: `QORCH_KERNEL_SNI`, default
+    /// `safety-kernel-rust.internal`.
+    pub tls_sni: String,
+
+    /// Derived: `tls_cert_path.is_some() && tls_key_path.is_some()`.
+    /// When `true`, `main.rs` swaps the plaintext bind for the rustls
+    /// bind on `listen_addr`.
+    pub tls_enable: bool,
 }
 
 impl Settings {
@@ -174,6 +205,25 @@ impl Settings {
                 .unwrap_or_else(|_| DEFAULT_POLICY_SOCK.to_string()),
         );
 
+        // ADR-014 Slice 1 Addendum 2a §2 — rustls dual-ingress.
+        // Cert + key must BOTH be present for the TLS listener to bind;
+        // either-missing → tls_enable=false and we fall back to plaintext.
+        let tls_cert_path = env::var("QORCH_KERNEL_TLS_CERT")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .map(PathBuf::from);
+        let tls_key_path = env::var("QORCH_KERNEL_TLS_KEY")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .map(PathBuf::from);
+        let tls_client_ca_path = env::var("QORCH_KERNEL_CLIENT_CA_PEM")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .map(PathBuf::from);
+        let tls_sni =
+            env::var("QORCH_KERNEL_SNI").unwrap_or_else(|_| DEFAULT_TLS_SNI.to_string());
+        let tls_enable = tls_cert_path.is_some() && tls_key_path.is_some();
+
         Ok(Self {
             env: env_lower,
             db_backend,
@@ -191,6 +241,18 @@ impl Settings {
             build_version,
             listen_addr,
             policy_sock_path,
+            tls_cert_path,
+            tls_key_path,
+            tls_client_ca_path,
+            tls_sni,
+            tls_enable,
         })
+    }
+
+    /// True when running in a production environment. Matches the
+    /// existing `env == "prod" | "production"` pattern from the
+    /// fail-closed operator-key check above.
+    pub fn is_prod(&self) -> bool {
+        matches!(self.env.as_str(), "prod" | "production")
     }
 }

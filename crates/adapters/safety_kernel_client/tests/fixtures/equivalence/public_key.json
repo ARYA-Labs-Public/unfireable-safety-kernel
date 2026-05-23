@@ -1,0 +1,8 @@
+{
+  "method": "GET",
+  "path": "/kernel/v1/public_key",
+  "headers": {
+    "x-api-key": "test-key-rsi"
+  },
+  "body": ""
+}

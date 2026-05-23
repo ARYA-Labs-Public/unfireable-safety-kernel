@@ -1,0 +1,8 @@
+{
+  "method": "GET",
+  "path": "/kernel/v1/health",
+  "headers": {
+    "x-api-key": "test-key-rsi"
+  },
+  "body": ""
+}

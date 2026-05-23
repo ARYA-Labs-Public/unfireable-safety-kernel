@@ -21,6 +21,7 @@ members = [
     "crates/domain",
     "crates/application",
     "crates/adapters",
+    "crates/adapters/safety_kernel_client",
     "crates/workers",
     "crates/services/safety-kernel",
     "crates/services/biotech_nanofold",

@@ -58,6 +58,23 @@ hex = { workspace = true }
 # RE2-compatible (cross-language equivalence note in ADR-018 §5).
 regex = "1"
 
+# internal-ref Phase 2a Step 3 — server-side rustls termination (ADR-014
+# Slice 1 Addendum 2a §2). `tls-rustls-no-provider` so we control the
+# crypto provider explicitly via `rustls`'s `ring` feature below —
+# the default `tls-rustls` feature would pull `aws-lc-rs` which the
+# ADR forbids in favor of `rustls::crypto::ring`. `axum-server` is
+# crate-local for now (only this crate binds TLS); promote to the
+# workspace pin if another service crate ever needs it.
+axum-server = { version = "0.8", default-features = false, features = ["tls-rustls-no-provider"] }
+# Explicit pin matching what reqwest already brings in transitively;
+# the `ring` feature is the ADR's required crypto provider. `std` is
+# the rustls default minus aws-lc-rs.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+# PEM cert/key parsing utilities used by `RustlsConfig::from_pem_file`.
+rustls-pemfile = "2"
+# WebPkiClientVerifier lives here in 0.23.
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "logging", "tls12"] }
+
 [dev-dependencies]
 # Smoke test harness (e2e: spawn Python sidecar + bind Rust binary +
 # curl the endpoints). `reqwest` used in `tests/smoke_e2e.rs` AND in
@@ -66,6 +83,8 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 tempfile = "3"
 rand_core = { workspace = true }
 sha2 = { workspace = true }
+# internal-ref Step 3 — `tests/tls_smoke.rs` self-signed cert generation.
+rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
 # In-process router exercise (internal-ref slice 1 scaffold tests). `tower`
 # brings `ServiceExt::oneshot` for firing requests at the router without
 # binding a socket; `http-body-util` collects response bodies.

@@ -1,0 +1,89 @@
+# crates/adapters/safety_kernel_client — Rust Safety Kernel client SDK.
+#
+# Promoted from `crates/adapters/src/safety_kernel_client/` (internal-ref W4)
+# to its own nested workspace member under internal-ref Phase 2a Step 2 per
+# ADR-014 Slice 1 Addendum 2a (docs/adr/adr-014-slice-1-addendum-2a-client.md).
+#
+# Why a separate crate (Addendum 2a §3):
+#   - Lets the client SDK declare its own TLS/transport deps (rustls,
+#     tokio-rustls, webpki-roots, wiremock) without leaking them into
+#     the rest of the adapters crate.
+#   - Keeps the boundary explicit so the public-repo cut (internal-ref)
+#     can lift this crate intact.
+#   - Cargo-deny scopes the SDK's supply chain independently.
+#
+# Boundary: this is still an *adapter* crate — `crates/domain` is pure
+# types only. Per `agent/boundaries.toml`, the domain crate must not
+# import from here.
+[package]
+name = "qorch-safety-kernel-client"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Rust client SDK for the Safety Kernel Safety Kernel HTTP service."
+
+[lib]
+name = "qorch_safety_kernel_client"
+path = "src/lib.rs"
+
+[dependencies]
+# Pure-types substrate: KernelDecision, KernelDecisionError, VerifiedClaims,
+# CircuitState/Config/Transition, Clock, KernelTokenError live here.
+qorch-domain = { path = "../../domain" }
+# The Slice-2 reqwest adapter consumes the application-layer
+# `SafetyKernelClient` trait; pull it in so `reqwest_client.rs` still
+# compiles in the new crate.
+qorch-application = { path = "../../application" }
+
+# Workspace-pinned deps reused from the union in /Cargo.toml.
+tokio = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+ed25519-dalek = { workspace = true }
+thiserror = { workspace = true }
+hex = { workspace = true }
+base64 = { workspace = true }
+tracing = { workspace = true }
+bytes = { workspace = true }
+sha2 = { workspace = true }
+async-trait = "0.1"
+
+# Crate-local TLS dependencies (Addendum 2a §2 — rustls only, NO
+# native-tls / NO openssl-sys / NO aws-lc-rs; cargo-deny enforces the ban).
+# Not promoted to the workspace pin yet because this crate is the only
+# consumer; promotion is the second-consumer trigger per ADR-014.
+#
+# PT-1883-01 fix (internal-ref): rustls + tokio-rustls default features pull
+# aws-lc-rs, which the ADR forbids. Mirror the server crate's pattern
+# (default-features = false + explicit ring/std/tls12/logging features).
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+rustls-pemfile = "2"
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "logging", "tls12"] }
+webpki-roots = "0.26"
+
+[dev-dependencies]
+# Mock HTTP server for adversarial + equivalence tests (Addendum 2a §9).
+wiremock = "0.6"
+tokio = { workspace = true, features = ["full"] }
+# Step 6 — mtls_smoke.rs needs an in-process TLS server. Pull in
+# rcgen for self-signed cert generation, tempfile for the cert tmpdir,
+# axum-server (rustls feature) for the server, axum + reqwest for the
+# request side. serde_json is used by adversarial.rs / traceparent.rs
+# to build kernel response bodies.
+rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
+tempfile = "3"
+axum = { workspace = true }
+axum-server = { version = "0.8", default-features = false, features = ["tls-rustls-no-provider"] }
+ed25519-dalek = { workspace = true }
+serde_json = { workspace = true }
+
+[lints.rust]
+unused_imports = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }

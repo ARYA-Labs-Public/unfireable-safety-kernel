@@ -1,0 +1,10 @@
+{
+  "method": "POST",
+  "path": "/kernel/v1/authorize",
+  "headers": {
+    "content-type": "application/json",
+    "traceparent": "00-cccccccccccccccccccccccccccccccc-dddddddddddddddd-01",
+    "x-api-key": "test-key-inference"
+  },
+  "body": "{\"action\":\"inference_dispatch\",\"params_fingerprint\":\"cafebabecafebabecafebabecafebabecafebabecafebabecafebabecafebabe\",\"run_id\":\"run-inf-002\",\"subject\":\"worker\"}"
+}

@@ -16,6 +16,7 @@
 
 #![forbid(unsafe_code)]
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
@@ -29,7 +30,7 @@ use ed25519_dalek::SigningKey;
 use sha2::{Digest, Sha256};
 use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::trace::TraceLayer;
-use tracing::info;
+use tracing::{info, warn};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 mod auth;
@@ -37,6 +38,7 @@ mod dto;
 mod routes;
 mod settings;
 mod state;
+mod tls;
 
 use qorch_adapters::clock::SystemClock;
 use qorch_adapters::nonce::OsRngNonceSource;
@@ -166,15 +168,75 @@ async fn main() -> Result<()> {
         ))
         .with_state(app_state);
 
-    let listener = tokio::net::TcpListener::bind(&settings.listen_addr)
-        .await
-        .with_context(|| format!("bind {}", settings.listen_addr))?;
-    info!(addr = %settings.listen_addr, "qorch-safety-kernel listening");
+    // ADR-014 Slice 1 Addendum 2a §2 — dual-ingress bind.
+    //
+    // When `QORCH_KERNEL_TLS_CERT` + `QORCH_KERNEL_TLS_KEY` are set, the
+    // kernel binary terminates rustls itself. nginx remains the outer
+    // edge for external callers; the rustls listener is a SECOND
+    // ingress for in-cluster Rust callers.
+    //
+    // Prod fail-closed: if env=prod and TLS env vars are missing, log
+    // and exit non-zero so we never quietly serve plaintext to the
+    // internal mesh in production.
+    if settings.is_prod() && !settings.tls_enable {
+        return Err(anyhow!(
+            "fail-closed: QORCH_ENV=prod requires QORCH_KERNEL_TLS_CERT \
+             and QORCH_KERNEL_TLS_KEY to be set (ADR-014 Slice 1 Addendum 2a §2)"
+        ));
+    }
 
-    axum::serve(listener, router)
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-        .context("axum serve")?;
+    let listen_sock: SocketAddr = settings
+        .listen_addr
+        .parse()
+        .with_context(|| format!("parse listen addr {}", settings.listen_addr))?;
+
+    if settings.tls_enable {
+        // SAFETY: tls_enable is true ⇒ both paths are Some(_).
+        let cert_path = settings
+            .tls_cert_path
+            .as_ref()
+            .ok_or_else(|| anyhow!("tls_enable=true but tls_cert_path is None"))?;
+        let key_path = settings
+            .tls_key_path
+            .as_ref()
+            .ok_or_else(|| anyhow!("tls_enable=true but tls_key_path is None"))?;
+        let client_ca = settings.tls_client_ca_path.as_deref();
+
+        // Install ring as the rustls crypto provider exactly once per
+        // process. Repeat installs error; we only care about the first
+        // success, hence `let _ = ...`.
+        let _ = rustls::crypto::ring::default_provider().install_default();
+
+        let rustls_config = tls::build_server_config(cert_path, key_path, client_ca)
+            .context("build rustls server config")?;
+
+        info!(
+            addr = %settings.listen_addr,
+            mtls = client_ca.is_some(),
+            sni = %settings.tls_sni,
+            "qorch-safety-kernel listening (rustls)"
+        );
+
+        axum_server::bind_rustls(listen_sock, rustls_config)
+            .serve(router.into_make_service())
+            .await
+            .context("axum_server bind_rustls serve")?;
+    } else {
+        // Dev/test fallback — plaintext. Warn once so it's obvious in
+        // logs that mTLS is OFF.
+        warn!(
+            addr = %settings.listen_addr,
+            "qorch-safety-kernel listening (plaintext — no TLS env vars set)"
+        );
+        let listener = tokio::net::TcpListener::bind(&settings.listen_addr)
+            .await
+            .with_context(|| format!("bind {}", settings.listen_addr))?;
+
+        axum::serve(listener, router)
+            .with_graceful_shutdown(shutdown_signal())
+            .await
+            .context("axum serve")?;
+    }
 
     info!("qorch-safety-kernel shutting down cleanly");
     Ok(())
