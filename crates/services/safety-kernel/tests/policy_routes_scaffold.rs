@@ -87,6 +87,12 @@ fn test_settings() -> Settings {
         tls_client_ca_path: None,
         tls_sni: "safety-kernel-rust.internal".to_string(),
         tls_enable: false,
+        transparency_enabled: false,
+        transparency_log_url: None,
+        transparency_log_api_key: None,
+        transparency_log_timeout_seconds: 2.0,
+        transparency_log_client_cert_path: None,
+        transparency_log_client_key_path: None,
     }
 }
 
@@ -117,6 +123,7 @@ fn test_state() -> AppState {
         policy_client: Arc::new(PolicyEngineClient::new(PathBuf::from(
             "/tmp/qorch-test-nonexistent-scaffold.sock",
         ))),
+        transparency_client: None,
     }
 }
 

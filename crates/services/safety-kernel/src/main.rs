@@ -15,6 +15,7 @@
 //! `docs/adr/adr-014-slice-1-equivalence.md` §3 / §4.
 
 #![forbid(unsafe_code)]
+#![allow(clippy::too_many_lines)]
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -39,6 +40,7 @@ mod routes;
 mod settings;
 mod state;
 mod tls;
+mod transparency_client;
 
 use qorch_adapters::clock::SystemClock;
 use qorch_adapters::nonce::OsRngNonceSource;
@@ -131,6 +133,32 @@ async fn main() -> Result<()> {
 
     let started_at = clock.now();
 
+    // ADR-014 Phase 3 §6 — build the optional transparency-log client.
+    // Settings::from_env already failed closed in prod; here we just
+    // honor the boolean and config. Empty url / key ⇒ None (the
+    // helper handles both). In prod with the flag set, `None` here
+    // means an unreachable config bug — we panic so it doesn't ship.
+    let transparency_client = if settings.transparency_enabled {
+        let c = crate::transparency_client::build_optional_client(
+            true,
+            settings.transparency_log_url.as_deref(),
+            settings.transparency_log_api_key.as_deref(),
+            &public_key_fingerprint,
+            std::time::Duration::from_secs_f64(settings.transparency_log_timeout_seconds),
+            settings.transparency_log_client_cert_path.as_deref(),
+            settings.transparency_log_client_key_path.as_deref(),
+        )?;
+        if settings.is_prod() && c.is_none() {
+            return Err(anyhow!(
+                "fail-closed: transparency_enabled=true in prod but no \
+                 transparency-log client could be built (URL/key missing)"
+            ));
+        }
+        c
+    } else {
+        None
+    };
+
     let app_state = AppState {
         settings: Arc::new(settings.clone()),
         signing_key: Arc::new(signing_key),
@@ -141,6 +169,7 @@ async fn main() -> Result<()> {
         clock,
         nonce,
         policy_client,
+        transparency_client,
     };
 
     // Router. Auth layer applies to every route except the public

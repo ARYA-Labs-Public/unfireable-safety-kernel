@@ -258,6 +258,87 @@ pub async fn authorize(
     // Convert claims to BTreeMap<String, Value> for the response body.
     let claims_map = claims_struct.to_btreemap();
 
+    // Step 7.5: transparency-log fail-CLOSED append (ADR-014 Phase 3
+    // §6). Synthesize a deny if the transparency log is unreachable,
+    // timed out, returns 5xx, or rejects the append. 409 Conflict is
+    // SUCCESS (a prior idempotent retry landed in the ledger). Skips
+    // entirely when `state.transparency_client` is `None` —
+    // `Settings::from_env` already fail-closed in prod, so a `None`
+    // here means a dev environment.
+    if let Some(tlog) = state.transparency_client.as_ref() {
+        let idem_key = crate::transparency_client::idempotency_key_for_token(&token);
+        // f64-now → u64 floor for `occurred_at_epoch_seconds`. The
+        // f64 is bounded by SystemClock; truncation is fine.
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let occurred_at_u = if now.is_finite() && now >= 0.0 {
+            now as u64
+        } else {
+            0
+        };
+        let tlog_input = crate::transparency_client::TransparencyAppendInput {
+            idempotency_key: idem_key,
+            payload: token.as_bytes().to_vec(),
+            occurred_at_epoch_seconds: occurred_at_u,
+        };
+        let timeout =
+            std::time::Duration::from_secs_f64(state.settings.transparency_log_timeout_seconds);
+        let tlog_outcome = tokio::time::timeout(timeout, tlog.append(tlog_input)).await;
+        match tlog_outcome {
+            Ok(Ok(_)) => {
+                // Success — proceed to audit-append.
+            }
+            Ok(Err(crate::transparency_client::TransparencyError::Conflict)) => {
+                // Idempotent retry of a colliding key — the ledger
+                // already has a row. Treat as success per ADR §6.
+                tracing::info!(
+                    target = "qorch.safety_kernel",
+                    kind = "transparency_conflict",
+                    "transparency-log returned 409 (idempotent retry success)"
+                );
+            }
+            Ok(Err(e)) => {
+                // Any other transparency error → synth deny in the
+                // same shape as `policy_error:<kind>` at L170-184.
+                let kind = e.kind();
+                let reason = format!("transparency_error:{kind}");
+                tracing::warn!(
+                    target = "qorch.safety_kernel",
+                    kind = %kind,
+                    detail = %e.detail(),
+                    "transparency-log append failed — failing closed"
+                );
+                synth_audit_and_deny(&state, &body, caller_role, requested, ttl, now, &reason, &e.detail()).await;
+                return deny(
+                    StatusCode::FORBIDDEN,
+                    ErrorResponse::with_reason("denied", reason),
+                );
+            }
+            Err(_timeout_elapsed) => {
+                let reason = "transparency_error:timeout".to_string();
+                tracing::warn!(
+                    target = "qorch.safety_kernel",
+                    timeout_s = state.settings.transparency_log_timeout_seconds,
+                    "transparency-log append timed out — failing closed"
+                );
+                synth_audit_and_deny(
+                    &state,
+                    &body,
+                    caller_role,
+                    requested,
+                    ttl,
+                    now,
+                    &reason,
+                    "transparency-log timed out",
+                )
+                .await;
+                return deny(
+                    StatusCode::FORBIDDEN,
+                    ErrorResponse::with_reason("denied", reason),
+                );
+            }
+        }
+    }
+
     // Step 8: audit append (fail-OPEN).
     let audit_payload = serde_json::json!({
         "request": {
@@ -303,4 +384,63 @@ pub async fn authorize(
         claims: claims_map,
     };
     Json(resp).into_response()
+}
+
+/// Audit-append the synthetic deny produced by a transparency-log
+/// failure (ADR-014 Phase 3 §6). Mirrors the existing deny-path audit
+/// record but with `transparency_error:<kind>` as the deny reason.
+/// Fail-OPEN on the audit append itself (same as the policy-deny path
+/// at L220-226): we already returned the synth deny to the caller; we
+/// log the failure but do not block on it.
+///
+/// Note: 8 arguments (`clippy::too_many_arguments`) is intentional;
+/// the helper exists to replace inline duplication of these exact
+/// values across the `transparency_error` deny branches, and bundling
+/// them into a struct would just shift the awkwardness one level out.
+#[allow(clippy::too_many_arguments)]
+async fn synth_audit_and_deny(
+    state: &AppState,
+    body: &AuthorizeRequest,
+    caller_role: &str,
+    requested: i64,
+    ttl: i64,
+    now: f64,
+    reason: &str,
+    detail: &str,
+) {
+    let audit_payload = serde_json::json!({
+        "request": {
+            "action": body.action,
+            "run_id": body.run_id,
+            "subject": body.subject,
+            "caller_role": caller_role,
+            "params_fingerprint": body.params_fingerprint,
+            "ttl_s_requested": requested,
+            "ttl_s_issued": ttl,
+            "metadata": body.metadata.as_ref().map_or(Value::Null, btree_to_value),
+        },
+        "decision": {
+            "allowed": false,
+            "reason": reason,
+            "metadata": serde_json::json!({"error": detail}),
+        },
+        "token_sha256": Value::Null,
+        "claims": Value::Null,
+    });
+    let audit_req = AuditAppendRequest {
+        unit_id: "safety_kernel".to_string(),
+        action_name: "kernel_authorize".to_string(),
+        payload: audit_payload,
+        success: false,
+        error: Some(reason.to_string()),
+        started_at: now,
+        ended_at: state.clock.now(),
+    };
+    if let Err(e) = state.policy_client.audit_append(audit_req).await {
+        warn!(
+            kind = e.kind(),
+            detail = %e.detail(),
+            "audit_append failed on transparency-error synth-deny path (fail-open: continuing)"
+        );
+    }
 }

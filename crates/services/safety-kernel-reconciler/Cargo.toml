@@ -1,0 +1,94 @@
+# crates/services/safety-kernel-reconciler — running-kernel reconciler
+# service (ADR-014 Phase 3 §2, internal-ref).
+#
+# Step 2 wired the crate into the workspace; Step 3 (this commit) lands
+# the 3-step reconcile algorithm — running digest -> expected digest
+# (signed manifest) -> drift alert + audit log + transparency-log POST
+# — plus the tokio interval loop, the env-driven binding in main.rs,
+# and the unit/integration test suite.
+#
+# Boundary: this is a service binary, so I/O / network / clock / RNG
+# / logging are all allowed here (not in the domain crate).
+#
+# The Safety Kernel client SDK (`qorch-safety-kernel-client`) landed
+# on origin/main in internal-ref (commit e8bf95d59). Step 3 consumes it as
+# a path dep so the reconciler can post drift events through the same
+# SDK the kernel itself uses for client-side audit emission. We
+# additionally bring in `reqwest` for the signed-manifest HTTP fetch
+# and the transparency-log POST — the SafetyKernelClient surface is
+# /authorize-shaped, so the reconciler's transparency-log path goes
+# direct to the v1/append endpoint behind a small trait that tests can
+# substitute.
+[package]
+name = "qorch-safety-kernel-reconciler"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Reconciler service that detects drift between the running Safety Kernel image and the signed release manifest (ADR-014 Phase 3, internal-ref)."
+
+[[bin]]
+name = "qorch-safety-kernel-reconciler"
+path = "src/main.rs"
+
+[dependencies]
+# Pure-type contracts shared with the kernel + transparency-log.
+qorch-domain = { path = "../../domain" }
+
+# internal-ref Safety Kernel client SDK — consumed by the reconciler so
+# drift events can be audited through the same surface the kernel
+# uses. The reconciler does NOT call /authorize itself; it pulls the
+# pinned-key fingerprint + the local audit-trail wiring from the SDK
+# to keep observability shapes aligned with the kernel.
+qorch-safety-kernel-client = { path = "../../adapters/safety_kernel_client" }
+
+# Step-3 toolchain: async runtime, structured logs, JSON for the
+# signed release manifest and any HTTP payloads. None of these touch
+# the domain crate directly.
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+# `async-trait` is NOT in `[workspace.dependencies]` (other adapters
+# pin it locally at 0.1 — see crates/adapters/safety_kernel_client).
+# Match their pin so cargo dedups the proc-macro.
+async-trait = "0.1"
+base64 = { workspace = true }
+hex = { workspace = true }
+sha2 = { workspace = true }
+
+# §2 step 2 — HTTPS GET of the signed release manifest, and POST to
+# the transparency-log /v1/append endpoint. `rustls-tls` so we stay
+# off OpenSSL, matching the kernel client crate.
+reqwest = { workspace = true }
+
+# §2: Ed25519 verification of the release manifest, reusing the kernel
+# signing infrastructure.
+ed25519-dalek = { workspace = true }
+
+# §2: direct OCI registry queries for the running kernel image digest
+# (chosen over `bollard` to avoid mounting the Docker socket on the
+# reconciler — smaller attack surface). `rustls-tls` so we don't pull
+# OpenSSL, and we explicitly steer clear of `aws-lc-rs` per the
+# internal-ref ban (re-asserted in deny.toml after the internal-ref merge).
+oci-distribution = { version = "0.11", default-features = false, features = ["rustls-tls"] }
+
+[dev-dependencies]
+# wiremock for the manifest-server + transparency-log HTTP fakes used
+# by the reconciler test suite. Same major version the safety-kernel
+# client crate pins so the build graph deduplicates.
+wiremock = "0.6"
+# tokio test utilities + a deterministic runtime for the polling tests.
+tokio = { workspace = true, features = ["test-util"] }
+
+[lints.rust]
+unused_imports = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }

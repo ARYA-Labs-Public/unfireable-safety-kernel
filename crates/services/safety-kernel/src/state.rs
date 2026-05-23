@@ -14,6 +14,7 @@ use qorch_adapters::policy_engine_client::PolicyEngineClient;
 use qorch_domain::safety::{Clock, NonceSource};
 
 use crate::settings::Settings;
+use crate::transparency_client::TransparencyClient;
 
 /// Process-level state shared by every handler.
 #[allow(dead_code)] // audit_pepper is held for Slice 1b (Rust takes over audit hash).
@@ -39,4 +40,13 @@ pub struct AppState {
     pub nonce: Arc<dyn NonceSource>,
     /// Unix-socket policy IPC client.
     pub policy_client: Arc<PolicyEngineClient>,
+    /// internal-ref Phase 3 Step 5 — outbound transparency-log client.
+    /// `None` ⇒ transparency integration disabled (dev only). Routes
+    /// MUST short-circuit-success when this is `None` AND
+    /// `settings.transparency_enabled` is false; routes MUST fail
+    /// closed when `settings.transparency_enabled` is true and this is
+    /// somehow still `None` (impossible if `Settings::from_env` is the
+    /// only constructor — main.rs panics on the mismatch — but the
+    /// guard at the route level is defense in depth).
+    pub transparency_client: Option<Arc<dyn TransparencyClient>>,
 }

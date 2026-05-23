@@ -1,0 +1,54 @@
+# crates/adapters/transparency_store — append-only Merkle ledger
+# storage adapter (ADR-014 Phase 3 §5, internal-ref Step 4).
+#
+# This is the *only* place I/O is allowed for the transparency-log
+# storage layer. Postgres is the production backend (CLAUDE.md "Rust +
+# Postgres" rule); an in-memory implementation lives alongside for
+# tests + dev wiring. The trait `TransparencyStore` is async; the
+# transparency-log axum service (Step 5) consumes it as `Arc<dyn
+# TransparencyStore>`.
+#
+# Boundary: this crate may import `sqlx`, `tokio`, `tracing`; the
+# `qorch-domain` dependency stays pure (no transitive boundary leak).
+[package]
+name = "qorch-transparency-store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Append-only Merkle transparency-log storage adapter (Postgres + in-memory) for internal-ref."
+
+[lib]
+name = "qorch_transparency_store"
+path = "src/lib.rs"
+
+[dependencies]
+# Pure-types substrate: MerkleLeaf / InclusionProof / VerificationError
+# + proof-construction functions.
+qorch-domain = { path = "../../domain" }
+
+# async-trait — Step 4 trait is async so the Postgres impl can `.await`
+# `sqlx::query` futures. 0.1.x line is the workspace baseline (see
+# safety_kernel_client/Cargo.toml).
+async-trait = "0.1"
+
+# Workspace-pinned: tokio (sync primitives for the in-memory impl),
+# sqlx (Postgres impl), thiserror (StoreError taxonomy).
+tokio = { workspace = true }
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+hex = { workspace = true }
+
+[dev-dependencies]
+# Tokio test runtime for the in-memory store concurrency tests.
+tokio = { workspace = true, features = ["full"] }
+
+[lints.rust]
+unused_imports = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }

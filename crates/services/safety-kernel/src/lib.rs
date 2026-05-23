@@ -35,3 +35,8 @@ pub mod dto;
 pub mod routes;
 pub mod settings;
 pub mod state;
+/// internal-ref Phase 3 Step 5 — outbound transparency-log client + trait
+/// + idempotency-key helper. Lives in the kernel crate (not adapters)
+/// because it's the kernel's private outbound dep; promote to a
+/// shared adapter once a second caller appears.
+pub mod transparency_client;

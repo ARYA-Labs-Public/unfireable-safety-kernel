@@ -51,6 +51,15 @@ base64 = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
 
+# internal-ref Phase 3 Step 5 — outbound transparency-log client.
+# `reqwest` for the HTTP POST (rustls feature set; NO native-tls, NO
+# aws-lc-rs per ADR-014 Slice 1 Addendum 2a §2). `async-trait` for the
+# dyn-compatible `TransparencyClient` vtable held by `AppState`.
+# (`thiserror` is already pulled in by the workspace default deps
+#  above; reused for `TransparencyError`.)
+reqwest = { workspace = true }
+async-trait = "0.1"
+
 # internal-ref slice 2 — kernel-side regex pre-validation per ADR-018 §5.
 # RE2-style DFA engine, NO backtracking — `fancy-regex`, `pcre2`, `onig`
 # are explicitly forbidden by the ADR. Pre-validation in the kernel
@@ -84,7 +93,15 @@ tempfile = "3"
 rand_core = { workspace = true }
 sha2 = { workspace = true }
 # internal-ref Step 3 — `tests/tls_smoke.rs` self-signed cert generation.
+# internal-ref Phase 3 /test wave — also used by `tests/test_transparency_mtls_smoke.rs`
+# to drive a real mTLS handshake between the kernel client and an
+# axum-server bound to a self-signed CA.
 rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
+# internal-ref Phase 3 /test wave — `tests/test_transparency_http_wiremock.rs`
+# drives ReqwestTransparencyClient against a real HTTP mock so the
+# status-code -> TransparencyError mapping is exercised end-to-end.
+# Same version as the reconciler crate pin so the build graph dedups.
+wiremock = "0.6"
 # In-process router exercise (internal-ref slice 1 scaffold tests). `tower`
 # brings `ServiceExt::oneshot` for firing requests at the router without
 # binding a socket; `http-body-util` collects response bodies.

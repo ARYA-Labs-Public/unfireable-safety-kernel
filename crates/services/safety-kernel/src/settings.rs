@@ -106,6 +106,48 @@ pub struct Settings {
     /// When `true`, `main.rs` swaps the plaintext bind for the rustls
     /// bind on `listen_addr`.
     pub tls_enable: bool,
+
+    // -------------------------------------------------------------
+    // internal-ref Phase 3 Step 5 — transparency-log integration
+    // -------------------------------------------------------------
+    /// One-way ratchet: `true` ⇒ the authorize handler MUST publish
+    /// every decision to the transparency-log before returning a
+    /// signed token (fail-CLOSED per ADR-014 Phase 3 §6). Required to
+    /// be `true` in prod (`Settings::from_env` rejects startup
+    /// otherwise). `false` in dev lets the existing equivalence
+    /// harness run without a real t-log.
+    pub transparency_enabled: bool,
+
+    /// Base URL of the transparency-log service. Required when
+    /// `transparency_enabled = true`. Example
+    /// `https://transparency-log.internal:8100`.
+    pub transparency_log_url: Option<String>,
+
+    /// `x-api-key` value the kernel presents to the transparency-log.
+    pub transparency_log_api_key: Option<String>,
+
+    /// Per-call timeout for the transparency-log POST. Default `2.0`s
+    /// per ADR-014 Phase 3 §6.
+    pub transparency_log_timeout_seconds: f64,
+
+    // -------------------------------------------------------------
+    // internal-ref Phase 3 Step 8 / internal-ref — outbound mTLS client
+    // identity for the kernel → t-log connection.
+    // -------------------------------------------------------------
+    /// Path to the PEM-encoded client certificate the kernel presents
+    /// when initiating the mTLS handshake to the transparency-log.
+    /// Env: `QORCH_KERNEL_TRANSPARENCY_CLIENT_CERT`. When `None` (and
+    /// `transparency_log_client_key_path` is also `None`), the
+    /// kernel runs in `x-api-key`-only mode (dev parity). In prod
+    /// (`QORCH_ENV=prod` + `transparency_enabled`), BOTH paths MUST
+    /// be set or `Settings::from_env` refuses startup.
+    pub transparency_log_client_cert_path: Option<PathBuf>,
+
+    /// Path to the PEM-encoded private key matching
+    /// `transparency_log_client_cert_path`. Env:
+    /// `QORCH_KERNEL_TRANSPARENCY_CLIENT_KEY`. Same fail-closed rule
+    /// as the cert path (see above).
+    pub transparency_log_client_key_path: Option<PathBuf>,
 }
 
 impl Settings {
@@ -116,6 +158,7 @@ impl Settings {
     /// Returns `Err` if any fail-closed required secret is missing
     /// (matches Python `apps/safety_kernel/config.py:76-80` +
     /// `middleware.py:48-58`).
+    #[allow(clippy::too_many_lines)]
     pub fn from_env() -> Result<Self> {
         let env_v = env::var("QORCH_ENV").unwrap_or_else(|_| "dev".to_string());
         let env_lower = env_v.to_ascii_lowercase();
@@ -224,6 +267,71 @@ impl Settings {
             env::var("QORCH_KERNEL_SNI").unwrap_or_else(|_| DEFAULT_TLS_SNI.to_string());
         let tls_enable = tls_cert_path.is_some() && tls_key_path.is_some();
 
+        // ADR-014 Phase 3 §6 — transparency-log integration env.
+        let transparency_enabled = env::var("QORCH_KERNEL_TRANSPARENCY_ENABLED")
+            .ok()
+            .map(|v| v.trim().to_ascii_lowercase())
+            .map(|v| matches!(v.as_str(), "1" | "true" | "yes" | "on"))
+            // Default: enabled in prod, off elsewhere. The from_env check
+            // below rejects startup if env=prod and required fields are
+            // missing, so the only way to boot prod with transparency off
+            // is to explicitly set the flag to false AND understand the
+            // tier-1 audit obligation is gone.
+            .unwrap_or(matches!(env_lower.as_str(), "prod" | "production"));
+        let transparency_log_url = env::var("QORCH_KERNEL_TRANSPARENCY_LOG_URL")
+            .ok()
+            .filter(|v| !v.trim().is_empty());
+        let transparency_log_api_key = env::var("QORCH_KERNEL_TRANSPARENCY_API_KEY")
+            .ok()
+            .filter(|v| !v.trim().is_empty());
+        let transparency_log_timeout_seconds = env::var("QORCH_KERNEL_TRANSPARENCY_TIMEOUT_S")
+            .ok()
+            .and_then(|v| v.parse::<f64>().ok())
+            .filter(|v| v.is_finite() && *v > 0.0)
+            .unwrap_or(2.0);
+
+        // Fail-closed: prod requires the full transparency config when
+        // transparency_enabled is true (which is the prod default).
+        if transparency_enabled
+            && matches!(env_lower.as_str(), "prod" | "production")
+            && (transparency_log_url.is_none() || transparency_log_api_key.is_none())
+        {
+            return Err(anyhow!(
+                "fail-closed: QORCH_ENV=prod + transparency_enabled requires \
+                 QORCH_KERNEL_TRANSPARENCY_LOG_URL and \
+                 QORCH_KERNEL_TRANSPARENCY_API_KEY to be set (ADR-014 Phase 3 §6)"
+            ));
+        }
+
+        // internal-ref — outbound mTLS client identity.
+        let transparency_log_client_cert_path = env::var("QORCH_KERNEL_TRANSPARENCY_CLIENT_CERT")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .map(PathBuf::from);
+        let transparency_log_client_key_path = env::var("QORCH_KERNEL_TRANSPARENCY_CLIENT_KEY")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .map(PathBuf::from);
+
+        // Fail-closed: in prod with transparency enabled, BOTH client
+        // cert + key MUST be set so the kernel presents a client cert
+        // on the mTLS handshake (server-side mTLS is already enforced
+        // by the t-log's rustls listener; this closes the loop on
+        // ADR-014 Phase 3 §6's "mutual" half).
+        if transparency_enabled
+            && matches!(env_lower.as_str(), "prod" | "production")
+            && (transparency_log_client_cert_path.is_none()
+                || transparency_log_client_key_path.is_none())
+        {
+            return Err(anyhow!(
+                "fail-closed: QORCH_ENV=prod + transparency_enabled requires \
+                 QORCH_KERNEL_TRANSPARENCY_CLIENT_CERT and \
+                 QORCH_KERNEL_TRANSPARENCY_CLIENT_KEY to be set so the \
+                 kernel presents a client cert on the mTLS handshake \
+                 (ADR-014 Phase 3 §6 / internal-ref)"
+            ));
+        }
+
         Ok(Self {
             env: env_lower,
             db_backend,
@@ -246,12 +354,19 @@ impl Settings {
             tls_client_ca_path,
             tls_sni,
             tls_enable,
+            transparency_enabled,
+            transparency_log_url,
+            transparency_log_api_key,
+            transparency_log_timeout_seconds,
+            transparency_log_client_cert_path,
+            transparency_log_client_key_path,
         })
     }
 
     /// True when running in a production environment. Matches the
     /// existing `env == "prod" | "production"` pattern from the
     /// fail-closed operator-key check above.
+    #[must_use]
     pub fn is_prod(&self) -> bool {
         matches!(self.env.as_str(), "prod" | "production")
     }
