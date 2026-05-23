@@ -11,10 +11,10 @@
 //! returning 400 in-process without a sidecar wired up.
 //!
 //! Symmetric coverage:
-//!   * `POST /policy/module/register`         — body.module_path
-//!   * `POST /policy/module/authorize`        — body.module_path
+//!   * `POST /policy/module/register`         — `body.module_path`
+//!   * `POST /policy/module/authorize`        — `body.module_path`
 //!   * `GET  /policy/module/{module_path}/status` — URL path segment
-//!   * `POST /policy/audit-event`             — metadata.module_path
+//!   * `POST /policy/audit-event`             — `metadata.module_path`
 //!
 //! Hyphen handling is its own test (slice-2 status route accepted `-`;
 //! slice-3 rejects it across all four endpoints). The backward-compat
@@ -139,7 +139,7 @@ async fn oneshot(app: Router, req: Request<Body>) -> (StatusCode, Vec<u8>) {
     (status, body)
 }
 
-fn json_req(method: Method, path: &str, body: Value) -> Request<Body> {
+fn json_req(method: Method, path: &str, body: &Value) -> Request<Body> {
     Request::builder()
         .method(method)
         .uri(path)
@@ -211,7 +211,7 @@ async fn register_rejects_malformed_module_path() {
         });
         let (status, resp_body) = oneshot(
             policy_router(),
-            json_req(Method::POST, "/policy/module/register", body),
+            json_req(Method::POST, "/policy/module/register", &body),
         )
         .await;
         assert_eq!(
@@ -233,7 +233,7 @@ async fn register_rejects_oversized_module_path() {
     });
     let (status, resp_body) = oneshot(
         policy_router(),
-        json_req(Method::POST, "/policy/module/register", body),
+        json_req(Method::POST, "/policy/module/register", &body),
     )
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
@@ -249,7 +249,7 @@ async fn register_rejects_empty_module_path() {
     });
     let (status, resp_body) = oneshot(
         policy_router(),
-        json_req(Method::POST, "/policy/module/register", body),
+        json_req(Method::POST, "/policy/module/register", &body),
     )
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
@@ -276,7 +276,7 @@ async fn authorize_rejects_malformed_module_path() {
         });
         let (status, resp_body) = oneshot(
             policy_router(),
-            json_req(Method::POST, "/policy/module/authorize", body),
+            json_req(Method::POST, "/policy/module/authorize", &body),
         )
         .await;
         assert_eq!(
@@ -399,7 +399,7 @@ async fn audit_event_rejects_malformed_metadata_module_path() {
         });
         let (status, resp_body) = oneshot(
             policy_router(),
-            json_req(Method::POST, "/policy/audit-event", body),
+            json_req(Method::POST, "/policy/audit-event", &body),
         )
         .await;
         assert_eq!(
@@ -425,7 +425,7 @@ async fn audit_event_ignores_module_path_when_not_string() {
     });
     let (status, _) = oneshot(
         policy_router(),
-        json_req(Method::POST, "/policy/audit-event", body),
+        json_req(Method::POST, "/policy/audit-event", &body),
     )
     .await;
     // Either 502 (sidecar IPC failed) or 400 (Json deserialization
@@ -438,7 +438,7 @@ async fn audit_event_ignores_module_path_when_not_string() {
             json_req(
                 Method::POST,
                 "/policy/audit-event",
-                json!({
+                &json!({
                     "event_kind": "hook_install_violation",
                     "subject": "test-worker",
                     "metadata": { "module_path": 42 },
@@ -463,7 +463,7 @@ async fn audit_event_without_metadata_passes_gate() {
     });
     let (status, _) = oneshot(
         policy_router(),
-        json_req(Method::POST, "/policy/audit-event", body),
+        json_req(Method::POST, "/policy/audit-event", &body),
     )
     .await;
     // 502 because the IPC fails on the non-existent socket.
@@ -489,7 +489,7 @@ async fn wire_reason_string_is_pt_l1_canonical() {
     });
     let (status, resp_body) = oneshot(
         policy_router(),
-        json_req(Method::POST, "/policy/module/register", body),
+        json_req(Method::POST, "/policy/module/register", &body),
     )
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
