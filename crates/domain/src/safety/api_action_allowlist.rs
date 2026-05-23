@@ -78,6 +78,12 @@ pub const API_ALLOWED_PREFIXES: &[&str] = &[
     "/api/v1/ui-rsi/",
     // Telco vertical
     "/api/v1/telco/",
+    // Vertical demos (built on demand; will move to runtime registration — see followup ticket)
+    "/api/v1/acme/",        // Acme vertical
+    "/api/v1/qcad/",             // Initech / quantum_computing (internal-ref)
+    "/api/v1/pulse/",            // Initech / quantum_computing (internal-ref)
+    "/api/v1/qec/",              // Initech / quantum_computing (internal-ref)
+    "/api/v1/wps/",              // Globex / wireless_power_systems (internal-ref)
     // Metrics and system
     "/api/v1/metrics/",
     "/api/v1/system/",
