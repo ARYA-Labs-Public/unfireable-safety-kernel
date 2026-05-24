@@ -2126,6 +2126,7 @@ dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",
  "hex",
+ "hmac",
  "http-body-util",
  "qorch-adapters",
  "qorch-domain",

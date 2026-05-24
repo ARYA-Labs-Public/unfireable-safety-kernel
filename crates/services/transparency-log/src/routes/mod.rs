@@ -8,6 +8,7 @@ pub mod append;
 pub mod consistency;
 pub mod sth;
 pub mod verify;
+pub mod wave_session;
 
 use axum::extract::State;
 use axum::Json;
