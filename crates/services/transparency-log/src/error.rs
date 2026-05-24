@@ -93,6 +93,18 @@ pub enum ServiceError {
     /// Backend failure (DB connection, transaction abort). 500.
     #[error("backend error: {0}")]
     Backend(String),
+
+    /// Kernel HMAC signature on a wave-session record does not verify
+    /// against the canonical-bytes projection. 403 Forbidden.
+    /// (ARY-2181 — wave-session-record append.)
+    #[error("kernel hmac signature mismatch")]
+    KernelHmacMismatch,
+
+    /// `record.stage` and the writing skill's `written_by` field
+    /// disagree — e.g. `/test` writing a `CLOSED` record. 400 Bad
+    /// Request. (ARY-2181 — wave-session-record append.)
+    #[error("stage / written_by mismatch")]
+    StageWrittenByMismatch,
 }
 
 impl From<StoreError> for ServiceError {
@@ -127,6 +139,14 @@ impl IntoResponse for ServiceError {
             ServiceError::Verification(v) => (
                 StatusCode::BAD_REQUEST,
                 ErrorResponse::with_reason("verification_error", v.to_string()),
+            ),
+            ServiceError::KernelHmacMismatch => (
+                StatusCode::FORBIDDEN,
+                ErrorResponse::with_reason("forbidden", "kernel_hmac_mismatch"),
+            ),
+            ServiceError::StageWrittenByMismatch => (
+                StatusCode::BAD_REQUEST,
+                ErrorResponse::with_reason("invalid_request", "stage_written_by_mismatch"),
             ),
             ServiceError::Backend(msg) => {
                 tracing::warn!(

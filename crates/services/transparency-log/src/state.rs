@@ -25,12 +25,35 @@
 //!   authorized to append); empty string means the service was started
 //!   with no auth (dev only).
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use ed25519_dalek::SigningKey;
+use tokio::sync::Mutex;
 
 use qorch_domain::safety::Clock;
+use qorch_domain::wave::context::WaveId;
+use qorch_domain::wave::session_record::WaveSessionRecord;
 use qorch_transparency_store::TransparencyStore;
+
+/// Auxiliary index from `wave_id -> ordered list of (stage-time,
+/// leaf_index)` so the `GET /v1/wave/{wave_id}/verify` route can
+/// stream a wave's full session chain without scanning the entire
+/// ledger. Populated on every successful append; the underlying
+/// Merkle store stays the source of truth (the index is rebuildable
+/// from the leaves on cold start by walking the store at boot).
+///
+/// ARY-2181 Phase 1 keeps this in-memory; the Postgres slice (Phase 2)
+/// will denormalize via a `wave_session_leaves(wave_id, leaf_index)`
+/// view.
+pub type WaveSessionIndex = Arc<Mutex<HashMap<String, Vec<u64>>>>;
+
+/// Per-leaf side map: `leaf_index -> (record, hmac)`. Phase 1 holds
+/// this in-memory; Phase 2 will denormalize into Postgres. The
+/// transparency-log ledger remains the source of truth — this map is
+/// rebuildable by walking the leaves at boot. ARY-2181 Phase 1.
+pub type WaveSessionPayloadMap =
+    Arc<Mutex<HashMap<u64, (WaveSessionRecord, [u8; 32])>>>;
 
 /// Process-level state shared by every handler.
 ///
@@ -57,6 +80,22 @@ pub struct AppState {
     /// `x-api-key` value the middleware compares against. Empty string
     /// disables the gate (dev only).
     pub api_key: String,
+    /// Shared symmetric HMAC key the kernel signs `WaveSessionRecord`
+    /// canonical-bytes with. Held as `Vec<u8>` so the kernel can
+    /// rotate (HMAC supports arbitrary key lengths up to the block
+    /// size). Sourced from env var `QORCH_KERNEL_HMAC_KEY_B64` at
+    /// service startup; empty in tests that explicitly do not exercise
+    /// the wave-session-record path. (ARY-2181 Phase 1.)
+    pub kernel_hmac_key: Vec<u8>,
+    /// In-process index from `wave_id -> [leaf_index]` so the verify
+    /// route can stream a chain in O(records-in-wave). See
+    /// [`WaveSessionIndex`]. (ARY-2181 Phase 1.)
+    pub wave_session_index: WaveSessionIndex,
+    /// Per-leaf side map carrying the decoded record + HMAC so the
+    /// verify route does not have to re-derive from raw leaf bytes
+    /// (the `TransparencyStore` trait does not expose raw payload
+    /// today; ARY-2181 Phase 2 will denormalize into Postgres).
+    pub wave_session_payloads: WaveSessionPayloadMap,
 }
 
 impl AppState {
@@ -79,6 +118,58 @@ impl AppState {
             kernel_key_fingerprint_hex,
             clock,
             api_key,
+            kernel_hmac_key: Vec::new(),
+            wave_session_index: Arc::new(Mutex::new(HashMap::new())),
+            wave_session_payloads: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    /// Builder-style: install the kernel HMAC key the wave-session
+    /// route checks against. Returns `self` for chained construction.
+    /// (ARY-2181 Phase 1.)
+    #[must_use]
+    pub fn with_kernel_hmac_key(mut self, key: Vec<u8>) -> Self {
+        self.kernel_hmac_key = key;
+        self
+    }
+
+    /// Record a successful wave-session append in the in-process
+    /// index so the verify route can find it. Called by
+    /// `routes::wave_session::append_session` after the underlying
+    /// store accepts the leaf.
+    pub async fn record_wave_session_leaf(&self, wave_id: &WaveId, leaf_index: u64) {
+        let mut idx = self.wave_session_index.lock().await;
+        let entry = idx.entry(wave_id.as_str().to_string()).or_default();
+        if !entry.contains(&leaf_index) {
+            entry.push(leaf_index);
+        }
+    }
+
+    /// Look up all leaf indices for a wave. Returns an empty vec when
+    /// the wave is unknown (the verify route surfaces that as 404).
+    pub async fn wave_session_leaves(&self, wave_id: &WaveId) -> Vec<u64> {
+        let idx = self.wave_session_index.lock().await;
+        idx.get(wave_id.as_str()).cloned().unwrap_or_default()
+    }
+
+    /// Stash the decoded (record, hmac) pair for a leaf. Idempotent.
+    pub async fn record_wave_session_payload(
+        &self,
+        leaf_index: u64,
+        record: WaveSessionRecord,
+        hmac: [u8; 32],
+    ) {
+        let mut p = self.wave_session_payloads.lock().await;
+        p.entry(leaf_index).or_insert((record, hmac));
+    }
+
+    /// Look up the (record, hmac) pair for a leaf. Returns `None` if
+    /// the leaf was not produced by the wave-session route.
+    pub async fn lookup_wave_session_payload(
+        &self,
+        leaf_index: u64,
+    ) -> Option<(WaveSessionRecord, [u8; 32])> {
+        let p = self.wave_session_payloads.lock().await;
+        p.get(&leaf_index).cloned()
     }
 }

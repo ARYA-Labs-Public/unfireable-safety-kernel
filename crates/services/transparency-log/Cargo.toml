@@ -69,6 +69,11 @@ base64 = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
 
+# ARY-2181 — kernel HMAC over canonical-bytes(WaveSessionRecord).
+# HMAC-SHA256 with a shared symmetric secret. The constant-time
+# `verify_slice` from the `Mac` trait guards the kernel pin.
+hmac = "0.12"
+
 # ARY-1883 Phase 2a Step 3 pattern — server-side rustls termination via
 # `axum-server` with `tls-rustls-no-provider`. We install
 # `rustls::crypto::ring` explicitly in `main.rs`. NO `aws-lc-rs` (the

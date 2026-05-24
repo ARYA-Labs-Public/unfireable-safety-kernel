@@ -15,7 +15,13 @@ use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::trace::TraceLayer;
 
 use crate::auth::auth_layer;
-use crate::routes::{append::append, consistency::consistency, sth::sth, verify::verify};
+use crate::routes::{
+    append::append,
+    consistency::consistency,
+    sth::sth,
+    verify::verify,
+    wave_session::{append_session as wave_session_append, verify_session as wave_session_verify},
+};
 use crate::state::AppState;
 
 /// 1 MiB request body limit — matches the safety-kernel's setting so
@@ -30,6 +36,9 @@ pub fn build_router(state: AppState) -> Router {
         .route("/v1/verify/{entry_id}", get(verify))
         .route("/v1/sth", get(sth))
         .route("/v1/consistency", get(consistency))
+        // ARY-2181 Phase 1: wave-session-record routes.
+        .route("/v1/wave/session", post(wave_session_append))
+        .route("/v1/wave/{wave_id}/verify", get(wave_session_verify))
         .layer(RequestBodyLimitLayer::new(MAX_BODY_BYTES))
         .layer(TraceLayer::new_for_http())
         .layer(axum::middleware::from_fn_with_state(

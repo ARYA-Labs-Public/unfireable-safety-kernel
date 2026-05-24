@@ -112,3 +112,94 @@ pub struct HealthResponse {
     /// Current tree size (echoed for operator visibility).
     pub tree_size: u64,
 }
+
+// ---------------------------------------------------------------------------
+// ARY-2181 Phase 1 — wave-session-record routes
+// ---------------------------------------------------------------------------
+
+use qorch_domain::wave::session_record::WaveSessionRecord;
+
+/// `POST /v1/wave/session` request body.
+///
+/// `record` is the canonical [`WaveSessionRecord`] content. The
+/// service derives the idempotency key from
+/// `SHA-256(wave_id || stage || session_id)` (per
+/// [`WaveSessionRecord::record_idempotency_key`]). The kernel HMAC is
+/// computed over `canonical_bytes(record)` and supplied as
+/// `kernel_hmac_hex`; the service rejects with 403 if it does not
+/// verify against the pinned shared secret. Lex-sorted field order.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppendWaveSessionRequest {
+    /// Hex-encoded HMAC-SHA256 over `canonical_bytes(record)`. Must
+    /// be exactly 64 chars (32 bytes).
+    pub kernel_hmac_hex: String,
+
+    /// SHA-256 fingerprint of the kernel signing public key (hex).
+    /// Same pin as the existing `/v1/append` route — the wave-session
+    /// surface is bound to the same kernel identity.
+    pub kernel_key_fingerprint_sha256: String,
+
+    /// The canonical wave-session record.
+    pub record: WaveSessionRecord,
+}
+
+/// `POST /v1/wave/session` response body.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppendWaveSessionResponse {
+    /// True when this response surfaces an EXISTING leaf (idempotent
+    /// retry on the same wave/stage/session). False on a fresh append.
+    pub idempotent_replay: bool,
+
+    /// SHA-256 leaf hash that was appended (hex).
+    pub leaf_hash_hex: String,
+
+    /// 0-based ledger position.
+    pub leaf_index: u64,
+
+    /// Always `true` on a successful response.
+    pub ok: bool,
+}
+
+/// One entry in the chain returned by `GET /v1/wave/{wave_id}/verify`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WaveSessionChainEntry {
+    /// Hex-encoded HMAC-SHA256 the kernel signed this record with.
+    pub kernel_hmac_hex: String,
+    /// 0-based ledger position.
+    pub leaf_index: u64,
+    /// The canonical wave-session record.
+    pub record: WaveSessionRecord,
+}
+
+/// `GET /v1/wave/{wave_id}/verify` response body.
+///
+/// Returns the full chain (one entry per (stage, session_id) tuple
+/// for this wave) plus the closeout gate's
+/// `all_required_stages_present` predicate. The chain is sorted by
+/// (stage canonical order, leaf_index ascending) so consumers can
+/// render a deterministic timeline without an extra sort step.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerifyWaveSessionResponse {
+    /// True iff the chain covers TESTED + ACCEPTED + CLOSED, plus
+    /// PURPLE_TEAMED when any record in the chain carries a non-empty
+    /// `gate_surfaces`. (Predicate is computed by
+    /// `qorch_domain::wave::session_record::all_required_stages_present`.)
+    pub all_required_stages_present: bool,
+
+    /// Full chain of session records for this wave.
+    pub chain: Vec<WaveSessionChainEntry>,
+
+    /// SHA-256 fingerprint of the kernel public key the records were
+    /// HMAC-bound to. Echoed so external auditors can confirm they
+    /// have the right pinning. (The HMAC itself is a symmetric secret
+    /// — the fingerprint is the *kernel's* public-key fingerprint,
+    /// not the HMAC key.)
+    pub kernel_key_fingerprint_sha256: String,
+
+    /// Always `true` on a successful response.
+    pub ok: bool,
+
+    /// Identity of the wave being verified.
+    pub wave_id: String,
+}
