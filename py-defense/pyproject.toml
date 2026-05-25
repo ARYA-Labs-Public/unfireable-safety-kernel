@@ -1,0 +1,63 @@
+# ARYA Labs — safety-kernel Python audit-hook reference
+# Stdlib-only by design. NO httpx / requests / fastapi deps.
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "safety_kernel_defense"
+version = "0.1.0"
+description = "Layer-1 Python audit-hook reference for the safety-kernel"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "ARYA Labs PBC" },
+]
+keywords = ["safety-kernel", "audit-hook", "import-discipline", "PEP-578"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+]
+# Stdlib-only. the architecture overview design §2 mandate — every additional
+# dependency widens the bootstrap window the hook lives inside.
+dependencies = []
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "coverage[toml]>=7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ARYA-Labs-PBC/safety-kernel"
+Documentation = "https://github.com/ARYA-Labs-PBC/safety-kernel/blob/main/docs/integration/python-fastapi.md"
+Issues = "https://github.com/ARYA-Labs-PBC/safety-kernel/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["safety_kernel_defense*"]
+
+[tool.pytest.ini_options]
+testpaths = ["safety_kernel_defense/tests"]
+python_files = ["test_*.py"]
+addopts = "-ra"
+
+[tool.coverage.run]
+branch = true
+source = ["safety_kernel_defense"]
+omit = [
+    "safety_kernel_defense/tests/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+# ≥95% target per the architecture overview.
+fail_under = 95
