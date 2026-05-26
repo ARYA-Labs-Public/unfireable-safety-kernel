@@ -1,4 +1,4 @@
-//! `POST /policy/audit-event` — Slice 2 handler (ADR-018 §2.3).
+//! `POST /policy/audit-event` —  handler.
 //!
 //! Surfaces non-decision audit events from the audit-hook reference.
 //! Does NOT render a verdict, does NOT sign a token. Appends one
@@ -71,7 +71,7 @@ pub async fn audit_event(
     }
 
     // Step 1b: canonical `module_path` charset validation (slice-3
-    // PT-L1 fold-in, ADR-018 §2.5). The audit-event request body has
+    // PT-L1 fold-in, ). The audit-event request body has
     // no top-level `module_path` field — many event kinds
     // (`subprocess_propagation_failed` argv0, `hook_install_violation`
     // reason strings) carry no module path at all. We validate
@@ -107,7 +107,7 @@ pub async fn audit_event(
     let ts_unix_ms = match state.policy_client.policy_audit_event(ipc_req).await {
         Ok(ts) => ts,
         Err(e) => {
-            // Fail-CLOSED here per ADR-018 §2.3 — return 502 so the
+            // Fail-CLOSED here 3 — return 502 so the
             // caller can retry. No audit append (the chain write IS
             // what failed).
             tracing::warn!(

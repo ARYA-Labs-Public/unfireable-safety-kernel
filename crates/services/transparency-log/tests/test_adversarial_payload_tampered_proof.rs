@@ -1,4 +1,4 @@
-//! internal-ref Phase 3 — Rule-8 adversarial fixture: a payload-tampered
+//!   — Rule-8 adversarial fixture: a payload-tampered
 //! inclusion proof (bytewise mutation of any field except the path
 //! length) MUST be rejected with `RootMismatch`.
 //!

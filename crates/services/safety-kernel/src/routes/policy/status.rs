@@ -1,5 +1,5 @@
-//! `GET /policy/module/{module_path}/status` — Slice 2 handler
-//! (ADR-018 §2.4).
+//! `GET /policy/module/{module_path}/status` —  handler
+//!.
 //!
 //! Read-only. Returns the current registration record + last 20
 //! decision rows for the path. 404 when no registration exists.
@@ -31,7 +31,7 @@ fn deny(status: StatusCode, body: ErrorResponse) -> Response {
     (status, Json(body)).into_response()
 }
 
-// Canonical `module_path` charset (ADR-018 §2.5, slice-3 PT-L1 fold-in)
+// Canonical `module_path` charset (, slice-3 PT-L1 fold-in)
 // lives in `qorch_domain::safety::policy::validation`. The slice-2
 // status handler used a hyphen-permissive charset
 // (`^[A-Za-z0-9_.-]{1,256}$`); slice 3 tightens that to the canonical
@@ -62,7 +62,7 @@ pub async fn status(
 
     // Step 2: URL-decode happens automatically in axum's Path
     // extractor; validate the decoded value against the canonical
-    // charset (slice-3 PT-L1 fold-in, ADR-018 §2.5).
+    // charset (slice-3 PT-L1 fold-in, ).
     if !is_valid_module_path(&module_path) {
         return (
             StatusCode::BAD_REQUEST,
@@ -110,7 +110,7 @@ pub async fn status(
             .into_response();
     };
 
-    // Build the response per ADR-018 §2.4. The sidecar already shapes
+    // Build the response 4. The sidecar already shapes
     // the inner payload; we re-emit the registration + decisions
     // sub-objects directly.
     let recent: Vec<serde_json::Value> = inner

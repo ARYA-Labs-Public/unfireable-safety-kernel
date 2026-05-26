@@ -1,4 +1,4 @@
-//! internal-ref Phase 3 /test wave — equivalence test: the kernel's
+//!   /test wave — equivalence test: the kernel's
 //! authorize() handler, when transparency is enabled, emits to the
 //! transparency-log a leaf whose payload IS the issued token's bytes,
 //! whose `idempotency_key` IS `SHA-256(token_bytes)` per ADR §6, and

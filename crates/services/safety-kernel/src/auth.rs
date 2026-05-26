@@ -1,7 +1,7 @@
 //! Auth middleware — port of `apps/safety_kernel/middleware.py`.
 //!
 //! Public paths (no auth): `/health`, `/kernel/v1/health`,
-//! `/kernel/v1/public_key`. Slice 1 only supports `auth_mode="api_key"`.
+//! `/kernel/v1/public_key`.  only supports `auth_mode="api_key"`.
 //! `none` and `jwt` are NOT ported (`none` was always a fail-closed
 //! 503 in Python anyway; `jwt` is unused in production).
 //!
@@ -69,7 +69,7 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
 /// access (matches `_is_public_path` in
 /// `apps/safety_kernel/middleware.py:12-18`).
 ///
-/// Note: Slice 1 Rust does NOT serve `/openapi.json`, `/docs/*`, or
+/// Note:  Rust does NOT serve `/openapi.json`, `/docs/*`, or
 /// `/redoc/*`. Those routes simply 404 in Rust without ever reaching
 /// auth.
 fn is_public_path(path: &str) -> bool {
@@ -80,7 +80,7 @@ fn is_public_path(path: &str) -> bool {
 }
 
 /// Build the deny response with status + JSON body. Mirrors Python's
-/// `JSONResponse(status_code=..., content={"ok": false, ...})`.
+/// `JSONResponse(status_code=..., content={"ok": false,...})`.
 fn deny(status: StatusCode, body: ErrorResponse) -> Response {
     (status, Json(body)).into_response()
 }
@@ -110,7 +110,7 @@ pub async fn auth_layer(
 
     let s = state.settings.as_ref();
 
-    // Slice 1 supports `api_key` only.
+    //  supports `api_key` only.
     if s.auth_mode != "api_key" {
         return deny(
             StatusCode::SERVICE_UNAVAILABLE,

@@ -1,5 +1,5 @@
-//! internal-ref Phase 3 — Purple-Team adversarial assessment of the
-//! tier-2 unfireability claim (internal-ref: "Unfireable across vendor
+//!   — Purple-Team adversarial assessment of the
+//! tier-2 unfireability claim (: "Unfireable across vendor
 //! boundary by cryptographic delivery and public transparency").
 //!
 //! Campaigns:

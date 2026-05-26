@@ -1,5 +1,5 @@
 //! `POST /v1/append` — append a kernel-signed token to the ledger
-//! (ADR-014 Phase 3 §3 + §6, internal-ref Step 5).
+//! ( + §6,  Step 5).
 //!
 //! Flow:
 //!   1. Validate `kernel_key_fingerprint_sha256` matches the pinned
