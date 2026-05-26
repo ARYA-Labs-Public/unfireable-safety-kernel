@@ -1,9 +1,9 @@
-//! `POST /policy/module/register` — Slice 2 handler (ADR-018 §2.1).
+//! `POST /policy/module/register` —  handler.
 //!
 //! Order of operations (binding):
 //!  1. Role check (`caller_role == "worker"`).
 //!  2. Validate `required_patterns_regex_set` — count + length bounds
-//!     per ADR-018 §5, then compile each pattern via `regex::Regex::new`.
+//!     
 //!  3. Build a `regex::RegexSet` with `dfa_size_limit(10 MiB)` to
 //!     enforce the DFA-size cap.
 //!  4. Capture `now` from the injected `Clock`.
@@ -44,7 +44,7 @@ use crate::auth::CallerRole;
 use crate::dto::ErrorResponse;
 use crate::state::AppState;
 
-/// ADR-018 §5 bounds — frozen with the handler.
+///  bounds — frozen with the handler.
 const MAX_PATTERN_LENGTH_BYTES: usize = 512;
 const MAX_PATTERNS_PER_MODULE: usize = 32;
 const MAX_DFA_SIZE_BYTES: usize = 10 * 1024 * 1024;
@@ -73,7 +73,7 @@ fn btree_to_value(m: &BTreeMap<String, Value>) -> Value {
 /// required-patterns regex set. Returns a signed receipt token the
 /// caller can verify later against the kernel's public key.
 ///
-/// Linear shape — each block ports one step from ADR-018 §2.1. Length
+/// Linear shape — each block ports one step from Length
 /// is the cost of binding the order against equivalence review.
 #[allow(clippy::too_many_lines)]
 pub async fn register(
@@ -92,7 +92,7 @@ pub async fn register(
     }
 
     // Step 1b: canonical `module_path` charset validation (slice-3
-    // PT-L1 fold-in, ADR-018 §2.5). Runs BEFORE any pattern
+    // PT-L1 fold-in, ). Runs BEFORE any pattern
     // compilation or IPC — keeps the per-event work below the
     // validator the minimum needed to reject malformed input.
     if !is_valid_module_path(&body.module_path) {
@@ -128,7 +128,7 @@ pub async fn register(
     // kernel/sidecar accept set in sync — and to fail-fast on the kernel
     // side rather than via a 503 from a hung sidecar — apply the same
     // nested-quantifier heuristic that the sidecar applies. Purple-team
-    // finding ARY-2028-PT-C1 (2026-05-14).
+    // finding -PT-C1 (2026-05-14).
     for (idx, pattern) in body.required_patterns_regex_set.iter().enumerate() {
         if pattern.len() > MAX_PATTERN_LENGTH_BYTES {
             return (
@@ -243,7 +243,7 @@ pub async fn register(
     }));
 
     let claims_struct = ModuleRegisterClaims {
-        // PT-S2-M1 (ARY-2028 slice 5): mint with the canonical
+        //  ( slice 5): mint with the canonical
         // policy/module/register audience tag. Same rationale as
         // policy/authorize — closes cross-tenant replay.
         aud: POLICY_REGISTER_AUD.to_string(),
@@ -412,7 +412,7 @@ fn error_kind_from_setbuilder(e: &regex::Error) -> &'static str {
 }
 
 /// SHA-256 hex of `stable_json({"patterns": <patterns>})` — binds the
-/// regex set into the receipt without sending it. Matches ADR-018 §3
+/// regex set into the receipt without sending it. Matches 
 /// `required_patterns_regex_set_fingerprint` field.
 fn patterns_fingerprint(patterns: &[String]) -> String {
     let mut map: BTreeMap<String, Value> = BTreeMap::new();
@@ -440,7 +440,7 @@ mod tests {
     use super::has_nested_quantifier;
 
     /// ReDoS-vulnerable patterns MUST be rejected by the heuristic
-    /// (purple-team ARY-2028-PT-C1, 2026-05-14).
+    /// (purple-team -PT-C1, 2026-05-14).
     #[test]
     fn nested_quantifier_redos_patterns_are_rejected() {
         for pat in [

@@ -1,5 +1,5 @@
-//! `x-api-key` middleware for the transparency-log service (ADR-014
-//! Phase 3 §3, ARY-1885 Step 5).
+//! `x-api-key` middleware for the transparency-log service (
+//!  §3,  Step 5).
 //!
 //! Mirrors the kernel's `auth.rs::auth_layer` pattern. Only the kernel
 //! is expected to call this service, so the auth model is "single

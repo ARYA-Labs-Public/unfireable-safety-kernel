@@ -1,4 +1,4 @@
-//! Transparency-log library surface (ADR-014 Phase 3 §3, ARY-1885).
+//! Transparency-log library surface (, ).
 //!
 //! Step 5 fills in the real handlers + storage wiring + Ed25519 STH
 //! minting + mTLS server config. The library target lets integration

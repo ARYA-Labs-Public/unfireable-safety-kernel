@@ -1,7 +1,7 @@
 //! Adversarial fixture — forged `event_fingerprint` MUST be rejected
-//! (ARY-2028 slice 2, watchdog class `forged_event_fingerprint_rejected`).
+//! ( slice 2, watchdog class `forged_event_fingerprint_rejected`).
 //!
-//! Threat model (ADR-018 §A8.3 reflection-style attack via fingerprint
+//! Threat model ( reflection-style attack via fingerprint
 //! mutation): a worker process with a valid x-api-key sends an
 //! authorize body where `event_fingerprint` does NOT equal the
 //! canonical SHA-256 of
@@ -81,7 +81,7 @@ fn test_settings() -> Settings {
         build_version: "test-forged-fp".to_string(),
         listen_addr: "127.0.0.1:0".to_string(),
         policy_sock_path: PathBuf::from("/tmp/qorch-test-nonexistent-forged-fp.sock"),
-        // ADR-014 Slice 1 Addendum 2a §2 — TLS fields. In-process tests
+        //  Addendum 2a §2 — TLS fields. In-process tests
         // never bind, so tls_enable=false matches dev-default Settings.
         tls_cert_path: None,
         tls_key_path: None,

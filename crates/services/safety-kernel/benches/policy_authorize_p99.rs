@@ -1,6 +1,6 @@
 //! Criterion microbenchmark for `POST /policy/module/authorize`.
 //!
-//! INFORMATIONAL bench — ARY-2028 slice 5 §3.2. Captures kernel-side
+//! INFORMATIONAL bench —  slice 5 §3.2. Captures kernel-side
 //! regressions early; the gating number is the end-to-end
 //! `pytest-benchmark` harness at
 //! `crates/services/safety-kernel/tests/perf/policy_authorize_e2e.py`.

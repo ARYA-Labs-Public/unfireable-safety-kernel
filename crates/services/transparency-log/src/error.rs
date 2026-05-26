@@ -1,4 +1,4 @@
-//! HTTP error envelope + service-internal error type (ARY-1885 Step 5).
+//! HTTP error envelope + service-internal error type ( Step 5).
 //!
 //! Mirrors the kernel's `dto::ErrorResponse` shape so client SDKs only
 //! have to learn ONE error envelope. `ServiceError` is the local
@@ -22,7 +22,7 @@ use qorch_transparency_store::StoreError;
 #[derive(Debug, Clone, Serialize)]
 pub struct ErrorResponse {
     /// High-level error category (`"invalid_request"`, `"unauthorized"`,
-    /// `"conflict"`, `"server_error"`, ...).
+    /// `"conflict"`, `"server_error"`,...).
     pub error: String,
     /// Always `false`.
     pub ok: bool,
@@ -96,13 +96,13 @@ pub enum ServiceError {
 
     /// Kernel HMAC signature on a wave-session record does not verify
     /// against the canonical-bytes projection. 403 Forbidden.
-    /// (ARY-2181 — wave-session-record append.)
+    /// ( — wave-session-record append.)
     #[error("kernel hmac signature mismatch")]
     KernelHmacMismatch,
 
     /// `record.stage` and the writing skill's `written_by` field
     /// disagree — e.g. `/test` writing a `CLOSED` record. 400 Bad
-    /// Request. (ARY-2181 — wave-session-record append.)
+    /// Request. ( — wave-session-record append.)
     #[error("stage / written_by mismatch")]
     StageWrittenByMismatch,
 }

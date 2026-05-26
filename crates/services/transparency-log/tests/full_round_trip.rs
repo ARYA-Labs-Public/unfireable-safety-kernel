@@ -1,4 +1,4 @@
-//! Full round-trip integration test (ARY-1885 Step 5).
+//! Full round-trip integration test ( Step 5).
 //!
 //! Spins the full axum router (via `qorch_transparency_log::router::
 //! build_router`) on a 127.0.0.1 ephemeral port backed by the

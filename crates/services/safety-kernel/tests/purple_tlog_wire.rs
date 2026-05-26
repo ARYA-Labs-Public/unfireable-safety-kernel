@@ -1,4 +1,4 @@
-//! ARY-1885 Phase 3 — Purple-Team wire-level tests for the kernel's
+//!   — Purple-Team wire-level tests for the kernel's
 //! production `ReqwestTransparencyClient`.
 //!
 //! `purple_tlog_malformed_response.rs` covers the kernel's authorize
@@ -80,7 +80,7 @@ async fn purple_c1wire_200_with_junk_body_yields_malformed() {
     let client = client_for(port);
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::Malformed { .. }),
+        matches!(err, TransparencyError::Malformed {.. }),
         "expected Malformed, got {err:?}"
     );
     // Stable kind string for synth-deny mapping.
@@ -106,7 +106,7 @@ async fn purple_c1wire_200_with_wrong_schema_yields_malformed() {
     let client = client_for(port);
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::Malformed { .. }),
+        matches!(err, TransparencyError::Malformed {.. }),
         "expected Malformed for wrong-schema body, got {err:?}"
     );
 }
@@ -122,7 +122,7 @@ async fn purple_c1wire_500_yields_server_error() {
     );
     let client = client_for(port);
     let err = client.append(input()).await.unwrap_err();
-    assert!(matches!(err, TransparencyError::ServerError { .. }), "got {err:?}");
+    assert!(matches!(err, TransparencyError::ServerError {.. }), "got {err:?}");
     assert_eq!(err.kind(), "server_error");
 }
 
@@ -139,7 +139,7 @@ async fn purple_c1wire_401_yields_rejected() {
     );
     let client = client_for(port);
     let err = client.append(input()).await.unwrap_err();
-    assert!(matches!(err, TransparencyError::Rejected { status_code: 401, .. }), "got {err:?}");
+    assert!(matches!(err, TransparencyError::Rejected { status_code: 401,.. }), "got {err:?}");
     assert_eq!(err.kind(), "append_failed");
 }
 
@@ -154,6 +154,6 @@ async fn purple_c1wire_422_yields_rejected() {
     );
     let client = client_for(port);
     let err = client.append(input()).await.unwrap_err();
-    assert!(matches!(err, TransparencyError::Rejected { status_code: 422, .. }), "got {err:?}");
+    assert!(matches!(err, TransparencyError::Rejected { status_code: 422,.. }), "got {err:?}");
     assert_eq!(err.kind(), "append_failed");
 }

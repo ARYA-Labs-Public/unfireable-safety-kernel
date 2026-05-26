@@ -1,4 +1,4 @@
-//! ARY-1885 Phase 3 /test wave — mTLS smoke test for
+//!   /test wave — mTLS smoke test for
 //! `tls::build_server_config`.
 //!
 //! Goals:

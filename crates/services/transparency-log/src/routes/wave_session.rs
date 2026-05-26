@@ -1,4 +1,4 @@
-//! ARY-2181 Phase 1 — wave-session-record routes.
+//!   — wave-session-record routes.
 //!
 //! Two endpoints:
 //!
@@ -15,7 +15,7 @@
 //!   fingerprint, and per-entry HMACs so external auditors can re-run
 //!   verification against the kernel's public material.
 //!
-//! Design notes (per ARY-2181 spec):
+//! Design notes (per spec):
 //!
 //! - The Merkle leaf payload IS the canonical-bytes projection of
 //!   [`WaveSessionRecord`] (see
@@ -76,12 +76,12 @@ fn build_leaf_payload(record_bytes: &[u8], hmac_bytes: &[u8; 32]) -> Vec<u8> {
 /// hmac_bytes)` or a [`ServiceError::Backend`] on malformed framing
 /// (shouldn't happen for leaves we wrote ourselves, but defensive).
 ///
-/// Currently unused at the route layer because Phase 1 stashes the
-/// decoded record in [`AppState::wave_session_payloads`]. Phase 2
+/// Currently unused at the route layer because stashes the
+/// decoded record in [`AppState::wave_session_payloads`]. 
 /// (Postgres-backed denormalization) drops the side map and this
 /// function becomes the verify-route's payload decoder. Kept here
 /// (a) as documentation of the committed-to framing, and (b) so the
-/// Phase 2 work has a single drop-in.
+///  work has a single drop-in.
 #[allow(dead_code)]
 fn split_leaf_payload(payload: &[u8]) -> Result<(Vec<u8>, [u8; 32]), ServiceError> {
     if payload.len() < 8 + 32 {
@@ -246,17 +246,17 @@ pub async fn verify_session(
         // Read the leaf metadata (we need its hash, but we use the
         // payload — which we have to recompute via the inclusion-proof
         // route's underlying mechanism). For now: hold the raw payload
-        // alongside the metadata in the in-process index. Phase 2
+        // alongside the metadata in the in-process index. 
         // (Postgres) will denormalize.
         //
         // The TransparencyStore trait does not expose `get_payload`
         // today (only `get_leaf` which returns `MerkleLeaf` —
-        // metadata, not bytes). Phase 1 work-around: keep the raw
+        // metadata, not bytes).  work-around: keep the raw
         // record + hmac in a side map so we can stream the chain.
         //
         // The side map is appended in lock-step with the store; it
         // does NOT serve as the source of truth (the leaf hash + the
-        // Merkle root do). On cold start, Phase 2 will walk the
+        // Merkle root do). On cold start,  will walk the
         // ledger and rebuild.
         let Some((record, hmac)) = state.lookup_wave_session_payload(leaf_idx).await else {
             return Err(ServiceError::Backend(format!(
@@ -375,7 +375,7 @@ mod tests {
     ) -> WaveSessionRecord {
         WaveSessionRecord::new(
             WaveId::new(wave),
-            "ARY-2181",
+            "",
             stage,
             sid,
             outcome,

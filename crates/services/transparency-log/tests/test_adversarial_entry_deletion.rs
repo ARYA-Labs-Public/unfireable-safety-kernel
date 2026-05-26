@@ -1,4 +1,4 @@
-//! ARY-1885 Phase 3 AC7 — Rule-8 adversarial fixture: chain detects
+//!   AC7 — Rule-8 adversarial fixture: chain detects
 //! the gap when an entry is deleted from the ledger.
 //!
 //! Threat model: a database operator with direct table access deletes

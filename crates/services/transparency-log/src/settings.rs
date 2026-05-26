@@ -1,5 +1,5 @@
-//! Env-driven settings for the transparency-log service (ADR-014
-//! Phase 3 §3, ARY-1885 Step 5).
+//! Env-driven settings for the transparency-log service (
+//!  §3,  Step 5).
 //!
 //! Required-secrets policy:
 //! - `QORCH_TRANSPARENCY_SIGNING_KEY_B64` — fail-closed in all envs

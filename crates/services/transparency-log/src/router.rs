@@ -1,4 +1,4 @@
-//! Router builder for the transparency-log service (ARY-1885 Step 5).
+//! Router builder for the transparency-log service ( Step 5).
 //!
 //! Centralised in one function so the bin and the integration tests
 //! share the exact route table + middleware stack. Wires:
@@ -36,7 +36,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/v1/verify/{entry_id}", get(verify))
         .route("/v1/sth", get(sth))
         .route("/v1/consistency", get(consistency))
-        // ARY-2181 Phase 1: wave-session-record routes.
+        //: wave-session-record routes.
         .route("/v1/wave/session", post(wave_session_append))
         .route("/v1/wave/{wave_id}/verify", get(wave_session_verify))
         .layer(RequestBodyLimitLayer::new(MAX_BODY_BYTES))

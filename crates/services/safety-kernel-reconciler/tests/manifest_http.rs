@@ -1,6 +1,6 @@
 //! wiremock-backed integration tests for the reconciler's
 //! `ManifestFetcher` + `TransparencyLogClient` HTTP paths
-//! (ADR-014 Phase 3 §2, ARY-1885 Step 3).
+//! (,  Step 3).
 //!
 //! These tests live in `tests/` so they exercise the public crate
 //! surface end-to-end through real reqwest clients pointed at a
@@ -107,7 +107,7 @@ fn signed_manifest_json(
 async fn drift_round_trip_with_real_http() {
     let (signing, verifying) = test_keypair();
     let now: u64 = 1_700_000_000;
-    let image = "aryalabs/safety-kernel-rust";
+    let image = "aryalabs/safety-kernel";
     let expected = "sha256:expected";
     let running = "sha256:running";
     let manifest_body = signed_manifest_json(&signing, image, expected, now);
@@ -159,7 +159,7 @@ async fn drift_round_trip_with_real_http() {
 
     let outcome = r.tick_once().await.expect("tick succeeds");
     assert!(
-        matches!(outcome, TickOutcome::Drift { .. }),
+        matches!(outcome, TickOutcome::Drift {.. }),
         "expected Drift outcome, got {outcome:?}",
     );
 
@@ -180,7 +180,7 @@ async fn drift_round_trip_with_real_http() {
 async fn http_transparency_log_500_does_not_block_polling() {
     let (signing, verifying) = test_keypair();
     let now: u64 = 1_700_000_000;
-    let image = "aryalabs/safety-kernel-rust";
+    let image = "aryalabs/safety-kernel";
     let expected = "sha256:expected";
     let running = "sha256:running";
     let manifest_body = signed_manifest_json(&signing, image, expected, now);
@@ -234,7 +234,7 @@ async fn http_transparency_log_500_does_not_block_polling() {
         .await
         .expect("tick must not error even with 500 from t-log");
     assert!(
-        matches!(outcome, TickOutcome::Drift { .. }),
+        matches!(outcome, TickOutcome::Drift {.. }),
         "drift must still be reported when t-log is 500",
     );
     // Local audit still captures it — the durable trail of last

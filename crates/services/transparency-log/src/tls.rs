@@ -1,10 +1,10 @@
 //! Server-side rustls configuration for the transparency-log service
-//! (ADR-014 Phase 3 §3, ARY-1885 Step 5).
+//! (,  Step 5).
 //!
 //! Identical pattern to `crates/services/safety-kernel/src/tls.rs` —
 //! `axum-server` with `tls-rustls-no-provider`, `rustls::crypto::ring`
 //! as the crypto provider, optional `WebPkiClientVerifier` for mTLS.
-//! NO `aws-lc-rs`, NO `native-tls`, NO `openssl-sys` (ARY-2113 ban).
+//! NO `aws-lc-rs`, NO `native-tls`, NO `openssl-sys` ( ban).
 
 use std::fs::File;
 use std::io::BufReader;

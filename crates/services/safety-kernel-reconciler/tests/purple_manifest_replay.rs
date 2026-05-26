@@ -1,4 +1,4 @@
-//! ARY-1885 Phase 3 — Purple-Team adversarial tests for the
+//!   — Purple-Team adversarial tests for the
 //! reconciler signed-manifest verification path.
 //!
 //! Campaigns:
@@ -171,7 +171,7 @@ fn cfg(verifying: VerifyingKey, image: &str) -> ReconcilerConfig {
 #[tokio::test]
 async fn purple_d1_30_day_old_manifest_rejected_as_expired() {
     let (signing, verifying) = test_keypair();
-    let image = "aryalabs/safety-kernel-rust";
+    let image = "aryalabs/safety-kernel";
     let digest = "sha256:aaaa";
 
     // Manifest was issued 30 days ago — well past the 7-day staleness
@@ -197,7 +197,7 @@ async fn purple_d1_30_day_old_manifest_rejected_as_expired() {
         .await
         .expect_err("30-day-old manifest replay must be rejected");
     assert!(
-        matches!(err, ReconcileError::ExpiredManifest { .. }),
+        matches!(err, ReconcileError::ExpiredManifest {.. }),
         "expected ExpiredManifest, got {err:?}"
     );
     assert!(
@@ -233,7 +233,7 @@ async fn purple_d1_30_day_old_manifest_rejected_as_expired() {
 #[tokio::test]
 async fn purple_d2_registry_returns_different_digest_drift_detected() {
     let (signing, verifying) = test_keypair();
-    let image = "aryalabs/safety-kernel-rust";
+    let image = "aryalabs/safety-kernel";
     let expected = "sha256:legitimate-release-digest";
     let running = "sha256:ATTACKER-INJECTED-IMAGE";
     let now: u64 = 1_700_000_000;
@@ -283,7 +283,7 @@ async fn purple_d2_registry_returns_different_digest_drift_detected() {
 #[tokio::test]
 async fn purple_d2_tlog_unreachable_drift_still_audited_locally() {
     let (signing, verifying) = test_keypair();
-    let image = "aryalabs/safety-kernel-rust";
+    let image = "aryalabs/safety-kernel";
     let expected = "sha256:legitimate";
     let running = "sha256:malicious";
     let now: u64 = 1_700_000_000;
@@ -301,7 +301,7 @@ async fn purple_d2_tlog_unreachable_drift_still_audited_locally() {
     );
 
     let outcome = r.tick_once().await.expect("tick must not error");
-    assert!(matches!(outcome, TickOutcome::Drift { .. }));
+    assert!(matches!(outcome, TickOutcome::Drift {.. }));
     assert_eq!(audit.snapshot().len(), 1, "local audit must capture the drift");
     assert!(tlog.snapshot().is_empty(), "failing t-log records nothing");
 }
@@ -314,7 +314,7 @@ async fn purple_d2_tlog_unreachable_drift_still_audited_locally() {
 #[tokio::test]
 async fn purple_d2b_signature_tamper_rejected() {
     let (signing, verifying) = test_keypair();
-    let image = "aryalabs/safety-kernel-rust";
+    let image = "aryalabs/safety-kernel";
     let digest = "sha256:aaaa";
     let now: u64 = 1_700_000_000;
 
@@ -348,7 +348,7 @@ async fn purple_d2b_signature_tamper_rejected() {
 #[tokio::test]
 async fn purple_d2c_digest_field_tamper_post_signing_rejected() {
     let (signing, verifying) = test_keypair();
-    let image = "aryalabs/safety-kernel-rust";
+    let image = "aryalabs/safety-kernel";
     let digest = "sha256:legitimate";
     let now: u64 = 1_700_000_000;
 
@@ -382,7 +382,7 @@ async fn purple_d2c_digest_field_tamper_post_signing_rejected() {
 #[tokio::test]
 async fn purple_d2d_wrong_image_manifest_rejected_image_mismatch() {
     let (signing, verifying) = test_keypair();
-    let configured = "aryalabs/safety-kernel-rust";
+    let configured = "aryalabs/safety-kernel";
     let manifest_image = "aryalabs/some-other-service";
     let digest = "sha256:aaaa";
     let now: u64 = 1_700_000_000;
@@ -398,5 +398,5 @@ async fn purple_d2d_wrong_image_manifest_rejected_image_mismatch() {
     );
 
     let err = r.tick_once().await.expect_err("wrong-image manifest must be rejected");
-    assert!(matches!(err, ReconcileError::ImageMismatch { .. }));
+    assert!(matches!(err, ReconcileError::ImageMismatch {.. }));
 }

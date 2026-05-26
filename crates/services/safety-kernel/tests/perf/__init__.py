@@ -1,4 +1,4 @@
-"""ARY-2028 slice 5 perf harness package.
+""" slice 5 perf harness package.
 
 Pytest collects this subtree only when invoked with ``-m perf`` (the
 marker is registered in ``pyproject.toml``). The harness spawns the

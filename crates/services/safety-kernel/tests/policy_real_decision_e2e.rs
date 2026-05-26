@@ -1,4 +1,4 @@
-//! End-to-end real-decision test (ARY-2028 slice 2).
+//! End-to-end real-decision test ( slice 2).
 //!
 //! Drives the full happy-path lifecycle for the slice-2 policy engine
 //! against a live Rust kernel + test sidecar:
@@ -196,7 +196,7 @@ async fn real_decision_full_lifecycle_register_authorize_status_revoke() {
 
     // ----------------------------------------------------------------
     // Step 4: authorize a NEVER-registered sibling path → DENY.
-    //          (Slice 2 does not have a revoke endpoint — the test
+    //          ( does not have a revoke endpoint — the test
     //          spec mentions revoke as part of the lifecycle but the
     //          handler surface for revoke ships in slice 3. We
     //          substitute the equivalent attack: a sibling path that

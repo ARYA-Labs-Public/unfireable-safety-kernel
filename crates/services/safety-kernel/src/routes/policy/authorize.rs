@@ -1,7 +1,7 @@
-//! `POST /policy/module/authorize` — Slice 2 handler (ADR-018 §2.2).
+//! `POST /policy/module/authorize` —  handler.
 //!
 //! The hot path: every Python `import` audit event hits this handler.
-//! Linear flow per ADR-018 §2.2:
+//! Linear flow 2:
 //!
 //!  1. Role check (`worker`).
 //!  2. Validate `event_fingerprint` is 64-hex.
@@ -44,7 +44,7 @@ use crate::auth::CallerRole;
 use crate::dto::ErrorResponse;
 use crate::state::AppState;
 
-/// Default authorize-token TTL (60s per ADR-018 §3 "Why `ttl_s=60s`").
+/// Default authorize-token TTL (60s 
 const AUTHORIZE_TOKEN_TTL_S: f64 = 60.0;
 
 /// Helper — error response shorthand.
@@ -74,7 +74,7 @@ fn event_kind_to_wire(k: ModuleEventKind) -> &'static str {
 /// Recompute the trusted `event_fingerprint` from
 /// `(event_kind, module_path, caller_subject, caller_run_id)` using
 /// the same `params_fingerprint` canonicalization as the caller.
-/// Matches ADR-018 §2.2 step 3.
+/// Matches step 3.
 fn recompute_event_fingerprint(req: &ModuleAuthorizeRequest) -> String {
     let canonical = json!({
         "event_kind": event_kind_to_wire(req.event_kind),
@@ -104,7 +104,7 @@ pub async fn authorize(
     }
 
     // Step 1b: canonical `module_path` charset validation (slice-3
-    // PT-L1 fold-in, ADR-018 §2.5). Runs BEFORE the fingerprint check
+    // PT-L1 fold-in, ). Runs BEFORE the fingerprint check
     // so adversarial input with malformed paths is rejected with the
     // most specific reason possible.
     if !is_valid_module_path(&body.module_path) {
@@ -164,7 +164,7 @@ pub async fn authorize(
     let ipc_resp = match state.policy_client.policy_authorize(ipc_req).await {
         Ok(r) => r,
         Err(e) => {
-            // KernelUnavailable: 503, no audit (ADR-018 §4 — nothing
+            // KernelUnavailable: 503, no audit ( — nothing
             // to audit; no decision was made).
             warn!(
                 kind = e.kind(),
@@ -217,7 +217,7 @@ pub async fn authorize(
     let nonce = state.nonce.nonce_b64();
     let iss = build_iss(&state);
     let claims_struct = ModuleAuthorizeClaims {
-        // PT-S2-M1 (ARY-2028 slice 5): mint with the canonical
+        //  ( slice 5): mint with the canonical
         // policy/module/authorize audience tag. Closes the cross-tenant
         // replay surface with `/kernel/v1/authorize` (both endpoints
         // share the same signing key).
@@ -294,7 +294,7 @@ pub async fn authorize(
         );
     }
 
-    // Build the HTTP response envelope per ADR-018 OpenAPI delta.
+    // Build the HTTP response envelope 
     let body_obj = json!({
         "ok": matches!(decision_enum, ModuleAuthorizeDecision::Allow),
         "decision": match decision_enum {

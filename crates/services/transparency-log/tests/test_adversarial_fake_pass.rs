@@ -1,4 +1,4 @@
-//! ARY-1885 Phase 3 AC6 — Rule-8 adversarial fixture: chain rejects a
+//!   AC6 — Rule-8 adversarial fixture: chain rejects a
 //! synthetic "fake PASS" leaf whose content disagrees with ground
 //! truth.
 //!
@@ -52,7 +52,7 @@ async fn ac6_fake_pass_detected_by_leaf_hash_recompute() {
 
     let running = "sha256:running-drifted-bad";
     let expected = "sha256:expected-good";
-    let image = "aryalabs/safety-kernel-rust";
+    let image = "aryalabs/safety-kernel";
     let at: u64 = 1_700_000_000;
 
     // Adversary appends a fake "match" event.
@@ -102,7 +102,7 @@ async fn ac6_fake_pass_root_disagrees_with_honest_recompute() {
 
     let running = "sha256:running-drifted";
     let expected = "sha256:expected";
-    let image = "aryalabs/safety-kernel-rust";
+    let image = "aryalabs/safety-kernel";
 
     // 3 honest drift events.
     for i in 0..3u8 {

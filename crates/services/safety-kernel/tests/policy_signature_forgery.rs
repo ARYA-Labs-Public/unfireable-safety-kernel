@@ -1,5 +1,5 @@
 //! Adversarial fixture — signature forgery + claim tampering rejected
-//! (ARY-2028 slice 2, watchdog class `signature_forgery_rejected`).
+//! ( slice 2, watchdog class `signature_forgery_rejected`).
 //!
 //! ## Threat model
 //!
@@ -20,7 +20,7 @@
 //!      whole encoded payload, but documented separately as the most
 //!      semantically dangerous tamper.
 //!
-//! Per ADR-018 §3 the signing scheme is `ed25519(payload_b64 as ASCII
+//! Per the signing scheme is `ed25519(payload_b64 as ASCII
 //! bytes)`. The verifier reads bytes back and recomputes; any difference
 //! fails the Ed25519 verify call. Mirrors the existing kernel-level
 //! defenses in `crates/domain/src/safety/token.rs::verify_kernel_token`.

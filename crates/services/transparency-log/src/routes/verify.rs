@@ -1,5 +1,5 @@
 //! `GET /v1/verify/:entry_id` — return the leaf plus an RFC-6962
-//! inclusion proof against the current tree (ARY-1885 Step 5).
+//! inclusion proof against the current tree ( Step 5).
 //!
 //! The proof is verified IN-PROCESS against the current root before
 //! the handler returns, so a malformed proof never leaves the

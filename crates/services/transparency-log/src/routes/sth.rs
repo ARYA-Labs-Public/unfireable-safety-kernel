@@ -1,5 +1,5 @@
 //! `GET /v1/sth` — return the current Ed25519-signed tree head
-//! (ARY-1885 Step 5).
+//! ( Step 5).
 //!
 //! Mints the STH via `qorch_domain::transparency::mint_sth` so the
 //! signing logic stays pure-domain. Timestamp is sourced from the

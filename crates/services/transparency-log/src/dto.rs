@@ -1,7 +1,7 @@
 //! Wire-shape request/response types for the transparency-log
-//! service (ADR-014 Phase 3 §3, ARY-1885 Step 5).
+//! service (,  Step 5).
 //!
-//! Field ordering is lexicographic per ADR-014 Slice 1 Addendum 2a §5
+//! Field ordering is lexicographic per Addendum 2a §5
 //! (byte-stable JSON via deterministic struct layout). Add new fields
 //! lex-sorted, never insertion-order.
 
@@ -16,7 +16,7 @@ use qorch_domain::transparency::{ConsistencyProof, InclusionProof, MerkleLeaf, S
 /// fingerprint of the kernel's Ed25519 public key (hex-encoded)
 /// — the transparency-log binds appends to a specific signing key.
 /// `idempotency_key_hex` is the kernel-computed 32-byte fingerprint
-/// (SHA-256 of the token bytes per ADR-014 Phase 3 §6) the store
+/// (SHA-256 of the token bytes per ) the store
 /// de-duplicates on. `occurred_at_epoch_seconds` is the kernel-asserted
 /// wall-clock instant the underlying decision was minted.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -114,7 +114,7 @@ pub struct HealthResponse {
 }
 
 // ---------------------------------------------------------------------------
-// ARY-2181 Phase 1 — wave-session-record routes
+//   — wave-session-record routes
 // ---------------------------------------------------------------------------
 
 use qorch_domain::wave::session_record::WaveSessionRecord;

@@ -1,4 +1,4 @@
-//! ARY-1883 Phase 2a Step 3 — rustls dual-ingress smoke test.
+//!   Step 3 — rustls dual-ingress smoke test.
 //!
 //! Spawns the kernel binary with self-signed TLS material, sends one
 //! `GET /kernel/v1/health` over `reqwest` (rustls) trusting the test

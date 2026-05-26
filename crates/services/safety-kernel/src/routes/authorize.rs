@@ -1,4 +1,4 @@
-//! `/kernel/v1/authorize` handler — implements ADR-014 Slice 1 §4.2
+//! `/kernel/v1/authorize` handler — implements 
 //! step-for-step.
 //!
 //! Order of operations (binding):
@@ -54,7 +54,7 @@ fn btree_to_value(m: &BTreeMap<String, Value>) -> Value {
 
 /// `POST /kernel/v1/authorize`.
 ///
-/// Long but linear: each block ports one ADR-014 Slice 1 §4.2 step.
+/// Long but linear: each block ports one step.
 /// Splitting it would make the equivalence review harder.
 #[allow(clippy::too_many_lines)]
 pub async fn authorize(
@@ -238,7 +238,7 @@ pub async fn authorize(
         .unwrap_or_else(|| state.nonce.nonce_b64());
     let claims_struct = AuthorizeClaims {
         action: body.action.clone(),
-        // PT-S2-M1 (ARY-2028 slice 5): mint with the canonical
+        //  ( slice 5): mint with the canonical
         // kernel/authorize audience tag. Verifiers that pass
         // `Some("kernel/authorize")` to `verify_kernel_token` will
         // reject policy-engine tokens replayed against this endpoint.
@@ -258,7 +258,7 @@ pub async fn authorize(
     // Convert claims to BTreeMap<String, Value> for the response body.
     let claims_map = claims_struct.to_btreemap();
 
-    // Step 7.5: transparency-log fail-CLOSED append (ADR-014 Phase 3
+    // Step 7.5: transparency-log fail-CLOSED append (
     // §6). Synthesize a deny if the transparency log is unreachable,
     // timed out, returns 5xx, or rejects the append. 409 Conflict is
     // SUCCESS (a prior idempotent retry landed in the ledger). Skips
@@ -387,7 +387,7 @@ pub async fn authorize(
 }
 
 /// Audit-append the synthetic deny produced by a transparency-log
-/// failure (ADR-014 Phase 3 §6). Mirrors the existing deny-path audit
+/// failure (). Mirrors the existing deny-path audit
 /// record but with `transparency_error:<kind>` as the deny reason.
 /// Fail-OPEN on the audit append itself (same as the policy-deny path
 /// at L220-226): we already returned the synth deny to the caller; we

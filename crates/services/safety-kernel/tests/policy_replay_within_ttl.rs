@@ -1,10 +1,10 @@
 //! Adversarial fixture — replay attack within TTL window
-//! (ARY-2028 slice 2, watchdog class `audit_chain_replay_rejected`).
+//! ( slice 2, watchdog class `audit_chain_replay_rejected`).
 //!
 //! ## Threat model
 //!
 //! A worker captures a signed `module_authorize` token `T1` issued at
-//! time `t0` with `exp = t0 + 60s` (default ADR-018 §3 TTL). The
+//! time `t0` with `exp = t0 + 60s` (default TTL). The
 //! attacker:
 //!
 //!   - **Variant A — token reuse outside TTL:** waits 60+ seconds and
@@ -20,7 +20,7 @@
 //!     `policy_authorize_allow` chain entry) so forensics can see the
 //!     duplicate event pair.
 //!
-//! Per ADR-018 §3 the slice-2 handler intentionally does NOT maintain a
+//! Per the slice-2 handler intentionally does NOT maintain a
 //! request-level deduplication cache — the cryptographic defense is
 //! `exp`-bounded validity + per-token nonce uniqueness. Slice 5b is the
 //! only authorized addition of a decision cache (`exp`-bounded only,
@@ -28,7 +28,7 @@
 //!
 //! ## Why this fixture covers the watchdog class
 //!
-//! `audit_chain_replay_rejected` per ADR-018 §6 covers the threat where
+//! `audit_chain_replay_rejected` per covers the threat where
 //! a captured signed decision is replayed across the kernel boundary.
 //! The defense is split across three primitives that we exercise here:
 //!

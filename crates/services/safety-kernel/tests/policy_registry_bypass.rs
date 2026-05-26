@@ -1,5 +1,5 @@
 //! Adversarial fixture — registry-bypass attack MUST be denied
-//! (ARY-2028 slice 2, watchdog class `registry_bypass_attempt_denied`).
+//! ( slice 2, watchdog class `registry_bypass_attempt_denied`).
 //!
 //! Threat model: a worker process attempts to import / exec / compile
 //! a module that the operator never registered. Two variants:

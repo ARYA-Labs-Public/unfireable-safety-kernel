@@ -1,5 +1,5 @@
 //! `GET /v1/consistency?first=X&second=Y` — RFC-6962 consistency
-//! proof between two tree sizes (ARY-1885 Step 5).
+//! proof between two tree sizes ( Step 5).
 //!
 //! Implementation note: the Step-4 `TransparencyStore` trait does not
 //! expose a bulk-leaf view (only `get_leaf(idx)` and

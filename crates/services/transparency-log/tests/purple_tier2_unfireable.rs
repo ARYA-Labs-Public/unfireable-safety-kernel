@@ -1,5 +1,5 @@
-//! ARY-1885 Phase 3 — Purple-Team adversarial assessment of the
-//! tier-2 unfireability claim (ARY-1881: "Unfireable across vendor
+//!   — Purple-Team adversarial assessment of the
+//! tier-2 unfireability claim (: "Unfireable across vendor
 //! boundary by cryptographic delivery and public transparency").
 //!
 //! Campaigns:

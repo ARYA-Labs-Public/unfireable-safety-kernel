@@ -1,4 +1,4 @@
-//! ARY-1885 Phase 3 — Purple-Team adversarial tests against the
+//!   — Purple-Team adversarial tests against the
 //! transparency-log chain primitives.
 //!
 //! Session id: see ~/.claude/state/purple_team_runs.jsonl.

@@ -1,5 +1,5 @@
 # crates/services/safety-kernel-reconciler — running-kernel reconciler
-# service (ADR-014 Phase 3 §2, ARY-1885).
+# service (, ).
 #
 # Step 2 wired the crate into the workspace; Step 3 (this commit) lands
 # the 3-step reconcile algorithm — running digest -> expected digest
@@ -11,7 +11,7 @@
 # / logging are all allowed here (not in the domain crate).
 #
 # The Safety Kernel client SDK (`qorch-safety-kernel-client`) landed
-# on origin/main in ARY-1883 (commit e8bf95d59). Step 3 consumes it as
+# on origin/main in  (commit e8bf95d59). Step 3 consumes it as
 # a path dep so the reconciler can post drift events through the same
 # SDK the kernel itself uses for client-side audit emission. We
 # additionally bring in `reqwest` for the signed-manifest HTTP fetch
@@ -27,7 +27,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
-description = "Reconciler service that detects drift between the running Safety Kernel image and the signed release manifest (ADR-014 Phase 3, ARY-1885)."
+description = "Reconciler service that detects drift between the running Safety Kernel image and the signed release manifest (, )."
 
 [[bin]]
 name = "qorch-safety-kernel-reconciler"
@@ -37,7 +37,7 @@ path = "src/main.rs"
 # Pure-type contracts shared with the kernel + transparency-log.
 qorch-domain = { path = "../../domain" }
 
-# ARY-1883 Safety Kernel client SDK — consumed by the reconciler so
+#  Safety Kernel client SDK — consumed by the reconciler so
 # drift events can be audited through the same surface the kernel
 # uses. The reconciler does NOT call /authorize itself; it pulls the
 # pinned-key fingerprint + the local audit-trail wiring from the SDK
@@ -75,7 +75,7 @@ ed25519-dalek = { workspace = true }
 # (chosen over `bollard` to avoid mounting the Docker socket on the
 # reconciler — smaller attack surface). `rustls-tls` so we don't pull
 # OpenSSL, and we explicitly steer clear of `aws-lc-rs` per the
-# ARY-2113 ban (re-asserted in deny.toml after the ARY-1883 merge).
+#  ban (re-asserted in deny.toml after the merge).
 oci-distribution = { version = "0.11", default-features = false, features = ["rustls-tls"] }
 
 [dev-dependencies]

@@ -1,5 +1,5 @@
-//! Safety Kernel reconciler library surface (ADR-014 Phase 3 §2,
-//! ARY-1885 Step 3).
+//! Safety Kernel reconciler library surface (,
+//!  Step 3).
 //!
 //! The reconciler ships as a binary; this library surface exists so
 //! the 3-step algorithm + its unit tests live inside the crate

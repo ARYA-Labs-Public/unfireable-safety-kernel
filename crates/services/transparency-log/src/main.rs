@@ -1,8 +1,8 @@
-//! Transparency-log HTTP service binary (ADR-014 Phase 3 §3,
-//! ARY-1885 Step 5).
+//! Transparency-log HTTP service binary (,
+//!  Step 5).
 //!
 //! Binds the four endpoints on internal port 8100 (host port 8102
-//! per `docker-compose.yml`; 8101 reserved for the optional ARY-2116
+//! per `docker-compose.yml`; 8101 reserved for the optional 
 //! Rekor proxy). Wires:
 //!
 //!   - `GET  /health`               (public liveness probe)

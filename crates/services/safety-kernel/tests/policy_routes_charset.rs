@@ -1,5 +1,5 @@
 //! Adversarial fixture — slice-3 PT-L1 canonical `module_path`
-//! charset (ADR-018 §2.5, ARY-2028).
+//! charset (, ).
 //!
 //! All four `/policy/*` endpoints MUST reject `module_path` values
 //! outside the canonical charset `^[a-zA-Z0-9_.]+$` OR `^[0-9a-f]{64}$`
@@ -76,7 +76,7 @@ fn test_settings() -> Settings {
         // Non-existent socket — the handlers' charset check runs
         // BEFORE the IPC call, so we never reach the sidecar.
         policy_sock_path: PathBuf::from("/tmp/qorch-test-nonexistent-charset.sock"),
-        // ADR-014 Slice 1 Addendum 2a §2 — TLS fields. In-process tests
+        //  Addendum 2a §2 — TLS fields. In-process tests
         // never bind, so tls_enable=false matches dev-default Settings.
         tls_cert_path: None,
         tls_key_path: None,

@@ -1,4 +1,4 @@
-//! ARY-1885 Phase 3 — Rule-8 adversarial fixture: forged
+//!   — Rule-8 adversarial fixture: forged
 //! `kernel_key_fingerprint_sha256` MUST be rejected by the
 //! transparency-log service.
 //!

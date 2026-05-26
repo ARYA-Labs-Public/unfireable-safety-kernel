@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# ARY-1883 Phase 2a Step 3 — dev cert generator for the rustls
-# dual-ingress kernel (ADR-014 Slice 1 Addendum 2a §2).
+#   Step 3 — dev cert generator for the rustls
+# dual-ingress kernel ( Addendum 2a §2).
 #
-# Produces a self-signed dev CA and three leaf certs in ./secrets/:
+# Produces a self-signed dev CA and three leaf certs in./secrets/:
 #   - dev_ca.crt / dev_ca.key
 #   - kernel_server.crt / kernel_server.key   (SAN: DNS:safety-kernel-rust.internal)
 #   - client_worker.crt / client_worker.key   (SAN: URI:spiffe://qorch/role/worker)
 #
-# Output dir is gitignored by ../../../.gitignore (*.pem, *.key etc).
+# Output dir is gitignored by../../../.gitignore (*.pem, *.key etc).
 # For prod, use Google Secret Manager — never check these in.
 #
 # Requirements: openssl >= 1.1.1. Re-running overwrites prior artifacts.

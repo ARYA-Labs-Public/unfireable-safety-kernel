@@ -1,4 +1,4 @@
-//! Safety Kernel HTTP service — Rust port (ADR-014 Slice 1, ARY-1990).
+//! Safety Kernel HTTP service — Rust port (, ).
 //!
 //! W2: axum service + 6 endpoints + Unix-socket policy IPC.
 //!
@@ -11,7 +11,7 @@
 //!   * `POST /kernel/v1/approvals/{id}/reject`     (operator)
 //!
 //! Policy decisions and audit-chain writes are forwarded over Unix
-//! socket to the Python policy sidecar (Slice 1 boundary). See
+//! socket to the Python policy sidecar ( boundary). See
 //! `docs/adr/adr-014-slice-1-equivalence.md` §3 / §4.
 
 #![forbid(unsafe_code)]
@@ -133,7 +133,7 @@ async fn main() -> Result<()> {
 
     let started_at = clock.now();
 
-    // ADR-014 Phase 3 §6 — build the optional transparency-log client.
+    //  — build the optional transparency-log client.
     // Settings::from_env already failed closed in prod; here we just
     // honor the boolean and config. Empty url / key ⇒ None (the
     // helper handles both). In prod with the flag set, `None` here
@@ -187,7 +187,7 @@ async fn main() -> Result<()> {
             "/kernel/v1/approvals/{item_id}/reject",
             post(routes::approvals::reject),
         )
-        // ADR-018 (ARY-2028) — `/policy/*` slice-1 scaffold (501s).
+        //  — `/policy/*` slice-1 scaffold (501s).
         .merge(routes::policy::router())
         .layer(RequestBodyLimitLayer::new(MAX_BODY_BYTES))
         .layer(TraceLayer::new_for_http())
@@ -197,7 +197,7 @@ async fn main() -> Result<()> {
         ))
         .with_state(app_state);
 
-    // ADR-014 Slice 1 Addendum 2a §2 — dual-ingress bind.
+    //  Addendum 2a §2 — dual-ingress bind.
     //
     // When `QORCH_KERNEL_TLS_CERT` + `QORCH_KERNEL_TLS_KEY` are set, the
     // kernel binary terminates rustls itself. nginx remains the outer
@@ -210,7 +210,7 @@ async fn main() -> Result<()> {
     if settings.is_prod() && !settings.tls_enable {
         return Err(anyhow!(
             "fail-closed: QORCH_ENV=prod requires QORCH_KERNEL_TLS_CERT \
-             and QORCH_KERNEL_TLS_KEY to be set (ADR-014 Slice 1 Addendum 2a §2)"
+             and QORCH_KERNEL_TLS_KEY to be set ( Addendum 2a §2)"
         ));
     }
 
@@ -233,7 +233,7 @@ async fn main() -> Result<()> {
 
         // Install ring as the rustls crypto provider exactly once per
         // process. Repeat installs error; we only care about the first
-        // success, hence `let _ = ...`.
+        // success, hence `let _ =...`.
         let _ = rustls::crypto::ring::default_provider().install_default();
 
         let rustls_config = tls::build_server_config(cert_path, key_path, client_ca)

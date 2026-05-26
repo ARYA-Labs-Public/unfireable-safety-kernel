@@ -1,4 +1,4 @@
-//! ARY-1885 Phase 3 /test wave — real HTTP wiremock test for
+//!   /test wave — real HTTP wiremock test for
 //! `ReqwestTransparencyClient`.
 //!
 //! Step 5's kernel-side integration test (`authorize_transparency_log.rs`)
@@ -44,7 +44,7 @@ fn input() -> TransparencyAppendInput {
 }
 
 /// RFC-6962 leaf hash of the canonical `input()` payload, hex-encoded.
-/// ARY-2129: the kernel cross-verifies the t-log's `leaf_hash_hex`
+///: the kernel cross-verifies the t-log's `leaf_hash_hex`
 /// against this locally-recomputed value, so 2xx happy-path mock
 /// responses MUST carry the matching hash or they will surface as
 /// `ProtocolViolation`.
@@ -70,7 +70,7 @@ async fn http_201_fresh_insert_returns_ok() {
         .respond_with(ResponseTemplate::new(201).set_body_json(serde_json::json!({
             "entry_id": "42",
             "idempotent_replay": false,
-            // ARY-2129: must match the kernel's locally-computed
+            //: must match the kernel's locally-computed
             // RFC-6962 leaf hash or the request fails-closed.
             "leaf_hash_hex": input_leaf_hash_hex(),
             "leaf_index": 42,
@@ -95,7 +95,7 @@ async fn http_200_idempotent_replay_returns_ok() {
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "entry_id": "7",
             "idempotent_replay": true,
-            // ARY-2129: must match the kernel's locally-computed
+            //: must match the kernel's locally-computed
             // RFC-6962 leaf hash or the request fails-closed.
             "leaf_hash_hex": input_leaf_hash_hex(),
             "leaf_index": 7,
@@ -123,7 +123,7 @@ async fn http_400_yields_rejected() {
     let client = client_for(&server, Duration::from_secs(2)).await;
     let err = client.append(input()).await.unwrap_err();
     match err {
-        TransparencyError::Rejected { status_code, .. } => {
+        TransparencyError::Rejected { status_code,.. } => {
             assert_eq!(status_code, 400);
         }
         other => panic!("expected Rejected{{400}}, got {other:?}"),
@@ -143,7 +143,7 @@ async fn http_401_yields_rejected() {
     let client = client_for(&server, Duration::from_secs(2)).await;
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::Rejected { status_code: 401, .. }),
+        matches!(err, TransparencyError::Rejected { status_code: 401,.. }),
         "got {err:?}",
     );
     assert_eq!(err.kind(), "append_failed");
@@ -162,7 +162,7 @@ async fn http_403_yields_rejected() {
     let client = client_for(&server, Duration::from_secs(2)).await;
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::Rejected { status_code: 403, .. }),
+        matches!(err, TransparencyError::Rejected { status_code: 403,.. }),
         "got {err:?}",
     );
 }
@@ -180,7 +180,7 @@ async fn http_422_yields_rejected() {
     let client = client_for(&server, Duration::from_secs(2)).await;
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::Rejected { status_code: 422, .. }),
+        matches!(err, TransparencyError::Rejected { status_code: 422,.. }),
         "got {err:?}",
     );
 }
@@ -198,7 +198,7 @@ async fn http_500_yields_server_error() {
     let client = client_for(&server, Duration::from_secs(2)).await;
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::ServerError { status_code: 500, .. }),
+        matches!(err, TransparencyError::ServerError { status_code: 500,.. }),
         "got {err:?}",
     );
     assert_eq!(err.kind(), "server_error");
@@ -217,7 +217,7 @@ async fn http_502_yields_server_error() {
     let client = client_for(&server, Duration::from_secs(2)).await;
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::ServerError { status_code: 502, .. }),
+        matches!(err, TransparencyError::ServerError { status_code: 502,.. }),
         "got {err:?}",
     );
 }
@@ -235,7 +235,7 @@ async fn http_503_yields_server_error() {
     let client = client_for(&server, Duration::from_secs(2)).await;
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::ServerError { status_code: 503, .. }),
+        matches!(err, TransparencyError::ServerError { status_code: 503,.. }),
         "got {err:?}",
     );
 }
@@ -277,7 +277,7 @@ async fn http_2xx_with_malformed_json_yields_malformed() {
     let client = client_for(&server, Duration::from_secs(2)).await;
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::Malformed { .. }),
+        matches!(err, TransparencyError::Malformed {.. }),
         "expected Malformed, got {err:?}",
     );
     assert_eq!(err.kind(), "malformed_response");
@@ -297,7 +297,7 @@ async fn slow_response_exceeding_timeout_yields_unreachable() {
     let client = client_for(&server, Duration::from_millis(200)).await;
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::Unreachable { .. }),
+        matches!(err, TransparencyError::Unreachable {.. }),
         "expected Unreachable, got {err:?}",
     );
     assert_eq!(err.kind(), "unreachable");
@@ -314,7 +314,7 @@ async fn connection_refused_yields_unreachable() {
     );
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::Unreachable { .. }),
+        matches!(err, TransparencyError::Unreachable {.. }),
         "expected Unreachable, got {err:?}",
     );
 }
@@ -341,7 +341,7 @@ async fn request_body_carries_required_fields_in_lex_order() {
         .respond_with(ResponseTemplate::new(201).set_body_json(serde_json::json!({
             "entry_id": "0",
             "idempotent_replay": false,
-            // ARY-2129: must match the kernel's locally-computed
+            //: must match the kernel's locally-computed
             // RFC-6962 leaf hash or the request fails-closed.
             "leaf_hash_hex": input_leaf_hash_hex(),
             "leaf_index": 0_u64,
@@ -361,7 +361,7 @@ async fn request_body_carries_required_fields_in_lex_order() {
 #[allow(unused_imports)]
 use base64::Engine as _;
 
-/// ARY-2129 / Phase 3 Step 8 — t-log returns a 2xx with a
+///  /  Step 8 — t-log returns a 2xx with a
 /// `leaf_hash_hex` that does NOT match the kernel's locally-computed
 /// `SHA-256(0x00 || payload)`. The wire client MUST refuse and
 /// surface `TransparencyError::ProtocolViolation`. This is the
@@ -395,7 +395,7 @@ async fn http_2xx_with_wrong_leaf_hash_yields_protocol_violation() {
     assert_eq!(err.kind(), "protocol_violation");
 }
 
-/// ARY-2129 / Phase 3 Step 8 — non-hex `leaf_hash_hex` MUST also map
+///  /  Step 8 — non-hex `leaf_hash_hex` MUST also map
 /// to `ProtocolViolation` (this is the same fail-closed class — the
 /// t-log violated its wire contract).
 #[tokio::test]

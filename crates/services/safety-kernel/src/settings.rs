@@ -1,10 +1,10 @@
 //! Env-driven settings layer — mirrors `apps/safety_kernel/config.py`.
 //!
-//! Per ADR-014 Slice 1, the Rust binary owns the HTTP boundary and
+//! Per, the Rust binary owns the HTTP boundary and
 //! Ed25519 signing. The DB lives in the Python policy sidecar, so all
 //! `db_*` and `pg_dsn` fields here are forwarded as opaque strings (or
 //! ignored) — the Rust binary does NOT touch the DB directly in
-//! Slice 1. They are kept on the struct for parity with Python and so
+//!. They are kept on the struct for parity with Python and so
 //! the Slice 1b port (Rust takes over audit) is a drop-in.
 //!
 //! Required-secrets policy (matches `config.py:65-71`):
@@ -28,7 +28,7 @@ const DEFAULT_POLICY_SOCK: &str = "/var/run/qorch/safety_policy.sock";
 const DEFAULT_LISTEN_ADDR: &str = "0.0.0.0:9000";
 
 /// Default SNI used by in-cluster Rust callers when connecting to the
-/// rustls dual-ingress. Matches ADR-014 Slice 1 Addendum 2a §2.
+/// rustls dual-ingress. Matches Addendum 2a §2.
 const DEFAULT_TLS_SNI: &str = "safety-kernel-rust.internal";
 
 /// Process-level Safety Kernel configuration. Built once at startup
@@ -46,11 +46,11 @@ pub struct Settings {
     /// Path used by the sqlite backend — forwarded to the sidecar.
     pub db_path: String,
 
-    /// Postgres DSN — forwarded to the sidecar (Slice 1 does not
+    /// Postgres DSN — forwarded to the sidecar ( does not
     /// connect from Rust).
     pub pg_dsn: Option<String>,
 
-    /// `none` | `api_key` | `jwt` — Slice 1 supports `api_key` only.
+    /// `none` | `api_key` | `jwt` —  supports `api_key` only.
     pub auth_mode: String,
 
     /// Per-role API keys.
@@ -80,7 +80,7 @@ pub struct Settings {
     /// Path to the Python policy sidecar's Unix socket.
     pub policy_sock_path: PathBuf,
 
-    /// ADR-014 Slice 1 Addendum 2a §2 — server-side rustls termination.
+    ///  Addendum 2a §2 — server-side rustls termination.
     /// Path to the PEM-encoded server certificate (kernel-side TLS cert
     /// presented to in-cluster Rust callers). Env: `QORCH_KERNEL_TLS_CERT`.
     /// `None` disables the rustls ingress; the plaintext listener stays.
@@ -108,11 +108,11 @@ pub struct Settings {
     pub tls_enable: bool,
 
     // -------------------------------------------------------------
-    // ARY-1885 Phase 3 Step 5 — transparency-log integration
+    //   Step 5 — transparency-log integration
     // -------------------------------------------------------------
     /// One-way ratchet: `true` ⇒ the authorize handler MUST publish
     /// every decision to the transparency-log before returning a
-    /// signed token (fail-CLOSED per ADR-014 Phase 3 §6). Required to
+    /// signed token (fail-CLOSED Required to
     /// be `true` in prod (`Settings::from_env` rejects startup
     /// otherwise). `false` in dev lets the existing equivalence
     /// harness run without a real t-log.
@@ -127,11 +127,11 @@ pub struct Settings {
     pub transparency_log_api_key: Option<String>,
 
     /// Per-call timeout for the transparency-log POST. Default `2.0`s
-    /// per ADR-014 Phase 3 §6.
+    /// 
     pub transparency_log_timeout_seconds: f64,
 
     // -------------------------------------------------------------
-    // ARY-1885 Phase 3 Step 8 / ARY-2127 — outbound mTLS client
+    //   Step 8 /  — outbound mTLS client
     // identity for the kernel → t-log connection.
     // -------------------------------------------------------------
     /// Path to the PEM-encoded client certificate the kernel presents
@@ -248,7 +248,7 @@ impl Settings {
                 .unwrap_or_else(|_| DEFAULT_POLICY_SOCK.to_string()),
         );
 
-        // ADR-014 Slice 1 Addendum 2a §2 — rustls dual-ingress.
+        //  Addendum 2a §2 — rustls dual-ingress.
         // Cert + key must BOTH be present for the TLS listener to bind;
         // either-missing → tls_enable=false and we fall back to plaintext.
         let tls_cert_path = env::var("QORCH_KERNEL_TLS_CERT")
@@ -267,7 +267,7 @@ impl Settings {
             env::var("QORCH_KERNEL_SNI").unwrap_or_else(|_| DEFAULT_TLS_SNI.to_string());
         let tls_enable = tls_cert_path.is_some() && tls_key_path.is_some();
 
-        // ADR-014 Phase 3 §6 — transparency-log integration env.
+        //  — transparency-log integration env.
         let transparency_enabled = env::var("QORCH_KERNEL_TRANSPARENCY_ENABLED")
             .ok()
             .map(|v| v.trim().to_ascii_lowercase())
@@ -299,11 +299,11 @@ impl Settings {
             return Err(anyhow!(
                 "fail-closed: QORCH_ENV=prod + transparency_enabled requires \
                  QORCH_KERNEL_TRANSPARENCY_LOG_URL and \
-                 QORCH_KERNEL_TRANSPARENCY_API_KEY to be set (ADR-014 Phase 3 §6)"
+                 QORCH_KERNEL_TRANSPARENCY_API_KEY to be set ()"
             ));
         }
 
-        // ARY-2127 — outbound mTLS client identity.
+        //  — outbound mTLS client identity.
         let transparency_log_client_cert_path = env::var("QORCH_KERNEL_TRANSPARENCY_CLIENT_CERT")
             .ok()
             .filter(|v| !v.trim().is_empty())
@@ -317,7 +317,7 @@ impl Settings {
         // cert + key MUST be set so the kernel presents a client cert
         // on the mTLS handshake (server-side mTLS is already enforced
         // by the t-log's rustls listener; this closes the loop on
-        // ADR-014 Phase 3 §6's "mutual" half).
+        // 's "mutual" half).
         if transparency_enabled
             && matches!(env_lower.as_str(), "prod" | "production")
             && (transparency_log_client_cert_path.is_none()
@@ -328,7 +328,7 @@ impl Settings {
                  QORCH_KERNEL_TRANSPARENCY_CLIENT_CERT and \
                  QORCH_KERNEL_TRANSPARENCY_CLIENT_KEY to be set so the \
                  kernel presents a client cert on the mTLS handshake \
-                 (ADR-014 Phase 3 §6 / ARY-2127)"
+                 ( / )"
             ));
         }
 

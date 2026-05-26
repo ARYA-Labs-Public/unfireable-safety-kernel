@@ -1,4 +1,4 @@
-//! ARY-1885 Phase 3 Step 5 — kernel-side transparency-log fail-CLOSED
+//!   Step 5 — kernel-side transparency-log fail-CLOSED
 //! integration tests.
 //!
 //! Four scenarios per the brief:
@@ -71,7 +71,7 @@ enum MockBehavior {
     ServerError,
     Conflict,
     SlowSleep(Duration),
-    /// ARY-2129: trait-level surface for the new `ProtocolViolation`
+    ///: trait-level surface for the new `ProtocolViolation`
     /// error (the wire client emits this when the t-log returns a
     /// divergent `leaf_hash_hex`; the trait mock simply returns the
     /// pre-mapped error so we can assert the kernel's authorize
@@ -354,7 +354,7 @@ async fn authorize_transparency_409_treated_as_success() {
     assert!(v["token"].is_string());
 }
 
-/// ARY-2129 / Phase 3 Step 8 — when the t-log returns a 2xx with a
+///  /  Step 8 — when the t-log returns a 2xx with a
 /// divergent `leaf_hash_hex`, the wire-level
 /// `ReqwestTransparencyClient::append` maps that to
 /// `TransparencyError::ProtocolViolation(...)`. The kernel's authorize

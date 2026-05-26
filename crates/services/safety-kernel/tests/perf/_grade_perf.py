@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Grade the ``pytest-benchmark`` JSON report against the slice-5 budget.
 
-ARY-2028 slice 5 §3.3 (SOFT recalibrated by ARY-2028-followup item 3,
-PT-S5-M3). Two thresholds:
+ slice 5 §3.3 (SOFT recalibrated by -followup item 3,
+). Two thresholds:
 
 * SOFT 7 ms p99 — emit ``::warning::`` GitHub Actions annotation;
   exit 0.
 * HARD 10 ms p99 — emit ``::error::`` GitHub Actions annotation;
   exit 1.
 
-SOFT recalibration rationale (PT-S5-M3): Test-5 measured the
+SOFT recalibration rationale: Test-5 measured the
 pytest-benchmark e2e p99 at **5.45 ms** — right on the original 5 ms
 SOFT boundary. A standard CI machine running 10-20% slower than the
 bench host would trip the SOFT gate on a clean, non-regressed kernel,
@@ -45,7 +45,7 @@ import sys
 from pathlib import Path
 
 
-# SOFT recalibrated 5.0 -> 7.0 ms by ARY-2028-followup item 3 (PT-S5-M3)
+# SOFT recalibrated 5.0 -> 7.0 ms by -followup item 3
 # — measured e2e p99 was 5.45 ms on the bench host; 7 ms gives CI-host
 # headroom so the SOFT gate flags real latency creep, not host variance.
 SOFT_BUDGET_MS = 7.0
@@ -63,9 +63,9 @@ def _extract_p99_ms(report: dict) -> float | None:
             {
               "name": "test_policy_authorize_p99_meets_budget",
               "stats": {
-                "mean": 0.001234, "min": ..., "max": ...,
-                "stddev": ..., "iqr": ..., "median": ...,
-                "q1": ..., "q3": ...,
+                "mean": 0.001234, "min":..., "max":...,
+                "stddev":..., "iqr":..., "median":...,
+                "q1":..., "q3":...,
                 "percentile_99": 0.00234,   # may or may not be present
                 "data": [...]               # sometimes present
               }

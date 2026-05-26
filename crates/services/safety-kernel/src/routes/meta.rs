@@ -10,14 +10,14 @@ use crate::state::AppState;
 
 /// `GET /health` and `GET /kernel/v1/health` — same handler.
 ///
-/// Per ADR-014 Slice 1 §5.3, the response shape is `{ok, version,
+/// 3, the response shape is `{ok, version,
 /// uptime_s}` with all three fields always present. Both paths
 /// return identical bodies.
 ///
 /// Async despite no `.await`: axum's `Handler` trait requires the
 /// function be `async fn`. The `clippy::unused_async` lint flags this
 /// pattern when the lib target is checked (it was bin-only before the
-/// ARY-2028 slice-1 lib was added; see `lib.rs`).
+///  slice-1 lib was added; see `lib.rs`).
 #[allow(clippy::unused_async)]
 pub async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
     let now = state.clock.now();
@@ -36,7 +36,7 @@ pub async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
 /// public_key_fingerprint}`.
 ///
 /// The schema only declares the latter two fields, but Python emits
-/// `ok` and `algorithm` too — Rust matches Python wire (ADR-014 Slice 1
+/// `ok` and `algorithm` too — Rust matches Python wire (
 /// §10 inconsistency note 2).
 ///
 /// Async despite no `.await`: see `health` above — axum's `Handler`

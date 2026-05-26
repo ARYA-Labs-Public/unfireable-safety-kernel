@@ -1,7 +1,7 @@
 //! `/kernel/v1/approvals/{item_id}/{approve,reject}` handlers — port
 //! of `apps/safety_kernel/routes/approvals.py`.
 //!
-//! Order of operations (ADR-014 Slice 1 §4.3):
+//! Order of operations ():
 //!  1. Role check (must be `caller_role == "operator"`).
 //!  2. Skipped (no API-action gate for approvals).
 //!  3. Compute `proposal_fingerprint` (`params_fingerprint` over the
@@ -99,7 +99,7 @@ async fn sign_decision(
     let nonce = fixed_nonce.unwrap_or_else(|| state.nonce.nonce_b64());
     let claims_struct = ApprovalClaims {
         action: "approval_decision".to_string(),
-        // Audience tag (PT-S5-M1, ARY-2028-followup item 1). Partitions
+        // Audience tag. Partitions
         // the approval-decision audience so this token cannot be
         // replayed against the `/kernel/v1/authorize` or `/policy/*`
         // verifiers (shared kernel signing key). Mirrors the

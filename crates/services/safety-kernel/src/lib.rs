@@ -9,7 +9,7 @@
 //! binary-spawn + Python-sidecar dance.
 //!
 //! Module visibility note: `main.rs` re-declares each module under its
-//! own crate namespace via `mod ...`. That works because `main.rs` and
+//! own crate namespace via `mod...`. That works because `main.rs` and
 //! `lib.rs` are separate compilation units; both can re-declare the
 //! same `mod foo;` and the source file is shared. See
 //! <https://doc.rust-lang.org/cargo/reference/cargo-targets.html#binaries>
@@ -35,7 +35,7 @@ pub mod dto;
 pub mod routes;
 pub mod settings;
 pub mod state;
-/// ARY-1885 Phase 3 Step 5 — outbound transparency-log client + trait
+///   Step 5 — outbound transparency-log client + trait
 /// + idempotency-key helper. Lives in the kernel crate (not adapters)
 /// because it's the kernel's private outbound dep; promote to a
 /// shared adapter once a second caller appears.

@@ -1,5 +1,5 @@
 # crates/services/safety-kernel — Rust port of the Safety Kernel HTTP
-# service (ADR-014 / ARY-1990 Phase 3a).
+# service ( /  ).
 #
 # W1 commit was the boot stub. W2 (this commit) wires the axum router,
 # auth middleware, the 6 endpoints, and the Unix-socket policy IPC.
@@ -11,7 +11,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
-description = "Rust port of the QantmOrchstrtr-RSI Safety Kernel HTTP service."
+description = "Rust port of the safety-kernel HTTP service."
 
 [[bin]]
 name = "qorch-safety-kernel"
@@ -45,30 +45,30 @@ thiserror = { workspace = true }
 uuid = { workspace = true }
 bytes = { workspace = true }
 
-# Slice 1 / Phase 3a additions for W2:
+#  /  additions for W2:
 ed25519-dalek = { workspace = true }
 base64 = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
 
-# ARY-1885 Phase 3 Step 5 — outbound transparency-log client.
+#   Step 5 — outbound transparency-log client.
 # `reqwest` for the HTTP POST (rustls feature set; NO native-tls, NO
-# aws-lc-rs per ADR-014 Slice 1 Addendum 2a §2). `async-trait` for the
+# aws-lc-rs  `async-trait` for the
 # dyn-compatible `TransparencyClient` vtable held by `AppState`.
 # (`thiserror` is already pulled in by the workspace default deps
 #  above; reused for `TransparencyError`.)
 reqwest = { workspace = true }
 async-trait = "0.1"
 
-# ARY-2028 slice 2 — kernel-side regex pre-validation per ADR-018 §5.
+#  slice 2 — kernel-side regex pre-validation 
 # RE2-style DFA engine, NO backtracking — `fancy-regex`, `pcre2`, `onig`
 # are explicitly forbidden by the ADR. Pre-validation in the kernel
 # guarantees that patterns reaching the Python sidecar are
-# RE2-compatible (cross-language equivalence note in ADR-018 §5).
+# RE2-compatible (cross-language equivalence note in ).
 regex = "1"
 
-# ARY-1883 Phase 2a Step 3 — server-side rustls termination (ADR-014
-# Slice 1 Addendum 2a §2). `tls-rustls-no-provider` so we control the
+#   Step 3 — server-side rustls termination (
+#  Addendum 2a §2). `tls-rustls-no-provider` so we control the
 # crypto provider explicitly via `rustls`'s `ring` feature below —
 # the default `tls-rustls` feature would pull `aws-lc-rs` which the
 # ADR forbids in favor of `rustls::crypto::ring`. `axum-server` is
@@ -92,30 +92,30 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 tempfile = "3"
 rand_core = { workspace = true }
 sha2 = { workspace = true }
-# ARY-1883 Step 3 — `tests/tls_smoke.rs` self-signed cert generation.
-# ARY-1885 Phase 3 /test wave — also used by `tests/test_transparency_mtls_smoke.rs`
+#  Step 3 — `tests/tls_smoke.rs` self-signed cert generation.
+#   /test wave — also used by `tests/test_transparency_mtls_smoke.rs`
 # to drive a real mTLS handshake between the kernel client and an
 # axum-server bound to a self-signed CA.
 rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
-# ARY-1885 Phase 3 /test wave — `tests/test_transparency_http_wiremock.rs`
+#   /test wave — `tests/test_transparency_http_wiremock.rs`
 # drives ReqwestTransparencyClient against a real HTTP mock so the
 # status-code -> TransparencyError mapping is exercised end-to-end.
 # Same version as the reconciler crate pin so the build graph dedups.
 wiremock = "0.6"
-# In-process router exercise (ARY-2028 slice 1 scaffold tests). `tower`
+# In-process router exercise ( slice 1 scaffold tests). `tower`
 # brings `ServiceExt::oneshot` for firing requests at the router without
 # binding a socket; `http-body-util` collects response bodies.
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tower = { workspace = true, features = ["util"] }
 http-body-util = "0.1"
-# ARY-2028 slice 5 §3.2: criterion microbench for `POST /policy/module/authorize`.
+#  slice 5 §3.2: criterion microbench for `POST /policy/module/authorize`.
 # Informational only — the gating p99 number is the pytest-benchmark
 # e2e harness at `tests/perf/policy_authorize_e2e.py`. `harness = false`
 # on the `[[bench]]` entry below tells cargo to defer to criterion's
 # `criterion_main!` macro instead of the default libtest harness.
 criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
 
-# ARY-2028 slice 5 §3.2: criterion bench for `POST /policy/module/authorize`.
+#  slice 5 §3.2: criterion bench for `POST /policy/module/authorize`.
 # `harness = false` -> criterion provides its own `main()`. Run via:
 #   cargo bench -p qorch-safety-kernel --bench policy_authorize_p99 -- --quick
 [[bench]]

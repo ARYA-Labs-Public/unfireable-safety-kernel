@@ -1,13 +1,13 @@
-//! `AppState` for the transparency-log service (ADR-014 Phase 3 §3,
-//! ARY-1885 Step 5).
+//! `AppState` for the transparency-log service (,
+//!  Step 5).
 //!
 //! Holds the (Send + Sync) handles every route handler needs:
 //!
 //! - `store` — `Arc<dyn TransparencyStore>` (Step 4 trait). The
 //!   Postgres impl in production; the memory impl in tests + dev.
 //! - `signing_key` — the Ed25519 private key used to mint STHs. STH
-//!   signs with a separate, independently-rotated key per ADR-014
-//!   Phase 3 §4b — distinct from the kernel's token-signing key. Read
+//!   signs with a separate, independently-rotated key per 
+//!    §4b — distinct from the kernel's token-signing key. Read
 //!   from env var `QORCH_TRANSPARENCY_SIGNING_KEY_B64` at service
 //!   startup.
 //! - `signing_key_fingerprint_hex` — SHA-256 of the raw 32-byte public
@@ -43,15 +43,15 @@ use qorch_transparency_store::TransparencyStore;
 /// Merkle store stays the source of truth (the index is rebuildable
 /// from the leaves on cold start by walking the store at boot).
 ///
-/// ARY-2181 Phase 1 keeps this in-memory; the Postgres slice (Phase 2)
+///   keeps this in-memory; the Postgres slice ()
 /// will denormalize via a `wave_session_leaves(wave_id, leaf_index)`
 /// view.
 pub type WaveSessionIndex = Arc<Mutex<HashMap<String, Vec<u64>>>>;
 
-/// Per-leaf side map: `leaf_index -> (record, hmac)`. Phase 1 holds
-/// this in-memory; Phase 2 will denormalize into Postgres. The
+/// Per-leaf side map: `leaf_index -> (record, hmac)`.  holds
+/// this in-memory;  will denormalize into Postgres. The
 /// transparency-log ledger remains the source of truth — this map is
-/// rebuildable by walking the leaves at boot. ARY-2181 Phase 1.
+/// rebuildable by walking the leaves at boot..
 pub type WaveSessionPayloadMap =
     Arc<Mutex<HashMap<u64, (WaveSessionRecord, [u8; 32])>>>;
 
@@ -85,16 +85,16 @@ pub struct AppState {
     /// rotate (HMAC supports arbitrary key lengths up to the block
     /// size). Sourced from env var `QORCH_KERNEL_HMAC_KEY_B64` at
     /// service startup; empty in tests that explicitly do not exercise
-    /// the wave-session-record path. (ARY-2181 Phase 1.)
+    /// the wave-session-record path. (.)
     pub kernel_hmac_key: Vec<u8>,
     /// In-process index from `wave_id -> [leaf_index]` so the verify
     /// route can stream a chain in O(records-in-wave). See
-    /// [`WaveSessionIndex`]. (ARY-2181 Phase 1.)
+    /// [`WaveSessionIndex`]. (.)
     pub wave_session_index: WaveSessionIndex,
     /// Per-leaf side map carrying the decoded record + HMAC so the
     /// verify route does not have to re-derive from raw leaf bytes
     /// (the `TransparencyStore` trait does not expose raw payload
-    /// today; ARY-2181 Phase 2 will denormalize into Postgres).
+    /// today;   will denormalize into Postgres).
     pub wave_session_payloads: WaveSessionPayloadMap,
 }
 
@@ -126,7 +126,7 @@ impl AppState {
 
     /// Builder-style: install the kernel HMAC key the wave-session
     /// route checks against. Returns `self` for chained construction.
-    /// (ARY-2181 Phase 1.)
+    /// (.)
     #[must_use]
     pub fn with_kernel_hmac_key(mut self, key: Vec<u8>) -> Self {
         self.kernel_hmac_key = key;

@@ -30,7 +30,7 @@ pub struct AppState {
     /// Hex sha256 of the raw 32-byte Ed25519 public key.
     pub public_key_fingerprint: String,
     /// HMAC pepper bytes for audit-record hashing (forwarded to the
-    /// sidecar; Slice 1 doesn't HMAC in Rust).
+    /// sidecar;  doesn't HMAC in Rust).
     pub audit_pepper: Arc<Vec<u8>>,
     /// Wall-clock at process start (for `/health.uptime_s`).
     pub started_at: f64,
@@ -40,7 +40,7 @@ pub struct AppState {
     pub nonce: Arc<dyn NonceSource>,
     /// Unix-socket policy IPC client.
     pub policy_client: Arc<PolicyEngineClient>,
-    /// ARY-1885 Phase 3 Step 5 — outbound transparency-log client.
+    ///   Step 5 — outbound transparency-log client.
     /// `None` ⇒ transparency integration disabled (dev only). Routes
     /// MUST short-circuit-success when this is `None` AND
     /// `settings.transparency_enabled` is false; routes MUST fail

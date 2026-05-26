@@ -1,5 +1,5 @@
 //! Positive-control auth coverage for the `/policy/*` slice-1 routes
-//! (ADR-018, ARY-2028). This file is the sibling of
+//! (, ). This file is the sibling of
 //! `policy_routes_scaffold.rs` — that one exercises the routes WITHOUT
 //! auth middleware (route-shape gates), this one exercises them WITH
 //! auth middleware (key-checking gates).
@@ -15,11 +15,11 @@
 //! positive control; nothing prevented a future scaffold revert from
 //! silently dropping the middleware on `/policy/*`).
 //!
-//! Slice 1 handlers still return 501 — the goal of THIS file is the
+//!  handlers still return 501 — the goal of THIS file is the
 //! middleware gate, not the handler logic. The "valid-key → 501"
 //! test pins TODAY's contract: with a valid worker key, traffic
 //! reaches the scaffold handler and gets the slice-1 `not_implemented`
-//! body. Slice 2 MUST update that assertion to `200 / 403 / 503` once
+//! body.  MUST update that assertion to `200 / 403 / 503` once
 //! the real authorization path lands; the 401-without-key and
 //! 401-with-wrong-key assertions stay green forever.
 
@@ -74,7 +74,7 @@ const BOGUS_KEY: &str = "bogus-key-value-12345";
 // `from_fn_with_state(state, auth_layer)`, then `.with_state(state)`.
 //
 // We do NOT mount the body-limit layer or trace layer here — they are
-// orthogonal to the auth gate. Slice 2 may want to add a body-limit
+// orthogonal to the auth gate.  may want to add a body-limit
 // positive control; that's a separate file.
 
 /// Build a minimal `Settings` with the test API keys baked in. None of
@@ -105,7 +105,7 @@ fn test_settings() -> Settings {
         // touched by 401 / 501 paths.
         listen_addr: "127.0.0.1:0".to_string(),
         policy_sock_path: PathBuf::from("/tmp/qorch-test-nonexistent.sock"),
-        // ADR-014 Slice 1 Addendum 2a §2 — TLS dual-ingress fields. The
+        //  Addendum 2a §2 — TLS dual-ingress fields. The
         // in-process router tests never bind a socket; tls_enable=false
         // and all paths None matches the dev-default Settings shape.
         tls_cert_path: None,
@@ -199,7 +199,7 @@ async fn oneshot(app: Router, req: Request<Body>) -> (StatusCode, Vec<u8>) {
 }
 
 /// A syntactically valid `ModuleAuthorizeRequest` body — what the
-/// slice-2 handler will eventually parse. Slice 1 ignores the body and
+/// slice-2 handler will eventually parse.  ignores the body and
 /// returns 501 regardless; we still send a well-formed one so we never
 /// false-pass through a JSON-extractor rejection that returns the
 /// "right" code for the wrong reason.
@@ -282,7 +282,7 @@ async fn policy_register_returns_401_without_x_api_key() {
 // non-empty bogus key to exercise the full match path.
 
 /// `POST /policy/module/authorize` with a wrong `x-api-key` → 401.
-// Gate: middleware MUST refuse a non-matching key. Slice 2 keeps green.
+// Gate: middleware MUST refuse a non-matching key.  keeps green.
 #[tokio::test]
 async fn policy_authorize_returns_401_with_wrong_x_api_key() {
     let req = Request::builder()
@@ -313,7 +313,7 @@ async fn policy_authorize_returns_401_with_wrong_x_api_key() {
 //
 // THIS test is the slice-1 positive-control contract: with a valid
 // worker key the auth layer passes the request through to the scaffold
-// handler, which returns 501 with the slice-1 marker body. Slice 2
+// handler, which returns 501 with the slice-1 marker body. 
 // MUST update this expectation to 200 (allow) / 403 (deny) /
 // 503 (kernel-unavailable) when the real authorize path lands. The
 // 401-without-key and 401-with-wrong-key assertions above are
@@ -321,7 +321,7 @@ async fn policy_authorize_returns_401_with_wrong_x_api_key() {
 // silently land without touching the auth-control suite.
 
 /// `POST /policy/module/authorize` with a valid worker key reaches the
-/// slice-2 handler. Slice 2 handler performs body validation; since
+/// slice-2 handler.  handler performs body validation; since
 /// the test request body has a placeholder `event_fingerprint` (all
 /// zeros) that doesn't match the recomputed canonical fingerprint,
 /// the handler MUST return 400 `event_fingerprint_invalid`. Either

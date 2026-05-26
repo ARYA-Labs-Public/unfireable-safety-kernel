@@ -1,11 +1,11 @@
 //! Structural watchdog tests for the `/policy/*` slice-2 routes
-//! (ADR-018, ARY-2028). This file complements
+//! (, ). This file complements
 //! `policy_routes_auth.rs` (middleware/key gate) — here we exercise
 //! the route-shape contract (allowed methods, OPTIONS non-5xx) and
 //! the adversarial-suite coverage matrix that forces wave-2b to
 //! shrink the deferred list as new fixture files land.
 //!
-//! Slice 2 has flipped the four DEFERRED authorization-related test
+//!  has flipped the four DEFERRED authorization-related test
 //! classes to LANDED; the watchdog asserts `LANDED=10` /
 //! `DEFERRED=1` so the only remaining deferral is the slice-5 perf
 //! gate. The real-attack fixture tests live alongside in
@@ -80,7 +80,7 @@ fn test_settings() -> Settings {
         // they exercise method matching, OPTIONS handling, and the
         // role-rejection short-circuit (which happens BEFORE IPC).
         policy_sock_path: PathBuf::from("/tmp/qorch-test-nonexistent-scaffold.sock"),
-        // ADR-014 Slice 1 Addendum 2a §2 — TLS fields. In-process tests
+        //  Addendum 2a §2 — TLS fields. In-process tests
         // never bind, so tls_enable=false matches dev-default Settings.
         tls_cert_path: None,
         tls_key_path: None,
@@ -267,22 +267,22 @@ async fn options_does_not_500_on_any_policy_route() {
 // 2. Adversarial-suite coverage matrix (watchdog)
 // =============================================================================
 //
-// Slice 2 flips 4 of 5 DEFERRED classes to LANDED. The watchdog is
+//  flips 4 of 5 DEFERRED classes to LANDED. The watchdog is
 // the fixed-length assertion below; the actual adversarial fixture
 // files live alongside in `tests/policy_*.rs` and are owned by the
 // wave-2b test agent.
 
 /// Adversarial classes LANDED by slice 1 + slice 2 (10 total).
 const LANDED: &[&str] = &[
-    // Slice 1 (route shape).
+    //  (route shape).
     "wrong_method_405",
     "options_does_not_500",
     "forbidden_imports_lint",
-    // Slice 2 (real handlers).
+    //  (real handlers).
     "wrong_content_type_returns_415_or_400",
     "malformed_json_returns_400",
     "happy_path_returns_signed_decision",
-    // Slice 2 (adversarial — wave 2b test agent owns the fixture
+    //  (adversarial — wave 2b test agent owns the fixture
     // files; the watchdog math here forces the engagement).
     "forged_event_fingerprint_rejected",
     "registry_bypass_attempt_denied",
@@ -290,13 +290,13 @@ const LANDED: &[&str] = &[
     "signature_forgery_rejected",
 ];
 
-/// Classes still deferred to a later slice. Slice 5 perf gate is the
+/// Classes still deferred to a later slice.  perf gate is the
 /// only remaining deferral.
 const DEFERRED: &[(&str, &str)] = &[("performance_regression_p99", "slice_5")];
 
 /// Adversarial fixture files that MUST exist on disk. Each one
 /// corresponds to one or more `LANDED` class IDs above (slice-2
-/// wave-2b deliverable per ADR-018 §6). The watchdog enforces both
+/// wave-2b deliverable The watchdog enforces both
 /// the size invariant AND the on-disk presence of every fixture —
 /// a future slice that empties one of these files without flipping
 /// the matching LANDED entry will fail this watchdog.
@@ -362,7 +362,7 @@ fn adversarial_suite_coverage_matrix_is_self_consistent() {
         );
     }
 
-    eprintln!("ARY-2028 adversarial-suite coverage matrix (slice 2):");
+    eprintln!(" adversarial-suite coverage matrix (slice 2):");
     eprintln!("  LANDED ({}):", LANDED.len());
     for name in LANDED {
         eprintln!("    + {name}");

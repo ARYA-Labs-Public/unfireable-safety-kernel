@@ -1,7 +1,7 @@
 //! Hand-rolled HTTP request / response DTOs — port of the `OpenAPI`
 //! schemas in `contracts/openapi/safety_kernel.yaml`.
 //!
-//! Per ADR-014 Slice 1 §7, the DTOs are NOT generated. Codegen
+//!  Codegen
 //! produces `serde_json::Value` for every `additionalProperties: true`
 //! field and `HashMap<String, Value>` for free-form objects, which
 //! does NOT preserve stable key order — we rely on `BTreeMap<String,
@@ -48,11 +48,11 @@ pub struct HealthResponse {
 /// `/kernel/v1/public_key`. The `OpenAPI` schema declares only the
 /// required field set; Python emits two additional fields (`ok`,
 /// `algorithm`) — Rust matches Python's wire so equivalence holds
-/// (ADR-014 Slice 1 §10 inconsistency note 2).
+/// ( inconsistency note 2).
 #[derive(Debug, Clone, Serialize)]
 pub struct PublicKeyResponse {
     pub ok: bool,
-    /// Always `"Ed25519"` for Slice 1.
+    /// Always `"Ed25519"` for.
     pub algorithm: String,
     /// Base64url-no-pad of the raw 32-byte Ed25519 public key.
     pub public_key_b64: String,
@@ -70,13 +70,13 @@ pub struct PublicKeyResponse {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorizeRequest {
-    /// Sensitive action being authorized (e.g. `sio_run_cycles`).
+    /// Sensitive action being authorized (e.g. ).
     pub action: String,
     /// Run identifier bound into the token.
     pub run_id: String,
     /// Worker-supplied identifier — recorded as audit metadata only;
     /// the SIGNED `claims.subject` is the trusted `caller_role`
-    /// (ADR-014 Slice 1 §10 inconsistency note 4).
+    /// ( inconsistency note 4).
     pub subject: String,
     /// Sha256 fingerprint of the params dict (stable JSON).
     pub params_fingerprint: String,
@@ -148,7 +148,7 @@ pub struct SignedDecisionResponse {
 // ============================================================================
 
 /// Generic 4xx / 5xx error envelope. `ok` is always `false`. Note: the
-/// Python deny path uses `error: "forbidden" | "denied" | ...` plus a
+/// Python deny path uses `error: "forbidden" | "denied" |...` plus a
 /// stable `reason` machine code; Rust echoes the same shape for byte
 /// equivalence on the deny path.
 #[derive(Debug, Clone, Serialize)]

@@ -1,8 +1,8 @@
-//! ARY-2181 /purple-team — concurrent-append + race-condition assessment
+//!  /purple-team — concurrent-append + race-condition assessment
 //! for the wave-session-record routes.
 //!
 //! Threat surface this test exercises (matches the purple-team scope on
-//! ARY-2181 Phase 1):
+//!  ):
 //!
 //! - (b) Merkle inclusion-proof tampering — guarded by leaf-hash
 //!   commit: this test indirectly proves the leaf-hash framing is
@@ -112,7 +112,7 @@ async fn concurrent_same_record_collapses_to_single_leaf() {
 
     let r = WaveSessionRecord::new(
         WaveId::new("wave-race"),
-        "ARY-2181",
+        "",
         WaveStage::Tested,
         "race-sid",
         WaveOutcome::Pass,
@@ -186,7 +186,7 @@ async fn stale_signature_replay_does_not_extend_chain() {
 
     let r = WaveSessionRecord::new(
         WaveId::new("wave-replay"),
-        "ARY-2181",
+        "",
         WaveStage::Tested,
         "replay-sid",
         WaveOutcome::Pass,
@@ -250,7 +250,7 @@ async fn concurrent_distinct_waves_do_not_cross_pollinate() {
         tasks.push(tokio::spawn(async move {
             let r = WaveSessionRecord::new(
                 WaveId::new(format!("wave-iso-{i}")),
-                "ARY-2181",
+                "",
                 WaveStage::Tested,
                 format!("sid-{i}"),
                 WaveOutcome::Pass,

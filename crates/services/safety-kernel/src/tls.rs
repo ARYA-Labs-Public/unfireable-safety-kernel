@@ -1,5 +1,5 @@
 //! Server-side rustls configuration for the dual-ingress kernel
-//! (ADR-014 Slice 1 Addendum 2a §2 — ARY-1883 Phase 2a Step 3).
+//! ( Addendum 2a §2 —   Step 3).
 //!
 //! Builds a `axum_server::tls_rustls::RustlsConfig` from PEM files on
 //! disk. When a client-CA bundle is provided, mTLS is enforced via

@@ -1,5 +1,5 @@
-//! HTTP route handlers for the transparency-log service (ADR-014
-//! Phase 3 §3, ARY-1885 Step 5).
+//! HTTP route handlers for the transparency-log service (
+//!  §3,  Step 5).
 //!
 //! One file per endpoint. The `health` route is in this module to keep
 //! the trivial liveness handler co-located with the dispatch table.

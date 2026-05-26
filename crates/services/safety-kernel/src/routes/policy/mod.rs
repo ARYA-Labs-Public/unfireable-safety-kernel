@@ -1,4 +1,4 @@
-//! `/policy/*` route group — Slice 1 scaffold (ADR-018, ARY-2028).
+//! `/policy/*` route group —  scaffold (, ).
 //!
 //! Mounts four endpoints, every one returning `501 Not Implemented`:
 //!
@@ -8,7 +8,7 @@
 //!   * `GET  /policy/module/{module_path}/status` (`status.rs`)
 //!
 //! Real authorization, registry lookup, signed-decision minting, and
-//! audit-chain writes land in slice 2. See ADR-018 §"Slice plan" for
+//! audit-chain writes land in slice 2. See  §"Slice plan" for
 //! the full milestone list and §"What slice 1 does NOT do" for the
 //! explicit guarantee these handlers refuse production traffic.
 

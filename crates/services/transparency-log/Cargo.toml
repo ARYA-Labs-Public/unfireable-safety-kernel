@@ -1,12 +1,12 @@
 # crates/services/transparency-log — append-only Merkle ledger service
-# (ADR-014 Phase 3 §3, ARY-1885 Step 2 scaffold).
+# (,  Step 2 scaffold).
 #
 # Step 2 wires the crate into the workspace and binds the four routes
 # as `501 Not Implemented` stubs. Step 4 lands the Merkle proof logic;
 # Step 5 wires the kernel side and adds migrations / sqlx queries.
 #
-# Internal port 8100; host port 8102 per ADR-014 Phase 3 §3 (8101 is
-# reserved for the optional ARY-2116 Rekor proxy). Routes:
+# Internal port 8100; host port 8102 per  (8101 is
+# reserved for the optional Rekor proxy). Routes:
 #   POST /v1/append          — append a signed token to the ledger
 #   GET  /v1/verify/:id      — inclusion proof for an entry
 #   GET  /v1/sth             — signed tree head
@@ -23,7 +23,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
-description = "Append-only Merkle transparency-log service for Safety Kernel attestation (ADR-014 Phase 3, ARY-1885)."
+description = "Append-only Merkle transparency-log service for Safety Kernel attestation (, )."
 
 [[bin]]
 name = "qorch-transparency-log"
@@ -54,7 +54,7 @@ async-trait = "0.1"
 # workspace root so all crates that touch the transparency ledger
 # (service, future external auditor, storage adapter crate) agree on
 # the sqlx version + feature set. `runtime-tokio` (no native-tls) and
-# explicitly NO `aws-lc-rs` per the ARY-2113 ban.
+# explicitly NO `aws-lc-rs` per the ban.
 #
 # `migrate` feature is opted in here (and only here) so the bin can
 # call `sqlx::migrate!` to apply the adapter's schema on boot. The
@@ -63,21 +63,21 @@ async-trait = "0.1"
 sqlx = { workspace = true, features = ["migrate"] }
 
 # §3: Ed25519 signing for `GET /v1/sth`. Reuses the kernel signing key
-# at runtime per ADR-014 Phase 3 §2.
+# at runtime 
 ed25519-dalek = { workspace = true }
 base64 = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
 
-# ARY-2181 — kernel HMAC over canonical-bytes(WaveSessionRecord).
+#  — kernel HMAC over canonical-bytes(WaveSessionRecord).
 # HMAC-SHA256 with a shared symmetric secret. The constant-time
 # `verify_slice` from the `Mac` trait guards the kernel pin.
 hmac = "0.12"
 
-# ARY-1883 Phase 2a Step 3 pattern — server-side rustls termination via
+#   Step 3 pattern — server-side rustls termination via
 # `axum-server` with `tls-rustls-no-provider`. We install
 # `rustls::crypto::ring` explicitly in `main.rs`. NO `aws-lc-rs` (the
-# ARY-2113 ban), NO `native-tls`.
+#  ban), NO `native-tls`.
 axum-server = { version = "0.8", default-features = false, features = ["tls-rustls-no-provider"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 rustls-pemfile = "2"
@@ -91,7 +91,7 @@ tower = { workspace = true, features = ["util"] }
 http-body-util = "0.1"
 tempfile = "3"
 rand_core = { workspace = true }
-# ARY-1885 Phase 3 /test wave — `tests/test_mtls_smoke.rs` exercises
+#   /test wave — `tests/test_mtls_smoke.rs` exercises
 # tls::build_server_config across both branches (TLS-only and mTLS)
 # with a self-signed CA. Matches the kernel's rcgen pin so the build
 # graph dedups.

@@ -1,5 +1,5 @@
 //! Safety Kernel reconciler service — running-image-vs-manifest drift
-//! detector (ADR-014 Phase 3 §2, ARY-1885 Step 3).
+//! detector (,  Step 3).
 //!
 //! Step 3 wires the binary entry point: read env (NO env reads inside
 //! the algorithm), construct the production adapters
@@ -14,7 +14,7 @@
 //!   `QORCH_RECONCILER_RELEASE_KEY_B64`         base64(32-byte Ed25519 pub key)
 //!   `QORCH_RECONCILER_INTERVAL_SECONDS`        optional (default 900)
 //!   `QORCH_RECONCILER_MANIFEST_MAX_AGE_SECONDS`  optional (default 7d)
-//!   `QORCH_RECONCILER_AUDIT_LOG_PATH`          optional (default ./reconciler-audit.log)
+//!   `QORCH_RECONCILER_AUDIT_LOG_PATH`          optional (default./reconciler-audit.log)
 
 #![forbid(unsafe_code)]
 
@@ -145,7 +145,7 @@ async fn main() -> Result<()> {
         target = "qorch.safety_kernel_reconciler",
         step = "step-3",
         adr = "adr-014-phase-3",
-        linear = "ARY-1885",
+        linear = "",
         image = %config.image_repository,
         interval_seconds = config.interval_seconds,
         manifest_url = %config.manifest_url,

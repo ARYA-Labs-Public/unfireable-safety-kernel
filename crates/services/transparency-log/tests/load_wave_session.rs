@@ -1,4 +1,4 @@
-//! ARY-2181 Phase 1 — load test: 100 concurrent wave-session appends.
+//!   — load test: 100 concurrent wave-session appends.
 //! Spec requirement: p99 latency < 200ms.
 //!
 //! In-process load test against the same router used in production.
@@ -70,7 +70,7 @@ async fn p99_under_200ms_for_100_concurrent_appends() {
         tasks.push(tokio::spawn(async move {
             let r = WaveSessionRecord::new(
                 WaveId::new(format!("wave-load-{i}")),
-                "ARY-2181",
+                "",
                 WaveStage::Tested,
                 format!("adv-{i}"),
                 WaveOutcome::Pass,

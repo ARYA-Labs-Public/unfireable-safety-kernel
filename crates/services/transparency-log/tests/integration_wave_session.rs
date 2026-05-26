@@ -1,4 +1,4 @@
-//! ARY-2181 Phase 1 — integration tests for the wave-session-record
+//!   — integration tests for the wave-session-record
 //! routes. Exercises the full router (auth middleware + body-limit +
 //! tracing layer) using axum's `tower::ServiceExt::oneshot` against a
 //! fresh `MemoryTransparencyStore` per test. Six adversarial fixtures
@@ -70,7 +70,7 @@ fn rec(
 ) -> WaveSessionRecord {
     WaveSessionRecord::new(
         WaveId::new(wave),
-        "ARY-2181",
+        "",
         stage,
         sid,
         WaveOutcome::Pass,
@@ -247,7 +247,7 @@ async fn adversarial_malformed_stage_rejected() {
         "record": {
             "evidence": "x",
             "gate_surfaces": [],
-            "linear_issue": "ARY-2181",
+            "linear_issue": "",
             "occurred_at_epoch_seconds": 0,
             "outcome": "PASS",
             "session_id": "sid",

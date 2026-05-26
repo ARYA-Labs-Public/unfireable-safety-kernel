@@ -280,7 +280,7 @@ async fn smoke_authorize_health_publickey() {
         .get("issued_at")
         .and_then(Value::as_f64)
         .expect("issued_at f64");
-    // PT-S2-M1 (ARY-2028 slice 5): the kernel now mints `aud=kernel/authorize`
+    //  ( slice 5): the kernel now mints `aud=kernel/authorize`
     // on every `/kernel/v1/authorize` token. Verify with the matching
     // expected_aud to exercise the new cross-tenant replay defense.
     let verified = verify_kernel_token(

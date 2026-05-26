@@ -1,5 +1,5 @@
-//! Audit-chain single-chain integrity test (ARY-2028 slice 2,
-//! ADR-018 §4 "Audit chain integrity" mandate).
+//! Audit-chain single-chain integrity test ( slice 2,
+//!  "Audit chain integrity" mandate).
 //!
 //! Drives the real Rust kernel + the test sidecar through a mixed
 //! workload of policy + kernel-authorize events. Then queries the test
@@ -10,7 +10,7 @@
 //!      (`/policy/*` + `/kernel/v1/authorize`) land in ONE in-memory
 //!      chain — no fork, no parallel ledger.
 //!   2. **Discriminator values.** The five expected events carry the
-//!      audit_kind discriminators frozen by ADR-018 §4:
+//!      audit_kind discriminators frozen by:
 //!        - `policy_register`
 //!        - `policy_authorize_allow`
 //!        - `policy_authorize_deny`
@@ -326,7 +326,7 @@ async fn audit_chain_is_single_and_integrity_verifies() {
         "policy_audit_event",
         // The existing kernel authorize endpoint at /kernel/v1/authorize
         // emits action_name="kernel_authorize" (see routes/authorize.rs);
-        // ADR-018 §4 calls out this discriminator alongside the four
+        //  calls out this discriminator alongside the four
         // new policy_* kinds as the chain's complete set for slice 2.
         "kernel_authorize",
     ]);

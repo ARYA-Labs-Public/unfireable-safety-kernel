@@ -1,5 +1,5 @@
-//! ARY-1885 Phase 3 — Purple-Team adversarial tests for the kernel
-//! fail-closed transparency-log integration (ADR-014 Phase 3 §6).
+//!   — Purple-Team adversarial tests for the kernel
+//! fail-closed transparency-log integration ().
 //!
 //! Campaigns:
 //!   C1 — T-log returns 200 with malformed JSON body
@@ -7,7 +7,7 @@
 //!   C2 — T-log returns 200 with a `leaf_hash_hex` that does not
 //!        correspond to the kernel's local SHA-256 of its own token
 //!        bytes. HISTORICALLY: kernel accepted (gap recorded as
-//!        ARY-2129). RESOLUTION (Phase 3 Step 8): the wire client
+//!        ). RESOLUTION ( Step 8): the wire client
 //!        now cross-verifies and surfaces `ProtocolViolation`, which
 //!        the authorize handler maps to a 403 with
 //!        `transparency_error:protocol_violation`. The trait-level
@@ -324,7 +324,7 @@ async fn purple_c1_tlog_malformed_response_fails_closed() {
 }
 
 // ---------------------------------------------------------------------------
-// C2 — Defense-gap CLOSED (ARY-2129, Phase 3 Step 8): the wire client
+// C2 — Defense-gap CLOSED (,  Step 8): the wire client
 // now cross-verifies `leaf_hash_hex` and surfaces `ProtocolViolation`
 // on divergence, which the authorize handler maps to 403 +
 // `transparency_error:protocol_violation`.
@@ -349,7 +349,7 @@ async fn purple_c2_trait_mock_does_not_exercise_wire_cross_check_snapshot() {
     let router = router(state);
     let (status, v) = post_json(router, authorize_body()).await;
     // Trait-level snapshot: the mock returns `Ok(...)` without going
-    // through the wire path that performs the ARY-2129 cross-check, so
+    // through the wire path that performs the cross-check, so
     // the authorize handler sees a clean success. Wire-level coverage
     // for the cross-check lives in the wiremock test referenced in the
     // module docstring above.

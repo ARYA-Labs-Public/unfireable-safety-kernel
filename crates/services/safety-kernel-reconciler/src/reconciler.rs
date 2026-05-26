@@ -1,5 +1,5 @@
 //! Reconciler core — running-image-vs-signed-manifest drift detector
-//! (ADR-014 Phase 3 §2, ARY-1885 Step 3).
+//! (,  Step 3).
 //!
 //! 3-step algorithm:
 //!
@@ -13,7 +13,7 @@
 //!      reconciler instance per replica.
 //!   2. Fetch the expected digest from a signed release manifest.
 //!      Manifest is canonical JSON (lexicographic key order via
-//!      `BTreeMap`, matching ADR-014 Slice 1 Addendum 2a §5) signed by
+//!      `BTreeMap`, matching Addendum 2a §5) signed by
 //!      a pinned Ed25519 verifying key passed in at construction.
 //!   3. Compare. On drift: emit `tracing::error!` with structured
 //!      fields, write a local audit-log entry, and POST to the
@@ -27,7 +27,7 @@
 //!
 //! Clock injection uses the `Clock` trait at
 //! `crates/domain/src/safety/mod.rs:65` — `f64` epoch seconds per
-//! ADR-014 Slice 1 Appendix B. We truncate to u64 when constructing
+//!  Appendix B. We truncate to u64 when constructing
 //! the transparency-log payload, which is u64-keyed.
 
 use std::collections::BTreeMap;
@@ -55,7 +55,7 @@ use qorch_domain::safety::Clock;
 /// ancient manifest at us.
 pub const DEFAULT_MANIFEST_STALENESS_SECONDS: u64 = 7 * 24 * 60 * 60;
 
-/// Default reconcile interval — 15 minutes per ADR-014 Phase 3 §2.
+/// Default reconcile interval — 15 minutes 
 pub const DEFAULT_INTERVAL_SECONDS: u64 = 900;
 
 /// Configuration shared across `Reconciler` instances. Values come
@@ -64,7 +64,7 @@ pub const DEFAULT_INTERVAL_SECONDS: u64 = 900;
 #[derive(Clone)]
 pub struct ReconcilerConfig {
     /// Fully-qualified image reference (e.g.
-    /// `aryalabs/safety-kernel-rust:latest`). Parsed via
+    /// `aryalabs/safety-kernel:latest`). Parsed via
     /// `oci_distribution::Reference::try_from` at tick time.
     pub image_repository: String,
 
@@ -131,7 +131,7 @@ impl ReleaseManifest {
     /// Build the canonical JSON byte sequence that the signature
     /// covers. Lexicographic key order, no trailing whitespace.
     ///
-    /// Per ADR-014 Slice 1 Addendum 2a §5 we use `BTreeMap<String,
+    /// Per Addendum 2a §5 we use `BTreeMap<String,
     /// Value>` rather than `serde_json` `preserve_order`, so the
     /// stability property is structural (`BTreeMap` iterates sorted)
     /// rather than encoder-feature-gated.
@@ -770,7 +770,7 @@ mod tests {
     async fn match_no_drift_no_alert() {
         let (signing, verifying) = test_keypair();
         let now: u64 = 1_700_000_000;
-        let image = "aryalabs/safety-kernel-rust";
+        let image = "aryalabs/safety-kernel";
         let digest = "sha256:aaaa";
         let manifest_bytes = build_signed_manifest(&signing, image, digest, now);
 
@@ -801,7 +801,7 @@ mod tests {
     async fn drift_detected_within_one_tick() {
         let (signing, verifying) = test_keypair();
         let now: u64 = 1_700_000_000;
-        let image = "aryalabs/safety-kernel-rust";
+        let image = "aryalabs/safety-kernel";
         let expected = "sha256:expected";
         let running = "sha256:running";
         let manifest_bytes = build_signed_manifest(&signing, image, expected, now);
@@ -848,7 +848,7 @@ mod tests {
     async fn bad_signature_rejected() {
         let (signing, verifying) = test_keypair();
         let now: u64 = 1_700_000_000;
-        let image = "aryalabs/safety-kernel-rust";
+        let image = "aryalabs/safety-kernel";
         let digest = "sha256:aaaa";
         // Build a valid manifest, then tamper with the digest AFTER
         // signing — the signature now covers different bytes.
@@ -890,7 +890,7 @@ mod tests {
         let issued_at: u64 = 1_700_000_000;
         // now is 8 days later — past the 7-day default staleness.
         let now: u64 = issued_at + 8 * 24 * 60 * 60;
-        let image = "aryalabs/safety-kernel-rust";
+        let image = "aryalabs/safety-kernel";
         let digest = "sha256:aaaa";
         let manifest_bytes = build_signed_manifest(&signing, image, digest, issued_at);
 
@@ -906,7 +906,7 @@ mod tests {
         );
 
         let err = r.tick_once().await.expect_err("should reject expired");
-        assert!(matches!(err, ReconcileError::ExpiredManifest { .. }));
+        assert!(matches!(err, ReconcileError::ExpiredManifest {.. }));
         assert!(audit.snapshot().is_empty());
         assert!(tlog.snapshot().is_empty());
     }
@@ -918,7 +918,7 @@ mod tests {
         // and the failure is logged but does NOT propagate.
         let (signing, verifying) = test_keypair();
         let now: u64 = 1_700_000_000;
-        let image = "aryalabs/safety-kernel-rust";
+        let image = "aryalabs/safety-kernel";
         let expected = "sha256:expected";
         let running = "sha256:running";
         let manifest_bytes = build_signed_manifest(&signing, image, expected, now);
@@ -940,7 +940,7 @@ mod tests {
         // fail-closed policy.
         let outcome = r.tick_once().await.expect("tick must not error");
         assert!(
-            matches!(outcome, TickOutcome::Drift { .. }),
+            matches!(outcome, TickOutcome::Drift {.. }),
             "expected Drift outcome even with transparency-log down",
         );
         assert_eq!(
@@ -963,7 +963,7 @@ mod tests {
         // matched against another image's running digest.
         let (signing, verifying) = test_keypair();
         let now: u64 = 1_700_000_000;
-        let configured = "aryalabs/safety-kernel-rust";
+        let configured = "aryalabs/safety-kernel";
         let manifest_image = "aryalabs/some-other-service";
         let digest = "sha256:aaaa";
         let manifest_bytes = build_signed_manifest(&signing, manifest_image, digest, now);
@@ -983,7 +983,7 @@ mod tests {
             .tick_once()
             .await
             .expect_err("should reject image mismatch");
-        assert!(matches!(err, ReconcileError::ImageMismatch { .. }));
+        assert!(matches!(err, ReconcileError::ImageMismatch {.. }));
         assert!(audit.snapshot().is_empty());
         assert!(tlog.snapshot().is_empty());
     }

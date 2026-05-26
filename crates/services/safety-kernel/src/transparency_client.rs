@@ -3,8 +3,8 @@
 // lists in the module preamble are intentional bullets, not paragraphs.
 #![allow(clippy::doc_markdown, clippy::doc_lazy_continuation)]
 
-//! Outbound transparency-log client for the Safety Kernel (ADR-014
-//! Phase 3 §6, ARY-1885 Step 5).
+//! Outbound transparency-log client for the Safety Kernel (
+//!  §6,  Step 5).
 //!
 //! The kernel POSTs every successful `kernel_authorize` decision to
 //! the transparency-log service BEFORE returning the signed token to
@@ -51,7 +51,7 @@ use thiserror::Error;
 #[derive(Debug, Clone)]
 pub struct TransparencyAppendInput {
     /// 32-byte idempotency fingerprint (kernel uses SHA-256 of the
-    /// token bytes per ADR-014 Phase 3 §6).
+    /// token bytes 
     pub idempotency_key: [u8; 32],
     /// Raw bytes the transparency-log will hash + persist as the
     /// leaf (RFC-6962 leaf hash = SHA-256(0x00 || payload)).
@@ -119,7 +119,7 @@ pub enum TransparencyError {
     /// The t-log returned a 2xx with a `leaf_hash_hex` (or other
     /// protocol-level field) that diverges from what the kernel
     /// locally computed. Treated as evidence that the ledger is
-    /// compromised or buggy — kernel fails CLOSED. ARY-2129 / Phase 3
+    /// compromised or buggy — kernel fails CLOSED.  / 
     /// Step 8 defense-in-depth: catches a malicious or buggy t-log
     /// instance that stores leaf A but reports leaf B (future
     /// inclusion proofs would diverge silently otherwise).
@@ -134,11 +134,11 @@ impl TransparencyError {
     #[must_use]
     pub fn kind(&self) -> &'static str {
         match self {
-            TransparencyError::Unreachable { .. } => "unreachable",
-            TransparencyError::Rejected { .. } => "append_failed",
-            TransparencyError::ServerError { .. } => "server_error",
+            TransparencyError::Unreachable {.. } => "unreachable",
+            TransparencyError::Rejected {.. } => "append_failed",
+            TransparencyError::ServerError {.. } => "server_error",
             TransparencyError::Conflict => "conflict",
-            TransparencyError::Malformed { .. } => "malformed_response",
+            TransparencyError::Malformed {.. } => "malformed_response",
             TransparencyError::ProtocolViolation(_) => "protocol_violation",
         }
     }
@@ -207,7 +207,7 @@ impl ReqwestTransparencyClient {
 
     /// Build a new client with an mTLS client certificate identity.
     ///
-    /// ARY-2127 / Phase 3 Step 8: the kernel presents this identity
+    ///  /  Step 8: the kernel presents this identity
     /// when initiating the mTLS handshake to the transparency-log
     /// service. `cert_path` and `key_path` must both point at
     /// PEM-encoded files; their bytes are concatenated and fed to
@@ -215,7 +215,7 @@ impl ReqwestTransparencyClient {
     /// installed on the underlying `reqwest::Client` so every outbound
     /// request carries the client cert.
     ///
-    /// `rustls-tls` is the only TLS backend (per ADR-014 Slice 1
+    /// `rustls-tls` is the only TLS backend (per 
     /// Addendum 2a §2 — NO native-tls, NO aws-lc-rs). The workspace
     /// `reqwest` dep enables this feature.
     ///
@@ -295,7 +295,7 @@ struct AppendResponseBody {
     entry_id: String,
     idempotent_replay: bool,
     /// Hex-encoded RFC-6962 leaf hash (`SHA-256(0x00 || payload)`) the
-    /// t-log claims it stored. ARY-2129 added a kernel-side cross-check
+    /// t-log claims it stored.  added a kernel-side cross-check
     /// against the locally-computed hash; any mismatch raises a
     /// `ProtocolViolation` and fails CLOSED on the authorize path.
     leaf_hash_hex: String,
@@ -337,7 +337,7 @@ impl TransparencyClient for ReqwestTransparencyClient {
                 resp.json().await.map_err(|e| TransparencyError::Malformed {
                     detail: truncate(&format!("{e}"), 300),
                 })?;
-            // ARY-2129 / Phase 3 Step 8 — cross-verify that the
+            //  /  Step 8 — cross-verify that the
             // returned leaf_hash_hex corresponds to the kernel's local
             // SHA-256(0x00 || payload). A divergence proves the t-log
             // is lying about what it stored — future inclusion proofs
@@ -387,7 +387,7 @@ fn truncate(s: &str, max: usize) -> String {
 }
 
 /// Compute the idempotency key the kernel uses for `POST /v1/append`.
-/// Per ADR-014 Phase 3 §6 / brief: `SHA-256(token_bytes)`.
+/// 
 #[must_use]
 pub fn idempotency_key_for_token(token: &str) -> [u8; 32] {
     let mut h = Sha256::new();
@@ -401,7 +401,7 @@ pub fn idempotency_key_for_token(token: &str) -> [u8; 32] {
 ///
 /// When BOTH `client_cert_path` and `client_key_path` are `Some`, the
 /// client presents an mTLS identity on every outbound request
-/// (ARY-2127). Either-side missing keeps the legacy x-api-key-only
+///. Either-side missing keeps the legacy x-api-key-only
 /// behaviour — `Settings::from_env` already refuses to boot prod
 /// without both paths set.
 ///
@@ -519,7 +519,7 @@ mod tests {
             })
             .await
             .unwrap_err();
-        assert!(matches!(err, TransparencyError::Unreachable { .. }));
+        assert!(matches!(err, TransparencyError::Unreachable {.. }));
     }
 
     #[test]
@@ -567,7 +567,7 @@ mod tests {
         assert!(c.is_none());
     }
 
-    // ARY-2127 — mTLS identity loader tests.
+    //  — mTLS identity loader tests.
 
     /// Writes a self-signed ED25519 cert + key pair to two temp files
     /// and returns their paths. Uses `rcgen` (already a dev-dep of this
@@ -588,7 +588,7 @@ mod tests {
 
     #[test]
     fn client_builder_loads_pem_identity_pair_ok() {
-        // ARY-2127 happy-path: a valid cert+key pair must build a
+        //  happy-path: a valid cert+key pair must build a
         // client successfully and the resulting client must be
         // identifiable as carrying an mTLS identity (the only
         // externally-visible signal is "the builder did not error").
@@ -610,7 +610,7 @@ mod tests {
 
     #[test]
     fn client_builder_missing_cert_path_in_prod_errors() {
-        // ARY-2127 fail-closed: pointing at a path that doesn't exist
+        //  fail-closed: pointing at a path that doesn't exist
         // must error rather than silently degrade to no-cert mode.
         let dir = tempfile::tempdir().expect("tempdir");
         let missing_cert = dir.path().join("definitely-not-there.crt");
@@ -633,7 +633,7 @@ mod tests {
 
     #[test]
     fn client_builder_malformed_pem_errors() {
-        // ARY-2127 fail-closed: invalid PEM bytes must error at builder
+        //  fail-closed: invalid PEM bytes must error at builder
         // time, not at first-request time.
         let dir = tempfile::tempdir().expect("tempdir");
         let cert_path = dir.path().join("bad.crt");

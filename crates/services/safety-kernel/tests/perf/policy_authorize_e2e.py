@@ -1,6 +1,6 @@
 """End-to-end perf benchmark for ``POST /policy/module/authorize``.
 
-ARY-2028 slice 5 §3.1–§3.3 — the GATED perf number. Measures
+ slice 5 §3.1–§3.3 — the GATED perf number. Measures
 end-to-end HTTP RTT from the caller's perspective (i.e. what the
 Python audit hook would pay on every ``import``).
 
@@ -130,7 +130,7 @@ def test_policy_authorize_p99_meets_budget(
     # neutral.
     print(
         f"\n[policy_authorize p99] "
-        f"p50={p50_ms:.3f}ms  p95={p95_ms:.3f}ms  p99={p99_ms:.3f}ms  "
+        f"p50={p50_ms:.3f}ms p95={p95_ms:.3f}ms p99={p99_ms:.3f}ms  "
         f"rounds={stats.rounds}"
     )
 
