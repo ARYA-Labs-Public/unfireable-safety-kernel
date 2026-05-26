@@ -5,17 +5,17 @@ version = "0.4.0"
 [rust]
 domain_paths = ["crates/domain", "crates/*/src/domain"]
 forbidden_domain_imports = [
-  "std::fs",
-  "std::env",
-  "std::net",
-  "std::time::SystemTime",
-  "rand::",
-  "sqlx::",
-  "diesel::",
-  "reqwest::",
-  "rdkafka::",
-  "tracing::",
-  "log::"
+ "std::fs",
+ "std::env",
+ "std::net",
+ "std::time::SystemTime",
+ "rand::",
+ "sqlx::",
+ "diesel::",
+ "reqwest::",
+ "rdkafka::",
+ "tracing::",
+ "log::"
 ]
 
 [typescript]

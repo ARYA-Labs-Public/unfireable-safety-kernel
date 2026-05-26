@@ -1,6 +1,6 @@
 # Safety Kernel HTTP contract.
 #
-# Per ADR-014, this is Slice 1 of the Rust + Postgres migration. The
+#  The
 # spec below mirrors the current Python (FastAPI) implementation at
 # `apps/safety_kernel/routes/{authorize,approvals,meta}.py`. The Rust
 # port lands in `crates/services/safety-kernel/` (future) and MUST
@@ -13,19 +13,19 @@
 # middleware) but are documented per-endpoint.
 openapi: 3.1.0
 info:
-  title: Safety Kernel Safety Kernel
+  title: safety-kernel
   version: 1.0.0
   description: |
     Authorization, attestation, and audit-chain service for sensitive
-    operations across the Safety Kernel system. The kernel is the
+    operations across the safety-kernel. The kernel is the
     only component authorized to mint signed tokens for actions like
-    `sio_run_cycles`, self-improvement cycle persistence, and approval decisions.
+    and approval decisions.
 
     Caller roles (set by middleware via `x-api-key`):
     - `worker` — primary caller; authorized to request tokens for
-      self-improvement/SIO/training actions
+      training and runtime actions
     - `api` — REST API; restricted to governance-only actions per
-      `is_api_action_allowed()` allowlist
+      `is_api_action_allowed` allowlist
     - `operator` — human approvals/rejections only
   contact:
     name: ARYA Labs Safety Kernel team
@@ -84,7 +84,7 @@ components:
         action:
           type: string
           minLength: 1
-          description: Sensitive action to authorize (e.g., `sio_run_cycles`)
+          description: Sensitive action to authorize (e.g.)
         run_id:
           type: string
           minLength: 1
@@ -205,8 +205,8 @@ components:
           description: Optional human-readable reason
 
     # ------------------------------------------------------------------
-    # /policy/* (ADR-018, internal-ref) — module-load / exec / compile
-    # authorization. Slice 1 freezes ONLY PolicyModuleAuthorize{Request,
+    # /policy/* () — module-load / exec / compile
+    # authorization.  freezes ONLY PolicyModuleAuthorize{Request,
     # AllowResponse, DenyResponse}. The /policy/module/register,
     # /policy/audit-event, /policy/module/{path}/status endpoints are
     # listed in `paths:` with a DRAFT description and 501-only
@@ -253,12 +253,12 @@ components:
           nullable: true
           description: |
             Optional regex patterns the caller expects this `module_path`
-            to require. Slice 2 uses these for drift validation: if the
+            to require.  uses these for drift validation: if the
             registry's recorded patterns do not equal the caller's
             expected set, the kernel returns 412 Precondition Failed.
             Lets the caller detect registry / code skew before the
             operation runs. Reflects the Rust `ModuleAuthorizeRequest`
-            type in `crates/domain/src/safety/policy/types.rs`; ADR-018
+            type in `crates/domain/src/safety/policy/types.rs`; 
             §"OpenAPI delta" amendment documents the slice-2 semantics.
         metadata:
           type: object
@@ -503,9 +503,9 @@ paths:
                 additionalProperties: true
 
   # ------------------------------------------------------------------
-  # /policy/* — ADR-018 (internal-ref) policy engine surface.
+  # /policy/* —  policy engine surface.
   #
-  # Slice 1 FREEZES `POST /policy/module/authorize`. The other three
+  #  FREEZES `POST /policy/module/authorize`. The other three
   # endpoints are DRAFT (501-only response) until slice 2 fixes their
   # request/response shapes. Clients MUST NOT implement against draft
   # endpoints — they are listed here only so the surface is discoverable
@@ -565,7 +565,7 @@ paths:
       summary: (DRAFT) Register a module path with required-pattern set
       description: |
         DRAFT — schema may change in slice 2; do not implement clients
-        against this shape. Slice 2 will register a module path plus
+        against this shape.  will register a module path plus
         the regex pattern set required for future authorize calls on
         that path.
       tags: [policy]
@@ -585,9 +585,9 @@ paths:
       summary: (DRAFT) Surface a non-decision policy audit event
       description: |
         DRAFT — schema may change in slice 2; do not implement clients
-        against this shape. Slice 2 will accept non-decision audit
+        against this shape.  will accept non-decision audit
         events (e.g., a hook that detected modules loaded before
-        installation; see ADR-018 §"Open questions").
+        installation; see  §"Open questions").
       tags: [policy]
       security:
         - ApiKeyAuth: []
@@ -605,7 +605,7 @@ paths:
       summary: (DRAFT) Query module registration and recent decisions
       description: |
         DRAFT — schema may change in slice 2; do not implement clients
-        against this shape. Slice 2 will return the current
+        against this shape.  will return the current
         registration and recent decision history for a module path.
       tags: [policy]
       security:
@@ -634,7 +634,6 @@ tags:
     description: Operator-signed approve/reject decisions
   - name: policy
     description: |
-      ADR-018 (internal-ref) policy engine — module-load / exec / compile
-      authorization. Slice 1 freezes `/policy/module/authorize`; the
-      register / audit-event / status endpoints are DRAFT and 501-only
-      until slice 2.
+      Policy engine — module-load / exec / compile authorization. This
+      release freezes `/policy/module/authorize`; the register /
+      audit-event / status endpoints are DRAFT and 501-only.
