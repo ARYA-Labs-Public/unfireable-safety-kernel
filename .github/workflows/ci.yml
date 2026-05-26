@@ -148,11 +148,8 @@ jobs:
           fi
           echo "OpenAPI ${version}, title: ${title}"
 
-      - name: Install + run redocly lint (advisory)
-        # Redocly style rules are advisory — structural validity is
-        # already checked by the yq step above. Errors are surfaced in
-        # the workflow log but do not gate the build.
-        continue-on-error: true
+      - name: Install + run redocly lint (gating)
+        # Spec must pass redocly's recommended ruleset clean.
         run: |
           npm install -g @redocly/cli@1.34.5
           redocly lint contracts/openapi/safety_kernel.yaml

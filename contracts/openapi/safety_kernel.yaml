@@ -1,16 +1,14 @@
 # Safety Kernel HTTP contract.
 #
-#  The
-# spec below mirrors the current Python (FastAPI) implementation at
-# `apps/safety_kernel/routes/{authorize,approvals,meta}.py`. The Rust
-# port lands in `crates/services/safety-kernel/` (future) and MUST
-# conform byte-equivalently to this contract.
+# The Rust reference implementation lives in
+# `crates/services/safety-kernel/` and conforms byte-equivalently
+# to this contract.
 #
 # Authorization model: every endpoint inspects the caller's role via
-# `request.state.kernel_caller_role`, set by middleware based on the
-# pre-shared API key (`x-api-key`). Roles: `worker`, `api`, `operator`.
-# Roles are NOT in the OpenAPI schema (they're set out-of-band by the
-# middleware) but are documented per-endpoint.
+# request state set by middleware based on the pre-shared API key
+# (`x-api-key`). Roles: `worker`, `api`, `operator`. Roles are NOT in
+# the OpenAPI schema (they're set out-of-band by the middleware) but
+# are documented per-endpoint.
 openapi: 3.1.0
 info:
   title: safety-kernel
@@ -31,12 +29,18 @@ info:
     name: ARYA Labs Safety Kernel team
     url: https://github.com/ARYA-Labs-PBC/safety-kernel
   license:
-    name: Proprietary
+    name: Apache-2.0
+    identifier: Apache-2.0
 servers:
-  - url: http://safety-kernel-rust:9000
-    description: Internal docker network (production)
-  - url: http://localhost:9001
-    description: Host port mapping (local development)
+  - url: https://{host}{base_path}
+    description: Configurable safety-kernel endpoint
+    variables:
+      host:
+        default: safety-kernel.local
+        description: Hostname (or IP) where the kernel is reachable.
+      base_path:
+        default: ''
+        description: Optional path prefix (e.g. /kernel/v1).
 
 components:
   securitySchemes:
@@ -84,7 +88,7 @@ components:
         action:
           type: string
           minLength: 1
-          description: Sensitive action to authorize (e.g.)
+          description: Sensitive action to authorize (caller-defined string)
         run_id:
           type: string
           minLength: 1
@@ -99,20 +103,17 @@ components:
           pattern: ^[0-9a-f]{64}$
           description: SHA-256 fingerprint of parameters (stable JSON)
         params:
-          type: object
+          type: [object, "null"]
           additionalProperties: true
-          nullable: true
           description: Optional params used for policy decisions (fingerprinted)
         ttl_s:
-          type: integer
+          type: [integer, "null"]
           minimum: 1
           maximum: 3600
-          nullable: true
           description: Requested TTL seconds (kernel will clamp)
         metadata:
-          type: object
+          type: [object, "null"]
           additionalProperties: true
-          nullable: true
           description: Optional metadata for audit (not used in token binding)
 
     AuthorizeResponse:
@@ -147,9 +148,8 @@ components:
           minLength: 1
           description: Fingerprint of proposal content being approved
         metadata:
-          type: object
+          type: [object, "null"]
           additionalProperties: true
-          nullable: true
 
     RejectRequest:
       type: object
@@ -162,12 +162,10 @@ components:
           type: string
           minLength: 1
         reason:
-          type: string
-          nullable: true
+          type: [string, "null"]
         metadata:
-          type: object
+          type: [object, "null"]
           additionalProperties: true
-          nullable: true
 
     SignedDecisionResponse:
       type: object
@@ -205,12 +203,12 @@ components:
           description: Optional human-readable reason
 
     # ------------------------------------------------------------------
-    # /policy/* () — module-load / exec / compile
-    # authorization.  freezes ONLY PolicyModuleAuthorize{Request,
-    # AllowResponse, DenyResponse}. The /policy/module/register,
-    # /policy/audit-event, /policy/module/{path}/status endpoints are
-    # listed in `paths:` with a DRAFT description and 501-only
-    # responses; slice 2 fixes their request/response schemas.
+    # /policy/* — module-load / exec / compile authorization. This
+    # release freezes ONLY PolicyModuleAuthorize{Request, AllowResponse,
+    # DenyResponse}. The /policy/module/register, /policy/audit-event,
+    # /policy/module/{path}/status endpoints are listed with a DRAFT
+    # description and 501-only responses; future releases fix their
+    # request/response schemas.
     # ------------------------------------------------------------------
     PolicyModuleAuthorizeRequest:
       type: object
@@ -247,23 +245,18 @@ components:
             Bound into the signed decision so a recorded ALLOW cannot
             be replayed against a different event.
         expected_required_patterns:
-          type: array
+          type: [array, "null"]
           items:
             type: string
-          nullable: true
           description: |
             Optional regex patterns the caller expects this `module_path`
-            to require.  uses these for drift validation: if the
-            registry's recorded patterns do not equal the caller's
-            expected set, the kernel returns 412 Precondition Failed.
-            Lets the caller detect registry / code skew before the
-            operation runs. Reflects the Rust `ModuleAuthorizeRequest`
-            type in `crates/domain/src/safety/policy/types.rs`; 
-            §"OpenAPI delta" amendment documents the slice-2 semantics.
+            to require. Used for drift validation: if the registry's
+            recorded patterns do not equal the caller's expected set,
+            the kernel returns 412 Precondition Failed. Lets the caller
+            detect registry / code skew before the operation runs.
         metadata:
-          type: object
+          type: [object, "null"]
           additionalProperties: true
-          nullable: true
           description: Optional audit metadata (not bound into the token)
 
     PolicyModuleAuthorizeAllowResponse:
@@ -341,11 +334,23 @@ paths:
       security: []  # public
       responses:
         '200':
-          description: OK
+          description: OK — kernel is healthy
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
+        '429':
+          description: Too Many Requests — caller exceeded rate limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable — kernel is unhealthy / degraded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /kernel/v1/health:
     get:
@@ -355,11 +360,23 @@ paths:
       security: []  # public
       responses:
         '200':
-          description: OK
+          description: OK — kernel is healthy
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
+        '429':
+          description: Too Many Requests — caller exceeded rate limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable — kernel is unhealthy / degraded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /kernel/v1/public_key:
     get:
@@ -378,6 +395,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicKeyResponse'
+        '429':
+          description: Too Many Requests — caller exceeded rate limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable — kernel is unable to surface its public key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /kernel/v1/authorize:
     post:
@@ -503,13 +532,13 @@ paths:
                 additionalProperties: true
 
   # ------------------------------------------------------------------
-  # /policy/* —  policy engine surface.
+  # /policy/* — policy engine surface.
   #
-  #  FREEZES `POST /policy/module/authorize`. The other three
-  # endpoints are DRAFT (501-only response) until slice 2 fixes their
-  # request/response shapes. Clients MUST NOT implement against draft
-  # endpoints — they are listed here only so the surface is discoverable
-  # and the URL shapes are reserved.
+  # This release FREEZES `POST /policy/module/authorize`. The other
+  # three endpoints are DRAFT (501-only response); future releases fix
+  # their request/response shapes. Clients MUST NOT implement against
+  # draft endpoints — they are listed here only so the surface is
+  # discoverable and the URL shapes are reserved.
   # ------------------------------------------------------------------
 
   /policy/module/authorize:
@@ -572,8 +601,24 @@ paths:
       security:
         - ApiKeyAuth: []
       responses:
+        '200':
+          description: |
+            (Reserved) — when implemented in a future release, returns
+            the registration record for the module path. The current
+            release always returns 501.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Placeholder schema; finalized in a future release.
+        '400':
+          description: Bad Request — malformed request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '501':
-          description: Not Implemented — slice-1 scaffold
+          description: Not Implemented — DRAFT endpoint, scaffold only
           content:
             application/json:
               schema:
@@ -584,16 +629,32 @@ paths:
       operationId: policyAuditEvent
       summary: (DRAFT) Surface a non-decision policy audit event
       description: |
-        DRAFT — schema may change in slice 2; do not implement clients
-        against this shape.  will accept non-decision audit
-        events (e.g., a hook that detected modules loaded before
-        installation; see  §"Open questions").
+        DRAFT — schema may change before implementation; do not implement
+        clients against this shape. Future releases will accept non-decision
+        audit events (e.g. a hook that detected modules loaded before
+        installation).
       tags: [policy]
       security:
         - ApiKeyAuth: []
       responses:
+        '202':
+          description: |
+            (Reserved) — when implemented in a future release, the audit
+            event is accepted and queued. The current release always
+            returns 501.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Placeholder schema; finalized in a future release.
+        '400':
+          description: Bad Request — malformed audit event body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '501':
-          description: Not Implemented — slice-1 scaffold
+          description: Not Implemented — DRAFT endpoint, scaffold only
           content:
             application/json:
               schema:
@@ -604,8 +665,8 @@ paths:
       operationId: policyModuleStatus
       summary: (DRAFT) Query module registration and recent decisions
       description: |
-        DRAFT — schema may change in slice 2; do not implement clients
-        against this shape.  will return the current
+        DRAFT — schema may change before implementation; do not implement
+        clients against this shape. Future releases will return the current
         registration and recent decision history for a module path.
       tags: [policy]
       security:
@@ -618,8 +679,24 @@ paths:
             type: string
             minLength: 1
       responses:
+        '200':
+          description: |
+            (Reserved) — when implemented in a future release, returns
+            the module status record. The current release always
+            returns 501.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Placeholder schema; finalized in a future release.
+        '404':
+          description: Not Found — no registration for this `module_path`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '501':
-          description: Not Implemented — slice-1 scaffold
+          description: Not Implemented — DRAFT endpoint, scaffold only
           content:
             application/json:
               schema:
