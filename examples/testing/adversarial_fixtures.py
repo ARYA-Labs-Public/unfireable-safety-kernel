@@ -1,4 +1,4 @@
-"""The six adversarial fixtures (ARY-1889 2c-python).
+"""The six adversarial fixtures.
 
 Mirrors the Rust track's ``crates/adapters/safety_kernel_middleware/
 tests/adversarial.rs`` taxonomy 1:1 for AC16 cross-language parity.
@@ -56,7 +56,7 @@ __all__ = [
 # AC16 cross-language parity contract — these six IDs MUST equal the
 # Rust side's fixture IDs. ``scripts/audit_adversarial_coverage.sh``
 # enforces parity by grep-counting them in both suites.
-FIXTURE_IDS: tuple[str, ...] = (
+FIXTURE_IDS: tuple[str,...] = (
     "FORGED_ED25519_TOKEN",
     "REPLAYED_TOKEN",
     "WRONG_TOOL_TOKEN",
@@ -435,7 +435,7 @@ def fixture_BYPASS_ATTEMPT_DIRECT() -> None:
 # ---------------------------------------------------------------------------
 
 
-ADVERSARIAL_FIXTURES: tuple[AdversarialFixture, ...] = (
+ADVERSARIAL_FIXTURES: tuple[AdversarialFixture,...] = (
     AdversarialFixture(
         fixture_id="FORGED_ED25519_TOKEN",
         description="Token signed with a non-pinned key must be rejected.",

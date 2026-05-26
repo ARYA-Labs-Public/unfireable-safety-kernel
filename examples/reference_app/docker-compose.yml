@@ -1,4 +1,4 @@
-# Reference compose stack for the ARY-1889 2c-python reference app.
+# Reference compose stack for the reference app.
 # Brings up the FastAPI app + the mock Safety Kernel (see
 # examples/testing/mock_kernel.py) so the full enforcement chain can
 # be exercised end-to-end without the production Rust kernel.
@@ -14,7 +14,7 @@ services:
     environment:
       - PYTHONPATH=/work
     volumes:
-      - ../../:/work
+      -../../:/work
     command: >
       bash -c "pip install --quiet fastapi uvicorn cryptography &&
                python -c 'from examples.testing.mock_kernel import build_mock_kernel_app; import uvicorn; uvicorn.run(build_mock_kernel_app(), host=\"0.0.0.0\", port=9000)'"
@@ -38,7 +38,7 @@ services:
       - QORCH_KERNEL_URL=http://mock-kernel:9000
       - QORCH_KERNEL_API_KEY_WORKER=demo-worker-key
     volumes:
-      - ../../:/work
+      -../../:/work
     command: >
       bash -c "pip install --quiet fastapi uvicorn httpx cryptography prometheus-client &&
                uvicorn examples.reference_app.app:app --host 0.0.0.0 --port 8080"

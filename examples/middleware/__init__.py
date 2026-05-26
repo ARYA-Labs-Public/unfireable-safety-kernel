@@ -1,6 +1,6 @@
-"""Reference middleware for the Safety Kernel (ARY-1889 2c-python).
+"""Reference middleware for the Safety Kernel.
 
-Four enforcement seams per ADR-014 Phase 2c §4:
+Four enforcement seams per :
 
 1. ``nginx_policy.conf`` — route-level ``auth_request`` (outermost)
 2. ``fastapi_safety_middleware.py`` — per-request middleware

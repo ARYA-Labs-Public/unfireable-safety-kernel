@@ -1,5 +1,5 @@
 # examples/reference_app_rs — Rust reference application for the
-# Safety Kernel middleware (ARY-1889 Phase 2c sub-deliverable 2c-rust).
+# Safety Kernel middleware (  sub-deliverable 2c-rust).
 #
 # This is the Rust analogue of `examples/reference_app/` (Python +
 # FastAPI) and is the minimal end-to-end demo of the

@@ -1,4 +1,4 @@
-"""Prometheus metrics for Safety Kernel calls (ARY-1889 2c-python).
+"""Prometheus metrics for Safety Kernel calls.
 
 Three metrics + one alert rule, mirroring the Rust track's
 ``crates/adapters/safety_kernel_middleware/`` instrumentation:
@@ -46,7 +46,7 @@ except ImportError:  # pragma: no cover — fallback path
         tests can introspect counter values."""
 
         def __init__(self, *_: Any, **__: Any) -> None:
-            self._value_holder: dict[tuple[tuple[str, str], ...], "_NoopValue"] = {}
+            self._value_holder: dict[tuple[tuple[str, str],...], "_NoopValue"] = {}
 
         def labels(self, *args: Any, **kwargs: Any) -> "_NoopMetric":
             # Bind label values; returns a child metric with its own _value.
@@ -106,7 +106,7 @@ def instrument_authorize(action: str) -> Any:
     Usage::
 
         with instrument_authorize(action="rsi.apply") as record:
-            decision = client.authorize(action="rsi.apply", ...)
+            decision = client.authorize(action="rsi.apply",...)
             record(decision)
 
     The inner ``record`` callable normalises the decision (a
@@ -157,7 +157,7 @@ def record_bypass_attempt(seam: str) -> None:
     alert "Kernel Bypass" fires on any non-zero rate of this counter —
     bypass attempts must never be silent.
 
-    ARY-2138 added the ``"websocket"`` seam (WebSocket-upgrade gate
+     the ``"websocket"`` seam (WebSocket-upgrade gate
     closed via :func:`websocket_safety_dependency`).
     """
     KERNEL_BYPASS_ATTEMPTS.labels(seam=seam).inc()

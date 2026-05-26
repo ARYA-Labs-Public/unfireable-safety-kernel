@@ -1,4 +1,4 @@
-"""Three-tier policy for Safety Kernel reference middleware (ARY-1889 2c-python).
+"""Three-tier policy for Safety Kernel reference middleware.
 
 Routes are classified into one of three tiers:
 
@@ -30,7 +30,7 @@ from typing import Iterable
 
 
 class PolicyTier(str, Enum):
-    """Three-tier classification per ADR-014 Phase 2c §2."""
+    """Three-tier classification per """
 
     UNRESTRICTED = "unrestricted"
     SUPERVISED = "supervised"

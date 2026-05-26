@@ -1,4 +1,4 @@
-"""FastAPI Safety Kernel middleware (ARY-1889 2c-python, seam #2 of 4).
+"""FastAPI Safety Kernel middleware (, seam #2 of 4).
 
 Drop-in :class:`BaseHTTPMiddleware` that consults the Safety Kernel
 once per request. The policy classifies each route into one of three
@@ -28,7 +28,7 @@ Usage::
         subject="api",
     )
 
-WebSocket coverage (ARY-2138)
+WebSocket coverage
 -----------------------------
 
 ``BaseHTTPMiddleware`` does NOT cover WebSocket upgrades. Starlette
@@ -270,7 +270,7 @@ class SafetyMiddleware(BaseHTTPMiddleware):
 
 
 # ---------------------------------------------------------------------------
-# WebSocket gating (ARY-2138)
+# WebSocket gating
 # ---------------------------------------------------------------------------
 #
 # Starlette's :class:`BaseHTTPMiddleware` only handles ``http`` ASGI
@@ -303,7 +303,7 @@ class WebSocketSafetyDependency:
 
     Failure modes:
         * Kernel deny → ``WebSocket.close(code=1008)`` then raise
-          :class:`fastapi.WebSocketException(code=1008, ...)`.
+          :class:`fastapi.WebSocketException(code=1008,...)`.
         * Kernel unreachable → same; we fail-closed (consistent with
           HTTP GATED tier semantics).
         * Policy is UNRESTRICTED for the path → no kernel call, the

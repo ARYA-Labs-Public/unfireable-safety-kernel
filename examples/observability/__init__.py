@@ -1,4 +1,4 @@
-"""Observability for the Safety Kernel reference middleware (ARY-1889 2c-python)."""
+"""Observability for the Safety Kernel reference middleware."""
 
 from examples.observability.kernel_call_metrics import (
     KERNEL_BYPASS_ATTEMPTS,

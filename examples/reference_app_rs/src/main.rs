@@ -1,5 +1,5 @@
 //! Reference axum application demonstrating
-//! `qorch-safety-kernel-middleware` (ARY-1889 Phase 2c sub-deliverable
+//! `qorch-safety-kernel-middleware` (  sub-deliverable
 //! 2c-rust).
 //!
 //! See `lib.rs` for the routes + handlers. This file is just the

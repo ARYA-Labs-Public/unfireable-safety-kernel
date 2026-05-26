@@ -1,4 +1,4 @@
-"""gRPC server interceptor for the Safety Kernel (ARY-1889 2c-python).
+"""gRPC server interceptor for the Safety Kernel.
 
 Drop into any ``grpc.server`` to gate every RPC through the kernel.
 The interceptor:
@@ -52,7 +52,7 @@ __all__ = ["SafetyKernelInterceptor", "StreamingNotAuthorizedError"]
 class StreamingNotAuthorizedError(RuntimeError):
     """The interceptor refused to register a streaming RPC.
 
-    ARY-2139: streaming RPCs cannot be safely gated by the current
+    streaming RPCs cannot be safely gated by the current
     interceptor (it only authorizes the *first* message, not per-message,
     and there is no obvious choke point for half-duplex streams). The
     interceptor's default behaviour is therefore to REFUSE to register a
@@ -111,7 +111,7 @@ class SafetyKernelInterceptor(_GrpcInterceptor):  # type: ignore[misc,valid-type
                 provide their own per-message authorization at the
                 application layer; the interceptor will fall through
                 to the unwrapped handler for streaming methods (which
-                is the pre-ARY-2139 behaviour).
+                is the older releases behaviour).
         """
         if not _GRPC_AVAILABLE:  # pragma: no cover
             raise RuntimeError(

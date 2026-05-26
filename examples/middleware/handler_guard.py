@@ -1,4 +1,4 @@
-"""Per-handler structural-defense decorator (ARY-1889 2c-python, ARY-2137).
+"""Per-handler structural-defense decorator (, ).
 
 Companion to :mod:`examples.middleware.fastapi_safety_middleware`. The
 FastAPI middleware authorizes a request and stashes the
@@ -85,7 +85,7 @@ def require_safety_token(fn: Callable[..., T]) -> Callable[..., T]:
 
     is_coroutine = asyncio.iscoroutinefunction(fn)
 
-    def _extract_request(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Any:
+    def _extract_request(args: tuple[Any,...], kwargs: dict[str, Any]) -> Any:
         """Find the ``Request`` (or ``WebSocket``) argument in the call.
 
         FastAPI passes the request as a positional argument when the

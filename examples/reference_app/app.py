@@ -1,4 +1,4 @@
-"""Reference FastAPI app for the Safety Kernel (ARY-1889 2c-python).
+"""Reference FastAPI app for the Safety Kernel.
 
 Demonstrates all three policy tiers in one process:
 
@@ -48,7 +48,7 @@ def build_app(
     Defaults to a :class:`SafetyKernelClient` pointing at
     ``$QORCH_KERNEL_URL`` (or the mock kernel — see ``docker-compose.yml``).
     """
-    fastapi_app = FastAPI(title="ARYA Safety Kernel reference app (ARY-1889 2c-python)")
+    fastapi_app = FastAPI(title="ARYA Safety Kernel reference app")
     safety_policy = (
         policy()
         .unrestricted("GET", r"^/healthz$")

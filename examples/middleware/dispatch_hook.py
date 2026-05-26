@@ -1,4 +1,4 @@
-"""Per-tool dispatch hook decorator (ARY-1889 2c-python, seam #3 of 4).
+"""Per-tool dispatch hook decorator (, seam #3 of 4).
 
 Use this when a single function is the choke point for a sensitive
 operation — typical for LangChain tools, MCP handlers, and any
@@ -15,7 +15,7 @@ Usage::
 
     @safety_gate(client=client, action="rsi.apply_proposal", subject="worker")
     def apply_proposal(proposal_id: str) -> dict:
-        # ... actually apply the proposal ...
+        #... actually apply the proposal...
         return {"status": "applied"}
 
     apply_proposal("p-123")  # → consults kernel first; raises on deny
@@ -132,7 +132,7 @@ def safety_gate(
 # ---------------------------------------------------------------------------
 
 
-def _fingerprint_call(args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
+def _fingerprint_call(args: tuple[Any,...], kwargs: dict[str, Any]) -> str:
     """Stable SHA-256 hex of the call's positional + keyword arguments.
 
     Uses :func:`packages.core.safety_tokens.params_fingerprint` so the

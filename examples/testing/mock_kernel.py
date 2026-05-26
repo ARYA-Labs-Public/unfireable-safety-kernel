@@ -1,4 +1,4 @@
-"""Drop-in mock Safety Kernel for local dev + test (ARY-1889 2c-python).
+"""Drop-in mock Safety Kernel for local dev + test.
 
 A minimal FastAPI app exposing the three endpoints the
 :class:`SafetyKernelClient` consumes:
@@ -91,7 +91,7 @@ def build_mock_kernel_app(
     pub_b64 = ed25519_public_key_b64(pub)
     pub_fp = ed25519_public_key_fingerprint(pub)
 
-    app = FastAPI(title="MockSafetyKernel (ARY-1889 2c-python)")
+    app = FastAPI(title="MockSafetyKernel")
     app.state.signing_key = priv
     app.state.public_key_b64 = pub_b64
     app.state.public_key_fingerprint = pub_fp
@@ -104,7 +104,7 @@ def build_mock_kernel_app(
         return {
             "ok": True,
             "uptime_s": time.time() - started_at,
-            "version": "mock-ary1889-2c-python",
+            "version": "mock-ary1889-",
         }
 
     @app.get("/kernel/v1/public_key")
