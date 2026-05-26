@@ -38,14 +38,21 @@ killed.
 
 ## Install
 
+The crate is not on crates.io yet. Build from this repo:
+
 ```bash
-cargo install qorch-safety-kernel
-qorch-safety-kernel --version
+git clone https://github.com/ARYA-Labs-PBC/safety-kernel.git
+cd safety-kernel
+cargo build --release -p qorch-safety-kernel
+./target/release/qorch-safety-kernel --version
 ```
 
-The install pulls the published crate, builds it locally, and places
-the `qorch-safety-kernel` binary in `~/.cargo/bin/`. Confirm
-`~/.cargo/bin` is on your `PATH`.
+The resulting binary lives at `target/release/qorch-safety-kernel`.
+Copy it to a directory on your `PATH` if you prefer:
+
+```bash
+install -m 0755 target/release/qorch-safety-kernel ~/.local/bin/
+```
 
 ## Run
 
@@ -53,7 +60,7 @@ Start the kernel bound to localhost, telling it which operator public
 key to trust:
 
 ```bash
-qorch-safety-kernel \
+./target/release/qorch-safety-kernel \
   --operator-pubkey "$(cat operator.pub.hex)" \
   --bind 127.0.0.1:9000
 ```
