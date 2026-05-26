@@ -25,7 +25,7 @@ use super::token::VerifiedClaims;
 /// Outcome of a Safety Kernel `authorize` request from the *caller*'s
 /// point of view. Returned by the adapter-side `SafetyKernelClient`
 /// (see `qorch_safety_kernel_client::client::SafetyKernelClient`).
-/
+///
 /// This enum is deliberately **not** `Serialize` / `Deserialize`. The
 /// kernel wire format uses a compact signed-token envelope (see
 /// `sign_kernel_token` / `verify_kernel_token`); the decision shape is
@@ -57,7 +57,7 @@ pub enum KernelDecision {
 /// Failure modes a caller may observe from `authorize`. FAIL-CLOSED
 /// semantics: every variant here causes the caller's operation to be
 /// rejected — none of them are recoverable as ALLOW.
-/
+///
 /// This enum holds only `String` payloads so it is fully serializable
 /// for audit-log persistence. Transport-layer details (reqwest errors,
 /// decode errors, signature errors) live in the adapter's

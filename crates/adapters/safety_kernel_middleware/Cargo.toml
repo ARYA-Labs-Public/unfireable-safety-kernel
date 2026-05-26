@@ -1,0 +1,69 @@
+# crates/adapters/safety_kernel_middleware — Axum/Tower middleware for the
+# Safety Kernel client SDK (  sub-deliverable 2c-rust).
+#
+# This crate is the Rust-side analogue of the Python reference FastAPI
+# middleware shipped in 2c-python (see  §§4-5). Per
+#, it provides:
+#   - `SafetyLayer` (tower::Layer impl) wrapping any axum service
+#   - `MiddlewarePolicy` three-tier enum (Unrestricted / Supervised / Gated)
+#   - `MiddlewarePolicyResolver` trait for per-route policy lookup
+#   - `MiddlewareError` rejection → HTTP 503 (unreachable) / 403 (denied/forged)
+#   - 6 adversarial fixtures matching the cross-language parity script
+#     (forged token, replay, wrong-tool, expired, kernel-stopped,
+#     bypass-attempt-direct)
+#
+# Boundary discipline: this is an *adapter* crate. It is allowed to use
+# axum/tower/tracing/reqwest etc. (per agent/boundaries.toml). It must
+# NOT be imported by the domain crate.
+[package]
+name = "qorch-safety-kernel-middleware"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Axum/Tower middleware for the safety-kernel client SDK."
+
+[lib]
+name = "qorch_safety_kernel_middleware"
+path = "src/lib.rs"
+
+[dependencies]
+# The SDK we wrap. Brings in qorch-domain transitively for the
+# pure-types (`KernelDecision`, `AuthorizeRequest`, `VerifiedClaims`).
+qorch-safety-kernel-client = { path = "../safety_kernel_client" , version = "0.1.0" }
+qorch-domain = { path = "../../domain" , version = "0.1.0" }
+
+# Workspace-pinned deps. The crate's surface is axum/tower based.
+axum = { workspace = true }
+tower = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+http = "1"
+http-body-util = "0.1"
+bytes = { workspace = true }
+async-trait = "0.1"
+futures = "0.3"
+
+[dev-dependencies]
+# Mock SK client used to drive the 6 adversarial fixtures + fail-closed
+# tests. Lives behind an in-crate trait re-implementation so the unit
+# tests do not need a running kernel.
+tokio = { workspace = true, features = ["full"] }
+ed25519-dalek = { workspace = true }
+reqwest = { workspace = true }
+serde_json = { workspace = true }
+tower = { workspace = true, features = ["util"] }
+
+[lints.rust]
+unused_imports = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }

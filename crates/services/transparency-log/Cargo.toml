@@ -32,12 +32,12 @@ path = "src/main.rs"
 [dependencies]
 # Pure-types substrate: MerkleLeaf, InclusionProof, SignedTreeHead,
 # verify_*/mint_sth helpers, VerificationError. Used by every route.
-qorch-domain = { path = "../../domain" }
+qorch-domain = { path = "../../domain" , version = "0.1.0" }
 # Adapter crate: SystemClock (Clock impl) consumed by `main.rs`.
-qorch-adapters = { path = "../../adapters" }
+qorch-adapters = { path = "../../adapters" , version = "0.1.0" }
 # Step-4 adapter crate: `TransparencyStore` trait + Memory/Postgres
 # implementations. The service holds `Arc<dyn TransparencyStore>`.
-qorch-transparency-store = { path = "../../adapters/transparency_store" }
+qorch-transparency-store = { path = "../../adapters/transparency_store" , version = "0.1.0" }
 
 axum = { workspace = true }
 tokio = { workspace = true }

@@ -1,0 +1,42 @@
+# crates/adapters — I/O adapters (HTTP, RNG, clock, IPC).
+#
+# This is the only crate where I/O is allowed in the Rust workspace.
+# Domain and application crates take adapter behaviour as trait
+# parameters; this crate implements those traits.
+[package]
+name = "qorch-adapters"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "I/O adapters for the safety-kernel — clock, nonce, and policy-engine IPC."
+keywords = ["safety", "authorization", "audit"]
+categories = ["api-bindings"]
+readme = "../../README.md"
+
+[dependencies]
+qorch-domain = { path = "../domain", version = "0.1.0" }
+qorch-application = { path = "../application", version = "0.1.0" }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+base64 = { workspace = true }
+rand_core = { workspace = true }
+uuid = { workspace = true }
+async-trait = "0.1"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }
+tempfile = "3"
+
+[lints.rust]
+unused_imports = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }

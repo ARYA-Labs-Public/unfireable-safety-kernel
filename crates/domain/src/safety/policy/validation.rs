@@ -39,14 +39,14 @@ pub const MAX_MODULE_PATH_LEN: usize = 256;
 pub const MODULE_PATH_INVALID_CHARSET_REASON: &str = "module_path_invalid_charset";
 
 /// Validate `s` against the canonical `module_path` charset.
-/
+///
 /// Returns `true` iff `s` is:
-/
+///
 ///   * non-empty,
 ///   * at most [`MAX_MODULE_PATH_LEN`] bytes,
 ///   * AND matches either the dotted-name form (ASCII alnum / `_` / `.`)
 ///     OR the SHA-256-hex form (exactly 64 lowercase hex chars).
-/
+///
 /// Returns `false` otherwise. The check is a single linear scan; no
 /// regex engine is used. Callers should reject with HTTP 400 +
 /// `reason: MODULE_PATH_INVALID_CHARSET_REASON` on `false`.

@@ -57,7 +57,7 @@ pub const POLICY_AUTHORIZE_ACTION: &str = "policy_module_authorize";
 pub const POLICY_REGISTER_ACTION: &str = "policy_module_register";
 
 /// Canonical `aud` value for `POST /policy/module/authorize` tokens.
-/
+///
 /// Introduced in slice 5 (Bundle A,  carry-forward).
 /// Closes the cross-tenant replay surface between
 /// `/kernel/v1/authorize` and `/policy/module/authorize` — both endpoints
@@ -66,14 +66,14 @@ pub const POLICY_REGISTER_ACTION: &str = "policy_module_register";
 pub const POLICY_AUTHORIZE_AUD: &str = "policy/module/authorize";
 
 /// Canonical `aud` value for `POST /policy/module/register` receipt tokens.
-/
+///
 /// Introduced in slice 5 (Bundle A,  carry-forward).
 /// Same rationale as `POLICY_AUTHORIZE_AUD`.
 pub const POLICY_REGISTER_AUD: &str = "policy/module/register";
 
 /// Signed claim set for `POST /policy/module/authorize` — emitted for
 /// BOTH `Allow` and `Deny` decisions ( table, lines 522-540).
-/
+///
 /// `decision` and `reason` are payload fields; the §1.2 required-claim
 /// set is satisfied via `action` / `run_id` / `subject` /
 /// `params_fingerprint` / `issued_at` / `expires_at` / `nonce`. The
@@ -196,7 +196,7 @@ impl ToClaimsMap for ModuleAuthorizeClaims {
 
 /// Signed receipt for a successful `POST /policy/module/register`
 /// ( table, lines 542-552).
-/
+///
 /// `register` has no per-run context, so `run_id` is set to the
 /// `caller_subject` (per the ADR). The regex set is bound into the
 /// receipt via a fingerprint, so the registered patterns can be

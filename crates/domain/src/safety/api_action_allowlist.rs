@@ -112,7 +112,7 @@ pub const API_ALLOWED_PREFIXES: &[&str] = &[
 ];
 
 /// Checks whether an `api`-role action is in the allowlist.
-/
+///
 /// The action string format is `METHOD:/path` (e.g. `POST:/api/v1/chat`).
 /// We split on the first `:` and prefix-match the path portion. If no
 /// colon is present, the whole string is treated as the path (matches

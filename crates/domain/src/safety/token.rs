@@ -57,7 +57,7 @@ fn sort_value(v: &Value) -> Value {
 /// Serialize a `BTreeMap<String, Value>` (top-level claims map) as
 /// canonical stable JSON: lexicographic key order at every nesting
 /// level, no whitespace, UTF-8 passthrough.
-/
+///
 /// Mirrors Python `_stable_json` exactly. Required for byte equality
 /// of the signed payload — see mandatory test.
 #[must_use]
@@ -101,11 +101,11 @@ pub fn token_sha256(token: &str) -> String {
 }
 
 /// Stable fingerprint of an arbitrary params object.
-/
+///
 /// The input is a `serde_json::Value` representing the params dict.
 /// Non-object inputs are coerced through the same JSON-string surface
 /// Python uses (`dict(params)` then `_stable_json`).
-/
+///
 /// 6 binding: `sha256_hex(stable_json(params))`.
 /// Equivalent to Python `params_fingerprint` (`safety_tokens.py:53-56`).
 #[must_use]
@@ -136,7 +136,7 @@ pub struct VerifiedClaims {
 
 /// Sign a typed claim set and return the compact token
 /// `<payload_b64>.<signature_b64>` 1.
-/
+///
 /// The signature is computed over the ASCII bytes of `payload_b64`
 /// (NOT the raw JSON) per §1.3 / Python `safety_tokens.py:163-165`.
 #[must_use]
@@ -163,20 +163,20 @@ const REQUIRED_FIELDS: &[&str] = &[
 ];
 
 /// Verify a compact token against a public key and time bounds.
-/
+///
 /// Returns `Ok(VerifiedClaims)` on success or a typed
 /// `KernelTokenError` on any failure. Mirrors Python
 /// `verify_kernel_token` (`safety_tokens.py:170-267`) exactly.
-/
+///
 /// # `expected_aud` parameter ( slice 5,  fold-in)
-/
+///
 /// When `Some(aud)`, the verifier requires the token's `aud` claim to
 /// be present AND equal to the supplied string. Failure modes:
-/
+///
 /// - Token has no `aud` claim ⇒ `KernelTokenError::Claims("missing_claim:aud")`
 /// - Token's `aud` is the wrong type ⇒ `KernelTokenError::Claims("invalid_aud")`
 /// - Token's `aud` doesn't match ⇒ `KernelTokenError::Claims("invalid_audience")`
-/
+///
 /// When `None`, the `aud` claim (if present) is NOT inspected. This is
 /// the **backwards-compatible** mode — pre-slice-5 callers and legacy
 /// tokens that don't have an `aud` claim keep working. New callers
@@ -184,9 +184,9 @@ const REQUIRED_FIELDS: &[&str] = &[
 /// in to enforcement.  closes the cross-tenant replay surface
 /// between `/kernel/v1/authorize` and `/policy/*` tokens; the surface
 /// only closes for callers that opt in.
-/
+///
 /// # Errors
-/
+///
 /// Returns `Err` for: malformed token (Format), failed signature
 /// (Signature), missing or wrong-typed claim (Claims), expired token
 /// (Expired), audience mismatch (Claims). Specific error code strings
@@ -654,16 +654,16 @@ mod tests {
     }
 
     /// W4 purple-team T1 — Ed25519 signature malleability check.
-    /
+    ///
     /// An Ed25519 signature is (R, S) where S MUST be in [0, L) for
     /// the curve order L. A signature with S >= L (or with the high
     /// bit set in the encoded S) is non-canonical and creates a
     /// signature-malleability surface (RFC 8032 §5.1.7, RFC 8032
     /// errata).
-    /
+    ///
     /// ed25519-dalek v2's default `Verifier::verify` enforces
     /// canonical S — but verify by experiment, not by docs.
-    /
+    ///
     /// We construct a non-canonical signature by computing a real
     /// signature, then mutating S to be > L (by setting high bits
     /// in the encoded S half), and assert that

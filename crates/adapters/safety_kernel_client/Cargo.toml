@@ -32,11 +32,11 @@ path = "src/lib.rs"
 [dependencies]
 # Pure-types substrate: KernelDecision, KernelDecisionError, VerifiedClaims,
 # CircuitState/Config/Transition, Clock, KernelTokenError live here.
-qorch-domain = { path = "../../domain" }
+qorch-domain = { path = "../../domain" , version = "0.1.0" }
 # The Slice-2 reqwest adapter consumes the application-layer
 # `SafetyKernelClient` trait; pull it in so `reqwest_client.rs` still
 # compiles in the new crate.
-qorch-application = { path = "../../application" }
+qorch-application = { path = "../../application" , version = "0.1.0" }
 
 # Workspace-pinned deps reused from the union in /Cargo.toml.
 tokio = { workspace = true }

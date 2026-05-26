@@ -28,9 +28,9 @@ path = "src/main.rs"
 test-seams = []
 
 [dependencies]
-qorch-domain = { path = "../../domain" }
-qorch-application = { path = "../../application" }
-qorch-adapters = { path = "../../adapters" }
+qorch-domain = { path = "../../domain" , version = "0.1.0" }
+qorch-application = { path = "../../application" , version = "0.1.0" }
+qorch-adapters = { path = "../../adapters" , version = "0.1.0" }
 
 axum = { workspace = true }
 tokio = { workspace = true }

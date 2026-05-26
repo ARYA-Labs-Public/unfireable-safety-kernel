@@ -21,7 +21,7 @@ use serde_big_array::BigArray;
 use sha2::{Digest, Sha256};
 
 /// A single appended entry in the Merkle ledger.
-/
+///
 /// `hash` is the RFC-6962 leaf hash (SHA-256 of `0x00 || serialized
 /// payload`). `leaf_index` is 0-based and assigned by the storage
 /// adapter at append time. `occurred_at_epoch_seconds` is the
@@ -51,7 +51,7 @@ pub struct MerkleNode {
 
 /// RFC-6962 inclusion proof — the audit path from a leaf to the
 /// current tree root.
-/
+///
 /// `path` is the ordered list of sibling hashes needed to recompute
 /// the root from `leaf_hash` at position `leaf_index` in a tree of
 /// size `tree_size`.
@@ -90,7 +90,7 @@ pub struct ConsistencyProof {
 
 /// Ed25519-signed tree head — the authoritative public statement of
 /// "ledger state as of `timestamp_epoch_seconds`."
-/
+///
 /// `signature` is the raw 64-byte Ed25519 signature over the
 /// canonical serialization `root_hash || tree_size.to_be_bytes() ||
 /// timestamp_epoch_seconds.to_be_bytes()`. STH signs with a separate,
@@ -177,9 +177,9 @@ pub fn node_hash(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
 // ---------------------------------------------------------------------------
 
 /// Compute the Merkle root of `leaves` per RFC-6962 §2.1.
-/
+///
 /// # Errors
-/
+///
 /// Returns [`VerificationError::EmptyTree`] when `leaves.is_empty()`.
 /// RFC-6962 defines the empty-tree hash as `SHA-256()` of the empty
 /// byte string; we treat that as a separate codepath rather than a
@@ -223,9 +223,9 @@ fn largest_power_of_two_strictly_less_than(n: usize) -> usize {
 
 /// Build the RFC-6962 inclusion proof for `leaf_index` against the
 /// tree formed by `leaves` (whose size is `leaves.len()`).
-/
+///
 /// # Errors
-/
+///
 /// - [`VerificationError::EmptyTree`] if `leaves.is_empty()`.
 /// - [`VerificationError::LeafIndexOutOfBounds`] if `leaf_index >=
 ///   leaves.len()`.
@@ -273,9 +273,9 @@ fn inclusion_path(hashes: &[[u8; 32]], index: usize, out: &mut Vec<[u8; 32]>) {
 }
 
 /// Verify an RFC-6962 inclusion proof against `expected_root`.
-/
+///
 /// # Errors
-/
+///
 /// - [`VerificationError::EmptyTree`] if `proof.tree_size == 0`.
 /// - [`VerificationError::LeafIndexOutOfBounds`] if
 ///   `proof.leaf_index >= proof.tree_size`.
@@ -336,9 +336,9 @@ pub fn verify_inclusion_proof(
 /// `from_size` (earlier) and `to_size` (later), given the full leaf
 /// set of the later tree (which is a strict superset of the earlier
 /// one because the ledger is append-only).
-/
+///
 /// # Errors
-/
+///
 /// - [`VerificationError::InvalidConsistencyRange`] if `from_size ==
 ///   0` or `from_size > to_size`.
 /// - [`VerificationError::LeafIndexOutOfBounds`] if `to_size >
@@ -395,9 +395,9 @@ fn subproof(m: usize, hashes: &[[u8; 32]], start_on_path: bool, out: &mut Vec<[u
 /// Verify an RFC-6962 consistency proof: the tree whose root is
 /// `from_root` (size `from_size`) is a prefix of the tree whose root
 /// is `to_root` (size `to_size`).
-/
+///
 /// # Errors
-/
+///
 /// - [`VerificationError::InvalidConsistencyRange`] when sizes are
 ///   invalid (`from_size == 0`, or `from_size > to_size`).
 /// - [`VerificationError::ProofPathLengthMismatch`] when the proof

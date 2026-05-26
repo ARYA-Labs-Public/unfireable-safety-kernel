@@ -33,9 +33,9 @@ name = "reference_app_rs"
 path = "src/main.rs"
 
 [dependencies]
-qorch-safety-kernel-middleware = { path = "../../crates/adapters/safety_kernel_middleware" }
-qorch-safety-kernel-client = { path = "../../crates/adapters/safety_kernel_client" }
-qorch-domain = { path = "../../crates/domain" }
+qorch-safety-kernel-middleware = { path = "../../crates/adapters/safety_kernel_middleware" , version = "0.1.0" }
+qorch-safety-kernel-client = { path = "../../crates/adapters/safety_kernel_client" , version = "0.1.0" }
+qorch-domain = { path = "../../crates/domain" , version = "0.1.0" }
 
 axum = { workspace = true }
 tokio = { workspace = true, features = ["full"] }

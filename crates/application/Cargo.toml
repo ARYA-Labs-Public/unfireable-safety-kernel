@@ -1,0 +1,27 @@
+# crates/application — port traits + DTOs orchestrating the domain.
+#
+# NO I/O. Defines the boundary between use-case code and the adapters
+# that implement I/O. Adapters in `crates/adapters/` provide concrete
+# implementations of the traits declared here.
+[package]
+name = "qorch-application"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Use-case orchestration + port traits for the safety-kernel."
+keywords = ["safety", "authorization", "audit"]
+categories = ["api-bindings"]
+readme = "../../README.md"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+qorch-domain = { path = "../domain", version = "0.1.0" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+async-trait = "0.1"

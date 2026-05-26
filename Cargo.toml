@@ -13,20 +13,22 @@
 resolver = "2"
 members = [
  "crates/domain",
+ "crates/application",
  "crates/adapters",
  "crates/adapters/safety_kernel_client",
+ "crates/adapters/safety_kernel_middleware",
  "crates/adapters/transparency_store",
  "crates/services/safety-kernel",
  "crates/services/safety-kernel-reconciler",
- "examples/reference_app_rs",
  "crates/services/transparency-log",
+ "examples/reference_app_rs",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.85"
-license = "Proprietary"
+license = "Apache-2.0"
 repository = "https://github.com/ARYA-Labs-Public/unfireable-safety-kernel"
 authors = ["ARYA Labs <eng@aryalabs.io>"]
 
@@ -85,6 +87,12 @@ sqlx = { version = "0.8", default-features = false, features = ["postgres",
  "runtime-tokio",
  "macros",
  "chrono"] }
+
+# async-trait for safety_kernel port traits (application crate).
+async-trait = "0.1"
+
+# serde-big-array for fixed-size byte arrays (transparency-log Merkle).
+serde-big-array = "0.5"
 
 [profile.release]
 lto = "thin"

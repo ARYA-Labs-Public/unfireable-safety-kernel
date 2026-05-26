@@ -16,14 +16,14 @@
 use serde::{Deserialize, Serialize};
 
 /// Circuit-breaker state. Transitions are:
-/
+///
 /// ```text
 ///   Closed  -- N consecutive failures -->  Open
 ///   Open    -- cooldown elapsed       -->  HalfOpen
 ///   HalfOpen -- probe succeeds        -->  Closed
 ///   HalfOpen -- probe fails           -->  Open
 /// ```
-/
+///
 /// FAIL-CLOSED invariant: while in `Open`, the breaker MUST refuse
 /// requests with `KernelError::Unavailable`. Never auto-approve.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

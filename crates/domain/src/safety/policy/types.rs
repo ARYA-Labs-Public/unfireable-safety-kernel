@@ -23,10 +23,10 @@ use serde_json::Value;
 // ============================================================================
 
 /// `CPython` audit-event class that triggered the authorize call (PEP 578).
-/
+///
 /// `Import` covers the standard `import` audit event; `Exec` and
 /// `Compile` cover string-source execution and compilation respectively.
-/
+///
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ModuleEventKind {
@@ -41,7 +41,7 @@ pub enum ModuleEventKind {
 /// Frozen request body for `POST /policy/module/authorize` (
 /// §`OpenAPI` delta). Field set is binding; slice 2 implementation MUST
 /// conform byte-equivalently.
-/
+///
 /// Free-form audit `metadata` is `BTreeMap<String, Value>` so when the
 /// slice-2 handler re-serializes it through `stable_json`, the key
 /// order stays deterministic (matches the existing kernel pattern in
@@ -75,7 +75,7 @@ pub struct ModuleAuthorizeRequest {
 }
 
 /// Decision verdict for a module-authorize call.
-/
+///
 /// `KernelUnavailable` is wire-distinct from `Deny`: the kernel issues
 /// `Deny` only when policy says no, and `KernelUnavailable` when the
 /// decision backend itself is unreachable. The Python audit-hook
@@ -93,14 +93,14 @@ pub enum ModuleAuthorizeDecision {
 }
 
 /// Signed-envelope response for `POST /policy/module/authorize`.
-/
+///
 /// Field set mirrors  §`OpenAPI` delta — the Allow shape requires
 /// `ok` / `decision` / `token` / `token_sha256` / `claims`; the Deny
 /// shape additionally requires `reason`. One Rust struct covers both
 /// wire shapes; the optionality is at the field level because slice-1
 /// handlers return `501 Not Implemented` and never populate the signed
 /// envelope.
-/
+///
 /// `token` / `token_sha256` / `claims` reuse the existing
 /// `AuthorizeResponse` envelope from `crates/domain/src/safety/token.rs`
 /// (`sign_kernel_token`, `token_sha256`) — same Ed25519 key, same
@@ -143,7 +143,7 @@ pub struct ModuleAuthorizeResponse {
 // ============================================================================
 
 /// `POST /policy/module/register` request body — 
-/
+///
 /// Registers a module path + the regex set every authorize call for
 /// that path will be evaluated against. The signed receipt returned to
 /// the caller is built from `ModuleRegisterClaims` (see `claims.rs`).
@@ -197,7 +197,7 @@ pub enum AuditEventKind {
 }
 
 /// `POST /policy/audit-event` request body — 
-/
+///
 /// Non-decision audit surface. Does not render a verdict, does not
 /// sign a token; appends one entry to the chain and returns 202.
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -254,7 +254,7 @@ pub struct ModuleStatusRegistration {
 }
 
 /// `GET /policy/module/{module_path}/status` 200 success body —
-/
+///
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModuleStatusResponse {
     /// Always `true` on 200.

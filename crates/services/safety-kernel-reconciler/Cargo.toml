@@ -35,14 +35,14 @@ path = "src/main.rs"
 
 [dependencies]
 # Pure-type contracts shared with the kernel + transparency-log.
-qorch-domain = { path = "../../domain" }
+qorch-domain = { path = "../../domain" , version = "0.1.0" }
 
 #  Safety Kernel client SDK — consumed by the reconciler so
 # drift events can be audited through the same surface the kernel
 # uses. The reconciler does NOT call /authorize itself; it pulls the
 # pinned-key fingerprint + the local audit-trail wiring from the SDK
 # to keep observability shapes aligned with the kernel.
-qorch-safety-kernel-client = { path = "../../adapters/safety_kernel_client" }
+qorch-safety-kernel-client = { path = "../../adapters/safety_kernel_client" , version = "0.1.0" }
 
 # Step-3 toolchain: async runtime, structured logs, JSON for the
 # signed release manifest and any HTTP payloads. None of these touch

@@ -30,9 +30,9 @@ use sha2::{Digest, Sha256};
 pub const GENESIS_PREV_HASH: [u8; 32] = [0u8; 32];
 
 /// One immutable record in the episodic chain.
-/
+///
 /// Field semantics:
-/
+///
 /// * `seq` — strictly monotonic per `tenant_id`, starting at 0.
 /// * `tenant_id` — the customer (or `"shared"` for non-tenanted runs).
 /// * `atom_id` — which arya-speaks atom drove the decision.
@@ -84,9 +84,9 @@ pub struct EpisodicChainEntry {
 
 /// Compute the canonical SHA-256 over every field of `entry` except
 /// `entry_hash`. Deterministic and byte-stable across implementations.
-/
+///
 /// Serialization layout (all integers little-endian):
-/
+///
 /// ```text
 /// seq: u64
 /// tenant_id: len(u32) + utf-8 bytes
@@ -98,7 +98,7 @@ pub struct EpisodicChainEntry {
 /// ts_utc: len(u32) + utf-8 bytes
 /// prev_hash: [u8; 32]
 /// ```
-/
+///
 /// Length prefixes prevent ambiguity between adjacent variable-length
 /// fields; without them, `("a", "bc")` and `("ab", "c")` would hash to
 /// the same digest. The `correct` discriminator uses `0xFF` for `None`
@@ -140,21 +140,21 @@ fn u32_len(s: &str) -> u32 {
 }
 
 /// Verify chain integrity end-to-end.
-/
+///
 /// Returns `Ok(())` when:
-/
+///
 /// * every entry's `entry_hash` matches the canonical hash of its
 ///   other fields (computed by [`compute_entry_hash`]), AND
 /// * every non-genesis entry's `prev_hash` matches the previous
 ///   entry's `entry_hash`.
-/
+///
 /// Empty slices return `Ok(())` (vacuous truth — no integrity claim
 /// to make).
-/
+///
 /// Cost: O(n) hashes — one SHA-256 per entry.
-/
+///
 /// # Errors
-/
+///
 /// Returns `Err(i)` where `i` is the index of the first failing
 /// entry. `Err(0)` means the genesis entry's `entry_hash` is
 /// tampered; `Err(i)` for `i > 0` means either the entry's own
@@ -222,7 +222,7 @@ mod tests {
     }
 
     /// AC5 — broken `prev_hash` link returns `Err(i)`.
-    /
+    ///
     /// Because `entry_hash` covers `prev_hash`, mutating `prev_hash`
     /// alone surfaces as the AC4 path (`entry_hash` mismatch). To
     /// exercise AC5's distinct error path we mutate `prev_hash` AND

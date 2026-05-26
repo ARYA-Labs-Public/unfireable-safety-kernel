@@ -58,7 +58,7 @@ pub use token::{
 /// Test seam — pure trait describing wall-clock time as `f64` epoch
 /// seconds. The Safety Kernel sources `now` from a `Clock` so the
 /// equivalence harness can pin both Python and Rust to the same value.
-/
+///
 /// Per Appendix B, the production implementation lives
 /// in `crates/adapters/src/clock.rs` and uses `SystemTime::now`; tests
 /// inject a `FixedClock(f64)` via this trait.
@@ -68,7 +68,7 @@ pub trait Clock: Send + Sync {
 }
 
 /// Test seam — pure trait describing a base64url-no-pad nonce source.
-/
+///
 /// The production implementation in `crates/adapters/` uses `OsRng` and
 /// the `base64::engine::general_purpose::URL_SAFE_NO_PAD` engine; tests
 /// inject `FixedNonce(&'static str)` so the equivalence harness can

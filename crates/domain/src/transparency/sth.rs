@@ -43,7 +43,7 @@ fn canonical_payload(
 
 /// Mint a `SignedTreeHead` for `(root_hash, tree_size,
 /// timestamp_epoch_seconds)` using `signing_key`.
-/
+///
 /// The signature is over the canonical payload described in the
 /// module doc; the result is independent of any JSON / serde
 /// framing.
@@ -65,9 +65,9 @@ pub fn mint_sth(
 }
 
 /// Verify a `SignedTreeHead` against `verifying_key`.
-/
+///
 /// # Errors
-/
+///
 /// Returns [`VerificationError::SignatureInvalid`] if the Ed25519
 /// signature does not validate over the canonical payload.
 pub fn verify_sth(

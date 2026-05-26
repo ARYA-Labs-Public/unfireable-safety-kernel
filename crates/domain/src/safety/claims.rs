@@ -28,7 +28,7 @@ pub trait ToClaimsMap {
 }
 
 /// Canonical `aud` claim value for `/kernel/v1/authorize` tokens.
-/
+///
 /// Introduced in slice 5 (Bundle A,  carry-forward).
 /// The kernel signing key is shared across `/kernel/v1/authorize` and
 /// the policy-engine endpoints; the `aud` claim partitions the audience
@@ -38,7 +38,7 @@ pub trait ToClaimsMap {
 pub const KERNEL_AUTHORIZE_AUD: &str = "kernel/authorize";
 
 /// Canonical `aud` claim value for `/kernel/v1/approvals/decision` tokens.
-/
+///
 /// Introduced in -followup item 1.  closed the
 /// `aud` cross-tenant replay surface on the authorize + policy claim
 /// types only; `ApprovalClaims` was left without an audience tag, so an
@@ -52,12 +52,12 @@ pub const KERNEL_AUTHORIZE_AUD: &str = "kernel/authorize";
 pub const APPROVAL_AUD: &str = "kernel/approvals/decision";
 
 /// Authorize-token claim set — required keys 2.
-/
+///
 /// `subject` is overwritten by the Rust HTTP handler with `caller_role`
 /// before signing — the request-body subject is recorded only as audit
 /// metadata ( inconsistency note 4). This struct
 /// holds whatever the handler decides to sign; it is shape-only.
-/
+///
 /// **`aud` claim ( slice 5,  fold-in):** the kernel
 /// signing key is the SAME key used by the policy-engine endpoints;
 /// without an audience tag, a `/kernel/v1/authorize` token could in
@@ -123,7 +123,7 @@ impl ToClaimsMap for AuthorizeClaims {
 /// Approval-token claim set — adds `decision`, `reason`, `approver`,
 /// `proposal_fingerprint` to the authorize-shape required keys (see
 /// `apps/safety_kernel/routes/approvals.py:90-101`).
-/
+///
 /// `reason` is JSON null when absent (on approve, or on reject without a
 /// caller-supplied reason); Rust must emit `Value::Null`, not omit the
 /// key, for byte equality with Python.
@@ -236,7 +236,7 @@ pub enum ConstraintKind {
 /// the Safety Kernel must enforce at request time. Versioned and
 /// provenance-tracked so cogcore's `CoreLane` can store, retrieve, and
 /// supersede rules without losing history.
-/
+///
 /// Construction is direct field-by-field — there is no builder. The
 /// struct is logically immutable: cogcore writes a new entry with
 /// `version + 1` rather than mutating in place (see design
@@ -287,7 +287,7 @@ pub struct CoreConstraintSet {
 
 impl CoreConstraintSet {
     /// Return constraints with `priority == 0` (must-never-violate).
-    /
+    ///
     /// AC3 — the returned slice contains exclusively `priority == 0`
     /// entries; any non-zero-priority constraint is filtered out.
     #[must_use]
@@ -299,20 +299,20 @@ impl CoreConstraintSet {
     }
 
     /// Return constraints active at the given RFC3339 timestamp.
-    /
+    ///
     /// A constraint is active iff
     /// `valid_from <= ts && (valid_to.is_none() || ts < valid_to)`.
     /// The lower bound is inclusive and the upper bound is exclusive:
     /// a constraint whose `valid_to` exactly equals `ts` is considered
     /// already retired.
-    /
+    ///
     /// Comparison is lexicographic on the RFC3339 strings, which is
     /// correct when `ts`, `valid_from`, and `valid_to` are all
     /// well-formed RFC3339 UTC (`Z` suffix, identical precision).
     /// Mixed offsets, missing `Z`, or differing fractional-second
     /// precision are the caller's responsibility — `active_at` does
     /// not parse.
-    /
+    ///
     /// AC4 — filters by `valid_from`/`valid_to` boundaries.
     #[must_use]
     pub fn active_at<'a>(&'a self, ts: &str) -> Vec<&'a CoreConstraint> {

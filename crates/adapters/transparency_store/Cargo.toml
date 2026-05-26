@@ -27,7 +27,7 @@ path = "src/lib.rs"
 [dependencies]
 # Pure-types substrate: MerkleLeaf / InclusionProof / VerificationError
 # + proof-construction functions.
-qorch-domain = { path = "../../domain" }
+qorch-domain = { path = "../../domain" , version = "0.1.0" }
 
 # async-trait — Step 4 trait is async so the Postgres impl can `.await`
 # `sqlx::query` futures. 0.1.x line is the workspace baseline (see

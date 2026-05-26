@@ -30,7 +30,7 @@ use std::path::PathBuf;
 
 /// The forbidden-import substrings from `agent/boundaries.toml` /
 /// `CLAUDE.md` §"Domain-crate forbidden imports".
-/
+///
 /// We match on `use <prefix>` patterns rather than bare `<prefix>::`
 /// because the latter has too many benign collisions (e.g. inside
 /// rustdoc links). The patterns below cover both classic imports
