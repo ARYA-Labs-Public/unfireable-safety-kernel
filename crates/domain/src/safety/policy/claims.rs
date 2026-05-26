@@ -105,7 +105,7 @@ pub struct ModuleAuthorizeClaims {
     /// `Exec`/`Compile`).
     pub module_path: String,
     /// Server-recomputed event fingerprint (NOT the value supplied by
-    /// the caller — bind the trusted recomputation 
+    /// the caller — bind the trusted recomputation
     pub event_fingerprint: String,
     /// `Allow` or `Deny` — the actual verdict.
     pub decision: ModuleAuthorizeDecision,

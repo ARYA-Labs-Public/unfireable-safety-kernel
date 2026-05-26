@@ -1,4 +1,4 @@
-//! `/kernel/v1/authorize` handler — implements 
+//! `/kernel/v1/authorize` handler — implements
 //! step-for-step.
 //!
 //! Order of operations (binding):
@@ -307,7 +307,17 @@ pub async fn authorize(
                     detail = %e.detail(),
                     "transparency-log append failed — failing closed"
                 );
-                synth_audit_and_deny(&state, &body, caller_role, requested, ttl, now, &reason, &e.detail()).await;
+                synth_audit_and_deny(
+                    &state,
+                    &body,
+                    caller_role,
+                    requested,
+                    ttl,
+                    now,
+                    &reason,
+                    &e.detail(),
+                )
+                .await;
                 return deny(
                     StatusCode::FORBIDDEN,
                     ErrorResponse::with_reason("denied", reason),

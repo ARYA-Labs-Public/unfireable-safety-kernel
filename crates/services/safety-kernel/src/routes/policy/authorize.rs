@@ -44,7 +44,7 @@ use crate::auth::CallerRole;
 use crate::dto::ErrorResponse;
 use crate::state::AppState;
 
-/// Default authorize-token TTL (60s 
+/// Default authorize-token TTL (60s
 const AUTHORIZE_TOKEN_TTL_S: f64 = 60.0;
 
 /// Helper — error response shorthand.
@@ -294,7 +294,7 @@ pub async fn authorize(
         );
     }
 
-    // Build the HTTP response envelope 
+    // Build the HTTP response envelope
     let body_obj = json!({
         "ok": matches!(decision_enum, ModuleAuthorizeDecision::Allow),
         "decision": match decision_enum {

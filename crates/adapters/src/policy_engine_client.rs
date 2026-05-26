@@ -90,7 +90,7 @@ impl IpcError {
             Self::IpcEof => "IpcEof",
             Self::MalformedResponse(_) => "MalformedResponse",
             Self::SidecarReportedError(_) => "SidecarReportedError",
-            Self::RequestIdMismatch {.. } => "RequestIdMismatch",
+            Self::RequestIdMismatch { .. } => "RequestIdMismatch",
         }
     }
 
@@ -143,7 +143,7 @@ pub struct PolicyDecision {
 /// Audit-append request (§3.4).
 #[derive(Debug, Clone, Serialize)]
 pub struct AuditAppendRequest {
-    /// Stable unit identifier — always `"safety_kernel"` for 
+    /// Stable unit identifier — always `"safety_kernel"` for
     /// kernel writes.
     pub unit_id: String,
     /// `kernel_authorize` | `kernel_signed_approval`.

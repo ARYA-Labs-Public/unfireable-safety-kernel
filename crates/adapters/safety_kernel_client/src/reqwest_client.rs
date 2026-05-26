@@ -199,7 +199,7 @@ mod tests {
         };
         let result = client.authorize(claims).await;
         match result {
-            Err(SafetyKernelError::Unreachable {.. }) => {}
+            Err(SafetyKernelError::Unreachable { .. }) => {}
             other => panic!("expected Unreachable, got {other:?}"),
         }
     }

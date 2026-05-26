@@ -69,6 +69,13 @@ fn fresh_seed_b64() -> String {
 }
 
 #[allow(clippy::too_many_lines)] // Single end-to-end smoke; splitting hurts readability.
+//
+// Marked `#[ignore]`: this end-to-end smoke spawns the Python policy
+// sidecar (`apps/safety_kernel/policy_sidecar.py`), which is not
+// shipped in this public-extraction repo. The test is preserved for
+// adopters who bring their own sidecar implementation. Run via:
+//   cargo test -p qorch-safety-kernel --test smoke_e2e -- --ignored
+#[ignore = "requires apps/safety_kernel/policy_sidecar.py — not shipped in the public extraction"]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn smoke_authorize_health_publickey() {
     if !have_python3() {

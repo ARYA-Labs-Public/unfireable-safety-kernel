@@ -144,7 +144,12 @@ async fn happy_path_full_chain_with_gate_surface() {
     let stages: Vec<(WaveStage, &str, &str, HashSet<GateSurface>)> = vec![
         (WaveStage::Tested, "adv-1", "/test", gs.clone()),
         (WaveStage::PurpleTeamed, "pt-1", "/purple-team", gs.clone()),
-        (WaveStage::Accepted, "uat-1", "/user-acceptance", HashSet::new()),
+        (
+            WaveStage::Accepted,
+            "uat-1",
+            "/user-acceptance",
+            HashSet::new(),
+        ),
         (WaveStage::Closed, "cls-1", "/closeout", HashSet::new()),
     ];
     for (stage, sid, wb, gs_local) in stages {
@@ -272,13 +277,7 @@ async fn adversarial_forged_kernel_fingerprint_rejected() {
     let key = b"integration-key-32-bytes-padding";
     let state = state_with_key(key);
     let router = build_router(state.clone());
-    let r = rec(
-        "wave-fp",
-        WaveStage::Tested,
-        "adv",
-        "/test",
-        HashSet::new(),
-    );
+    let r = rec("wave-fp", WaveStage::Tested, "adv", "/test", HashSet::new());
     let h = hmac_of(key, &r);
     let mut b = body(&state, &h, &r);
     b["kernel_key_fingerprint_sha256"] = Value::String(hex::encode([0xEE; 32]));
@@ -288,7 +287,8 @@ async fn adversarial_forged_kernel_fingerprint_rejected() {
 }
 
 #[tokio::test]
-async fn adversarial_append_purple_teamed_with_empty_gate_surfaces_allowed_chain_predicate_handles() {
+async fn adversarial_append_purple_teamed_with_empty_gate_surfaces_allowed_chain_predicate_handles()
+{
     // Spec requirement: a record claiming PURPLE_TEAMED with empty
     // gate_surfaces should be allowed (consistency check is at the
     // chain-level all_required_stages_present, not at append time).

@@ -35,7 +35,8 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
-from typing import Any, Iterable, Iterator, List, Optional, Sequence
+from collections.abc import Iterable, Iterator, Sequence
+from typing import Any
 
 from .install_audit_hook import _installed
 
@@ -68,7 +69,7 @@ def _is_python_executable(arg0: str) -> bool:
     return arg0 == sys.executable
 
 
-def _build_propagation_env(base_env: Optional[dict]) -> dict:
+def _build_propagation_env(base_env: dict | None) -> dict:
     """Build the child env: start from parent ``os.environ`` then
     overlay caller-supplied ``env=``, but ALWAYS preserve the
     safety-kernel vars from the parent's environment (so an adopter
@@ -133,12 +134,10 @@ def _emit_propagation_failure_event(reason: str, argv0: str) -> None:
         with urllib.request.urlopen(req, timeout=cfg.timeout_seconds) as _resp:
             pass
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        _LOGGER.warning(
-            "failed to emit subprocess_propagation_failed event: %s", exc
-        )
+        _LOGGER.warning("failed to emit subprocess_propagation_failed event: %s", exc)
 
 
-def _inject_python_prologue(args: Sequence[Any]) -> List[Any]:
+def _inject_python_prologue(args: Sequence[Any]) -> list[Any]:
     """the architecture overview Case A: rewrite a python invocation to install
     the hook before user code runs.
 
@@ -167,10 +166,14 @@ def _inject_python_prologue(args: Sequence[Any]) -> List[Any]:
             args_list[idx + 1] = f"{prologue}; {original}"
             return args_list
 
-    # python script.py [args...] — rewrite to python -c "<prologue>; exec(open(script).read())" [args...]
+    # python script.py [args...] — rewrite to python -c "<prologue>; exec(...)"
     script_idx = 1
     # Skip leading interpreter flags like -u, -X..., -O, etc.
-    while script_idx < len(args_list) and isinstance(args_list[script_idx], str) and args_list[script_idx].startswith("-"):
+    while (
+        script_idx < len(args_list)
+        and isinstance(args_list[script_idx], str)
+        and args_list[script_idx].startswith("-")
+    ):
         # Some flags take an argument (e.g. -X dev). We can't perfectly
         # parse the Python CLI here — for the slice-3 reference, we
         # conservatively skip only single-arg flags and rely on -c
@@ -184,11 +187,13 @@ def _inject_python_prologue(args: Sequence[Any]) -> List[Any]:
     script = args_list[script_idx]
     if not isinstance(script, str):
         return args_list
-    new_args: List[Any] = list(args_list[:script_idx])
-    new_args.extend([
-        "-c",
-        f"{prologue}; exec(open({script!r}).read())",
-    ])
+    new_args: list[Any] = list(args_list[:script_idx])
+    new_args.extend(
+        [
+            "-c",
+            f"{prologue}; exec(open({script!r}).read())",
+        ]
+    )
     new_args.extend(args_list[script_idx + 1 :])
     return new_args
 
@@ -293,9 +298,7 @@ def _patched_run(self: Any) -> Any:
                 event_metadata_max_bytes=cfg.event_metadata_max_bytes,
             )
         except Exception as exc:  # noqa: BLE001 — best-effort install
-            _LOGGER.warning(
-                "wrap_multiprocessing: child-side install failed: %s", exc
-            )
+            _LOGGER.warning("wrap_multiprocessing: child-side install failed: %s", exc)
     original = _mp_patch_state["original"]
     if original is not None:
         return original(self)

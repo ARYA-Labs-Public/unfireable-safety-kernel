@@ -11,7 +11,7 @@ import json
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 class MockKernel:
@@ -35,7 +35,7 @@ class MockKernel:
 
     def __init__(self) -> None:
         self.response_status_authorize: int = 200
-        self.response_body_authorize: Optional[Dict[str, Any]] = {
+        self.response_body_authorize: dict[str, Any] | None = {
             "ok": True,
             "decision": "allow",
             "token": "<test-token>",
@@ -44,15 +44,15 @@ class MockKernel:
             "reason": None,
         }
         self.response_status_audit_event: int = 202
-        self.response_body_audit_event: Optional[Dict[str, Any]] = {
+        self.response_body_audit_event: dict[str, Any] | None = {
             "ok": True,
             "audit_kind": "policy_audit_event",
             "ts_unix_ms": 0,
         }
         self.sleep_seconds: float = 0.0
-        self.received_requests: List[Dict[str, Any]] = []
-        self._server: Optional[HTTPServer] = None
-        self._thread: Optional[threading.Thread] = None
+        self.received_requests: list[dict[str, Any]] = []
+        self._server: HTTPServer | None = None
+        self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
 
     # ------------------------------------------------------------------ start
@@ -105,9 +105,7 @@ class MockKernel:
                 self.wfile.write(payload)
 
         self._server = HTTPServer(("127.0.0.1", 0), _Handler)
-        self._thread = threading.Thread(
-            target=self._server.serve_forever, daemon=True
-        )
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
 
     # ------------------------------------------------------------------- stop
@@ -129,14 +127,14 @@ class MockKernel:
         return f"http://{host}:{port}"
 
     # --------------------------------------------------------------- helpers
-    def requests_to(self, path: str) -> List[Dict[str, Any]]:
+    def requests_to(self, path: str) -> list[dict[str, Any]]:
         """Return every received POST to a specific path."""
         return [r for r in self.received_requests if r["path"] == path]
 
-    def authorize_requests(self) -> List[Dict[str, Any]]:
+    def authorize_requests(self) -> list[dict[str, Any]]:
         return self.requests_to("/policy/module/authorize")
 
-    def audit_event_requests(self) -> List[Dict[str, Any]]:
+    def audit_event_requests(self) -> list[dict[str, Any]]:
         return self.requests_to("/policy/audit-event")
 
     def reset(self) -> None:

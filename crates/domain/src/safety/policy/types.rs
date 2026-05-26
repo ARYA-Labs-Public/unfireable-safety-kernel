@@ -1,6 +1,6 @@
 //! Pure types for the policy-engine HTTP surface — slice 2 binding.
 //!
-//! All four endpoint request/response shapes are now frozen by 
+//! All four endpoint request/response shapes are now frozen by
 //! §" design". `ModuleAuthorizeRequest` / `ModuleAuthorizeResponse`
 //! were locked in slice 1; `ModuleRegisterRequest` / `ModuleAuditEventRequest`
 //! / `ModuleStatusResponse` are locked here in slice 2 and the handler
@@ -142,7 +142,7 @@ pub struct ModuleAuthorizeResponse {
 // Frozen — `POST /policy/module/register` (slice 2)
 // ============================================================================
 
-/// `POST /policy/module/register` request body — 
+/// `POST /policy/module/register` request body —
 ///
 /// Registers a module path + the regex set every authorize call for
 /// that path will be evaluated against. The signed receipt returned to
@@ -162,7 +162,7 @@ pub struct ModuleRegisterRequest {
     pub caller_subject: String,
 }
 
-/// `POST /policy/module/register` 201 success body — 
+/// `POST /policy/module/register` 201 success body —
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModuleRegisterResponse {
     /// Always `true` on 201.
@@ -183,7 +183,7 @@ pub struct ModuleRegisterResponse {
 // Frozen — `POST /policy/audit-event` (slice 2)
 // ============================================================================
 
-/// `event_kind` enum for the audit-event endpoint — 
+/// `event_kind` enum for the audit-event endpoint —
 /// frozen set. New variants require an ADR amendment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -196,7 +196,7 @@ pub enum AuditEventKind {
     RegistryConsistencyWarning,
 }
 
-/// `POST /policy/audit-event` request body — 
+/// `POST /policy/audit-event` request body —
 ///
 /// Non-decision audit surface. Does not render a verdict, does not
 /// sign a token; appends one entry to the chain and returns 202.

@@ -57,7 +57,9 @@ mod tests {
     use qorch_adapters::clock::SystemClock;
     use qorch_domain::safety::Clock;
     use qorch_domain::transparency::verify_sth;
-    use qorch_transparency_store::{memory::MemoryTransparencyStore, AppendInput, TransparencyStore};
+    use qorch_transparency_store::{
+        memory::MemoryTransparencyStore, AppendInput, TransparencyStore,
+    };
 
     use crate::routes::sth::sth;
     use crate::state::AppState;
@@ -104,9 +106,7 @@ mod tests {
     async fn sth_round_trip_verifies_with_signing_key() {
         let (state, key) = fixture_state_with_leaves(4).await;
         let verifying_key = key.verifying_key();
-        let router = Router::new()
-            .route("/v1/sth", get(sth))
-            .with_state(state);
+        let router = Router::new().route("/v1/sth", get(sth)).with_state(state);
 
         let req = axum::http::Request::builder()
             .method("GET")
@@ -126,9 +126,7 @@ mod tests {
     async fn empty_tree_sth_signs_zero_root() {
         let (state, key) = fixture_state_with_leaves(0).await;
         let verifying_key = key.verifying_key();
-        let router = Router::new()
-            .route("/v1/sth", get(sth))
-            .with_state(state);
+        let router = Router::new().route("/v1/sth", get(sth)).with_state(state);
 
         let req = axum::http::Request::builder()
             .method("GET")

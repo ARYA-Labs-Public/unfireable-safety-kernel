@@ -102,7 +102,10 @@ async fn full_round_trip_append_verify_sth_consistency() {
         let v: Value = resp.json().await.unwrap();
         assert_eq!(v["leaf_index"], i);
         assert_eq!(v["idempotent_replay"], false);
-        assert_eq!(v["leaf_hash_hex"].as_str().unwrap(), hex::encode(leaf_hash(&payload)));
+        assert_eq!(
+            v["leaf_hash_hex"].as_str().unwrap(),
+            hex::encode(leaf_hash(&payload))
+        );
     }
 
     // Verify each entry's inclusion proof against the response's root.
@@ -119,8 +122,7 @@ async fn full_round_trip_append_verify_sth_consistency() {
             .unwrap()
             .try_into()
             .unwrap();
-        let proof: InclusionProof =
-            serde_json::from_value(v["inclusion_proof"].clone()).unwrap();
+        let proof: InclusionProof = serde_json::from_value(v["inclusion_proof"].clone()).unwrap();
         verify_inclusion_proof(&proof, &root_bytes).expect("each entry verifies");
         assert_eq!(v["entry"]["leaf_index"], i);
     }
@@ -184,10 +186,6 @@ async fn full_round_trip_append_verify_sth_consistency() {
     assert_eq!(v["leaf_index"], 0);
 
     // Missing x-api-key → 401.
-    let resp = client
-        .get(format!("{base}/v1/sth"))
-        .send()
-        .await
-        .unwrap();
+    let resp = client.get(format!("{base}/v1/sth")).send().await.unwrap();
     assert_eq!(resp.status(), reqwest::StatusCode::UNAUTHORIZED);
 }

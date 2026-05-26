@@ -69,14 +69,9 @@ fn make_self_signed_chain() -> (String, String, String) {
     ca_params
         .distinguished_name
         .push(DnType::CommonName, "qorch test CA");
-    ca_params.key_usages = vec![
-        KeyUsagePurpose::KeyCertSign,
-        KeyUsagePurpose::CrlSign,
-    ];
+    ca_params.key_usages = vec![KeyUsagePurpose::KeyCertSign, KeyUsagePurpose::CrlSign];
     let ca_key = KeyPair::generate().expect("ca keypair");
-    let ca_cert = ca_params
-        .self_signed(&ca_key)
-        .expect("self-sign CA");
+    let ca_cert = ca_params.self_signed(&ca_key).expect("self-sign CA");
     let ca_pem = ca_cert.pem();
 
     // 2. Server leaf signed by the CA. SAN = DNS:localhost so the
@@ -203,7 +198,10 @@ async fn tls_health_handshake() {
         .output()
         .expect("cargo build spawn");
     if !build.status.success() {
-        panic!("cargo build failed: {}", String::from_utf8_lossy(&build.stderr));
+        panic!(
+            "cargo build failed: {}",
+            String::from_utf8_lossy(&build.stderr)
+        );
     }
     let bin_path = root.join("target/debug/qorch-safety-kernel");
 
@@ -215,7 +213,15 @@ async fn tls_health_handshake() {
     std::fs::write(&sock_path, b"").unwrap();
 
     // 3. Spawn the kernel with TLS env wired up.
-    let server = spawn_kernel_tls(&bin_path, &listen_addr, &cert_path, &key_path, &sock_path, &ca_pem).await;
+    let server = spawn_kernel_tls(
+        &bin_path,
+        &listen_addr,
+        &cert_path,
+        &key_path,
+        &sock_path,
+        &ca_pem,
+    )
+    .await;
     let mut server = server.unwrap_or_else(|| {
         panic!("kernel did not come up on rustls listener https://{listen_addr}/health")
     });

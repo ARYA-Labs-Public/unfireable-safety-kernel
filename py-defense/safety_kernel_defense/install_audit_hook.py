@@ -38,7 +38,7 @@ import urllib.error
 import urllib.request
 import uuid
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from . import _wire
 from .exceptions import HookConfigError, KernelUnavailable, PolicyDenied
@@ -76,7 +76,7 @@ class _HookConfig:
     caller_run_id: str
     fail_closed_on_unreachable: bool
     timeout_seconds: float
-    audited_event_kinds: Tuple[str, ...]
+    audited_event_kinds: tuple[str, ...]
     event_metadata_max_bytes: int
 
 
@@ -103,7 +103,7 @@ class _InstalledState:
             was registered).
     """
 
-    config: Optional[_HookConfig] = None
+    config: _HookConfig | None = None
     armed: bool = False
 
 
@@ -138,7 +138,7 @@ def _set_in_hook(value: bool) -> None:
     _state.in_hook = value
 
 
-def _http_post(url: str, body: bytes, api_key: str, timeout: float) -> Tuple[int, bytes]:
+def _http_post(url: str, body: bytes, api_key: str, timeout: float) -> tuple[int, bytes]:
     """Synchronous POST. Returns ``(status, body_bytes)``.
 
     Raises :class:`KernelUnavailable` on connection / timeout error;
@@ -171,7 +171,7 @@ def _post_install_audit_event(
     kernel_url: str,
     worker_api_key: str,
     caller_subject: str,
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
     timeout: float = _INSTALL_TIME_AUDIT_EVENT_TIMEOUT_S,
 ) -> None:
     """Best-effort POST of a ``hook_install_violation`` audit event.
@@ -217,16 +217,14 @@ def _post_install_audit_event(
         )
     except KernelUnavailable as exc:
         _LOGGER.critical(
-            "install-time audit event POST failed (kernel unreachable: %s); "
-            "metadata=%s",
+            "install-time audit event POST failed (kernel unreachable: %s); metadata=%s",
             exc.detail if hasattr(exc, "detail") else exc,
             json.dumps(metadata, sort_keys=True, default=str),
         )
         return
     except Exception as exc:  # noqa: BLE001 — install path must never raise
         _LOGGER.critical(
-            "install-time audit event POST raised unexpected error: %s; "
-            "metadata=%s",
+            "install-time audit event POST raised unexpected error: %s; metadata=%s",
             exc,
             json.dumps(metadata, sort_keys=True, default=str),
         )
@@ -241,7 +239,7 @@ def _post_install_audit_event(
         )
 
 
-def _diagnostics_metadata() -> Dict[str, Any]:
+def _diagnostics_metadata() -> dict[str, Any]:
     """Common diagnostic fields included in both install-time audit
     events (see the architecture overview, also row 4).
 
@@ -261,7 +259,9 @@ def _diagnostics_metadata() -> Dict[str, Any]:
     }
 
 
-def _enumerate_preloaded_modules(cap: int = _PRELOADED_MODULES_CAP) -> Tuple[List[str], bool]:
+def _enumerate_preloaded_modules(
+    cap: int = _PRELOADED_MODULES_CAP,
+) -> tuple[list[str], bool]:
     """Return (sorted module names, truncated_flag).
 
     Snapshots ``sys.modules`` keys at install time per the architecture overview
@@ -287,16 +287,14 @@ def _validate_kernel_url(url: str) -> None:
         return
     if url.startswith("http://"):
         # localhost / 127.0.0.1 / [::1] forms.
-        rest = url[len("http://"):]
+        rest = url[len("http://") :]
         host_part = rest.split("/", 1)[0].split(":", 1)[0]
         if host_part in ("127.0.0.1", "localhost", "[::1]", "::1"):
             return
-    raise HookConfigError(
-        f"kernel_url must be https:// or http://localhost; got {url!r}"
-    )
+    raise HookConfigError(f"kernel_url must be https:// or http://localhost; got {url!r}")
 
 
-def _audit_callback(event: str, args: Tuple) -> None:
+def _audit_callback(event: str, args: tuple) -> None:
     """The actual ``sys.addaudithook`` callback.
 
     CPython contract: raising from this callback ABORTS the underlying
@@ -397,7 +395,7 @@ def _audit_callback(event: str, args: Tuple) -> None:
     raise RuntimeError(f"policy decision failed: HTTP {status}")
 
 
-def _derive_module_path(event: str, args: Tuple) -> str:
+def _derive_module_path(event: str, args: tuple) -> str:
     """Map CPython audit event args to the wire ``module_path``."""
     import hashlib  # already warmed
 
@@ -430,7 +428,7 @@ def _derive_module_path(event: str, args: Tuple) -> str:
     raise ValueError(f"unknown audit event kind: {event}")
 
 
-def _parse_token_sha(body: bytes) -> Optional[str]:
+def _parse_token_sha(body: bytes) -> str | None:
     try:
         parsed = json.loads(body)
     except Exception:  # noqa: BLE001
@@ -439,7 +437,7 @@ def _parse_token_sha(body: bytes) -> Optional[str]:
     return val if isinstance(val, str) else None
 
 
-def _parse_reason(body: bytes) -> Optional[str]:
+def _parse_reason(body: bytes) -> str | None:
     try:
         parsed = json.loads(body)
     except Exception:  # noqa: BLE001
@@ -453,11 +451,11 @@ def install_audit_hook(
     kernel_url: str,
     worker_api_key: str,
     caller_subject: str,
-    caller_run_id: Optional[str] = None,
+    caller_run_id: str | None = None,
     fail_closed_on_unreachable: bool = True,
     timeout_seconds: float = 0.5,
     kill_switch_env_var: str = _DEFAULT_KILL_SWITCH_ENV_VAR,
-    audited_event_kinds: Tuple[str, ...] = ("import", "exec", "compile"),
+    audited_event_kinds: tuple[str, ...] = ("import", "exec", "compile"),
     event_metadata_max_bytes: int = 1024,
     report_preloaded_modules: bool = False,
 ) -> None:
@@ -544,8 +542,7 @@ def install_audit_hook(
     kill_switch_value = os.environ.get(kill_switch_env_var)
     if kill_switch_value == "1":
         _LOGGER.critical(
-            "audit hook installation suppressed by kill switch "
-            "%s=1 — emergency bypass active",
+            "audit hook installation suppressed by kill switch %s=1 — emergency bypass active",
             kill_switch_env_var,
         )
         # Record config for re-install detection but leave armed=False
@@ -567,7 +564,7 @@ def install_audit_hook(
         # flag; recording the raw string risks leaking operator-supplied
         # content into the signed/append-only chain (hygiene, not a
         # soundness issue).
-        kill_switch_metadata: Dict[str, Any] = {
+        kill_switch_metadata: dict[str, Any] = {
             "reason": "kill_switch_engaged",
             "kill_switch_env_var": kill_switch_env_var,
             "kill_switch_present": True,
@@ -619,7 +616,7 @@ def _emit_preloaded_modules_audit_event(cfg: _HookConfig) -> None:
     Fail-soft — never raises.
     """
     modules, truncated = _enumerate_preloaded_modules()
-    metadata: Dict[str, Any] = {
+    metadata: dict[str, Any] = {
         "reason": "preloaded_modules_at_install",
         "preloaded_module_count": len(modules),
         "preloaded_modules": modules,

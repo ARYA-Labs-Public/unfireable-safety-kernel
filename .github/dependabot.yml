@@ -1,0 +1,29 @@
+# Dependabot config for the safety-kernel public repo.
+#
+# Keeps GitHub Actions, cargo deps, and pip deps current. Actions are
+# pinned to commit SHAs per repo security policy; Dependabot proposes
+# both the new SHA and the new comment tag together.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies, ci]
+
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies, rust]
+    open-pull-requests-limit: 5
+    # Group patch+minor updates so we don't get a PR per crate per week.
+    groups:
+      cargo-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: pip
+    directory: /py-defense
+    schedule:
+      interval: weekly
+    labels: [dependencies, python]

@@ -8,7 +8,7 @@
 //! Safety Kernel client adapter —.
 //!
 //! Rust client SDK for the Safety Kernel HTTP service shipped by
-//!  (crates/services/safety-kernel/). Per 
+//!  (crates/services/safety-kernel/). Per
 //! reconciliation, this module is the Rust substrate equivalent of the
 //! Python `packages/safety/client/` SDK; the two coexist while
 //! per-slice ports complete.

@@ -128,7 +128,10 @@ async fn ac5_kernel_500_caller_rejects_never_silently_approves() {
     // Audit trail must have recorded one UNAVAILABLE entry — never ALLOW.
     let trail = client.audit_trail();
     assert_eq!(trail.len(), 1, "exactly one audit row");
-    assert_eq!(trail[0].outcome, "UNAVAILABLE", "outcome must be UNAVAILABLE");
+    assert_eq!(
+        trail[0].outcome, "UNAVAILABLE",
+        "outcome must be UNAVAILABLE"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -160,7 +163,9 @@ async fn ac6_kernel_timeout_fires_breaker_within_budget() {
     assert!(
         matches!(
             r1,
-            Err(KernelClientError::Decision(KernelDecisionError::Unavailable {.. }))
+            Err(KernelClientError::Decision(
+                KernelDecisionError::Unavailable { .. }
+            ))
         ),
         "first call MUST yield Decision::Unavailable, got {r1:?}"
     );
@@ -170,7 +175,9 @@ async fn ac6_kernel_timeout_fires_breaker_within_budget() {
     assert!(
         matches!(
             r2,
-            Err(KernelClientError::Decision(KernelDecisionError::Unavailable {.. }))
+            Err(KernelClientError::Decision(
+                KernelDecisionError::Unavailable { .. }
+            ))
         ),
         "second call MUST yield Decision::Unavailable, got {r2:?}"
     );
@@ -264,9 +271,7 @@ async fn forged_signature_kernel_response_rejected_with_verification_error() {
              Accepting an attacker-signed ALLOW defeats the pinned-key \
              defence ( AC9 /  AC2 R)."
         ),
-        other => panic!(
-            "forged-sig response MUST yield Verification error, got {other:?}"
-        ),
+        other => panic!("forged-sig response MUST yield Verification error, got {other:?}"),
     }
 
     // Audit trail entry must be VERIFICATION_FAILED — not ALLOW.
@@ -340,7 +345,7 @@ async fn kernel_403_forbidden_returns_authoritative_deny_not_unavailable() {
                 "deny reason should be propagated, got: {reason}"
             );
         }
-        Ok(KernelDecision::Allow {.. }) => {
+        Ok(KernelDecision::Allow { .. }) => {
             panic!("CRITICAL: 403 MUST NOT yield Allow")
         }
         other => panic!("403 should yield Deny, got {other:?}"),
@@ -370,7 +375,9 @@ async fn unreachable_kernel_yields_unavailable_not_silent_approve() {
     assert!(
         matches!(
             r,
-            Err(KernelClientError::Decision(KernelDecisionError::Unavailable {.. }))
+            Err(KernelClientError::Decision(
+                KernelDecisionError::Unavailable { .. }
+            ))
         ),
         "unreachable kernel MUST yield Decision::Unavailable, got {r:?}"
     );

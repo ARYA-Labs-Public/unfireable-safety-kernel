@@ -42,7 +42,10 @@ fn workspace_root() -> PathBuf {
             }
         }
     }
-    panic!("workspace root not found from {:?}", env!("CARGO_MANIFEST_DIR"));
+    panic!(
+        "workspace root not found from {:?}",
+        env!("CARGO_MANIFEST_DIR")
+    );
 }
 
 /// Forbidden-substring tokens for the domain crate. This list mirrors
@@ -181,13 +184,7 @@ fn boundary_token_extraction_self_check() {
     // tokens. If boundaries.toml drops or renames one of these, the
     // assertion failure is the signal to update this list.
     let tokens = forbidden_tokens();
-    for needed in &[
-        "std::fs",
-        "std::env",
-        "std::net",
-        "reqwest::",
-        "tracing::",
-    ] {
+    for needed in &["std::fs", "std::env", "std::net", "reqwest::", "tracing::"] {
         assert!(
             tokens.iter().any(|t| t == *needed),
             "boundaries.toml missing canonical forbidden token {needed:?}; \

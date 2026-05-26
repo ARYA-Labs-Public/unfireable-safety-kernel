@@ -126,8 +126,5 @@ pub trait TransparencyStore: Send + Sync {
 
     /// Build the RFC-6962 inclusion proof for `leaf_index` against
     /// the current tree.
-    async fn build_inclusion_proof(
-        &self,
-        leaf_index: u64,
-    ) -> Result<InclusionProof, StoreError>;
+    async fn build_inclusion_proof(&self, leaf_index: u64) -> Result<InclusionProof, StoreError>;
 }

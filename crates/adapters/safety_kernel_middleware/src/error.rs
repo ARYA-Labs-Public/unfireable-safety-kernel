@@ -59,7 +59,9 @@ impl IntoResponse for MiddlewareError {
     fn into_response(self) -> Response {
         let (status, reason) = match &self {
             Self::KernelUnavailable { reason } => (StatusCode::SERVICE_UNAVAILABLE, reason.clone()),
-            Self::Denied { reason } | Self::Forged { reason } => (StatusCode::FORBIDDEN, reason.clone()),
+            Self::Denied { reason } | Self::Forged { reason } => {
+                (StatusCode::FORBIDDEN, reason.clone())
+            }
             Self::BadRequest { reason } => (StatusCode::BAD_REQUEST, reason.clone()),
         };
         let body = Json(json!({
@@ -77,10 +79,10 @@ impl MiddlewareError {
     #[must_use]
     pub fn kind_str(&self) -> &'static str {
         match self {
-            Self::KernelUnavailable {.. } => "kernel_unavailable",
-            Self::Denied {.. } => "denied",
-            Self::Forged {.. } => "forged",
-            Self::BadRequest {.. } => "bad_request",
+            Self::KernelUnavailable { .. } => "kernel_unavailable",
+            Self::Denied { .. } => "denied",
+            Self::Forged { .. } => "forged",
+            Self::BadRequest { .. } => "bad_request",
         }
     }
 }
@@ -95,12 +97,11 @@ mod tests {
 
     async fn body_string(resp: Response) -> (StatusCode, String) {
         let (parts, body) = resp.into_parts();
-        let bytes = body
-            .collect()
-            .await
-            .expect("body collect")
-            .to_bytes();
-        (parts.status, String::from_utf8(bytes.to_vec()).expect("utf8"))
+        let bytes = body.collect().await.expect("body collect").to_bytes();
+        (
+            parts.status,
+            String::from_utf8(bytes.to_vec()).expect("utf8"),
+        )
     }
 
     #[tokio::test]
@@ -143,9 +144,33 @@ mod tests {
 
     #[test]
     fn kind_str_stable_taxonomy() {
-        assert_eq!(MiddlewareError::KernelUnavailable { reason: String::new() }.kind_str(), "kernel_unavailable");
-        assert_eq!(MiddlewareError::Denied { reason: String::new() }.kind_str(), "denied");
-        assert_eq!(MiddlewareError::Forged { reason: String::new() }.kind_str(), "forged");
-        assert_eq!(MiddlewareError::BadRequest { reason: String::new() }.kind_str(), "bad_request");
+        assert_eq!(
+            MiddlewareError::KernelUnavailable {
+                reason: String::new()
+            }
+            .kind_str(),
+            "kernel_unavailable"
+        );
+        assert_eq!(
+            MiddlewareError::Denied {
+                reason: String::new()
+            }
+            .kind_str(),
+            "denied"
+        );
+        assert_eq!(
+            MiddlewareError::Forged {
+                reason: String::new()
+            }
+            .kind_str(),
+            "forged"
+        );
+        assert_eq!(
+            MiddlewareError::BadRequest {
+                reason: String::new()
+            }
+            .kind_str(),
+            "bad_request"
+        );
     }
 }

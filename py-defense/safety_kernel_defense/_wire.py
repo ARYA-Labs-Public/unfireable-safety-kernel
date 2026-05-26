@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Mapping
+from collections.abc import Mapping
 
 __all__ = [
     "canonical_json",
@@ -58,9 +58,7 @@ def canonical_json(payload: Mapping[str, str]) -> str:
         if not isinstance(k, str):
             raise TypeError(f"canonical_json: non-string key {k!r}")
         if not isinstance(v, str):
-            raise TypeError(
-                f"canonical_json: non-string value for key {k!r}: {v!r}"
-            )
+            raise TypeError(f"canonical_json: non-string value for key {k!r}: {v!r}")
     return json.dumps(
         payload,
         sort_keys=True,

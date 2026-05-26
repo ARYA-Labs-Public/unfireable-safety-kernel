@@ -123,7 +123,7 @@ async fn http_400_yields_rejected() {
     let client = client_for(&server, Duration::from_secs(2)).await;
     let err = client.append(input()).await.unwrap_err();
     match err {
-        TransparencyError::Rejected { status_code,.. } => {
+        TransparencyError::Rejected { status_code, .. } => {
             assert_eq!(status_code, 400);
         }
         other => panic!("expected Rejected{{400}}, got {other:?}"),
@@ -143,7 +143,13 @@ async fn http_401_yields_rejected() {
     let client = client_for(&server, Duration::from_secs(2)).await;
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::Rejected { status_code: 401,.. }),
+        matches!(
+            err,
+            TransparencyError::Rejected {
+                status_code: 401,
+                ..
+            }
+        ),
         "got {err:?}",
     );
     assert_eq!(err.kind(), "append_failed");
@@ -162,7 +168,13 @@ async fn http_403_yields_rejected() {
     let client = client_for(&server, Duration::from_secs(2)).await;
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::Rejected { status_code: 403,.. }),
+        matches!(
+            err,
+            TransparencyError::Rejected {
+                status_code: 403,
+                ..
+            }
+        ),
         "got {err:?}",
     );
 }
@@ -180,7 +192,13 @@ async fn http_422_yields_rejected() {
     let client = client_for(&server, Duration::from_secs(2)).await;
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::Rejected { status_code: 422,.. }),
+        matches!(
+            err,
+            TransparencyError::Rejected {
+                status_code: 422,
+                ..
+            }
+        ),
         "got {err:?}",
     );
 }
@@ -198,7 +216,13 @@ async fn http_500_yields_server_error() {
     let client = client_for(&server, Duration::from_secs(2)).await;
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::ServerError { status_code: 500,.. }),
+        matches!(
+            err,
+            TransparencyError::ServerError {
+                status_code: 500,
+                ..
+            }
+        ),
         "got {err:?}",
     );
     assert_eq!(err.kind(), "server_error");
@@ -217,7 +241,13 @@ async fn http_502_yields_server_error() {
     let client = client_for(&server, Duration::from_secs(2)).await;
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::ServerError { status_code: 502,.. }),
+        matches!(
+            err,
+            TransparencyError::ServerError {
+                status_code: 502,
+                ..
+            }
+        ),
         "got {err:?}",
     );
 }
@@ -235,7 +265,13 @@ async fn http_503_yields_server_error() {
     let client = client_for(&server, Duration::from_secs(2)).await;
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::ServerError { status_code: 503,.. }),
+        matches!(
+            err,
+            TransparencyError::ServerError {
+                status_code: 503,
+                ..
+            }
+        ),
         "got {err:?}",
     );
 }
@@ -277,7 +313,7 @@ async fn http_2xx_with_malformed_json_yields_malformed() {
     let client = client_for(&server, Duration::from_secs(2)).await;
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::Malformed {.. }),
+        matches!(err, TransparencyError::Malformed { .. }),
         "expected Malformed, got {err:?}",
     );
     assert_eq!(err.kind(), "malformed_response");
@@ -297,7 +333,7 @@ async fn slow_response_exceeding_timeout_yields_unreachable() {
     let client = client_for(&server, Duration::from_millis(200)).await;
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::Unreachable {.. }),
+        matches!(err, TransparencyError::Unreachable { .. }),
         "expected Unreachable, got {err:?}",
     );
     assert_eq!(err.kind(), "unreachable");
@@ -314,7 +350,7 @@ async fn connection_refused_yields_unreachable() {
     );
     let err = client.append(input()).await.unwrap_err();
     assert!(
-        matches!(err, TransparencyError::Unreachable {.. }),
+        matches!(err, TransparencyError::Unreachable { .. }),
         "expected Unreachable, got {err:?}",
     );
 }

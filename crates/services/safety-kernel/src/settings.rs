@@ -127,7 +127,7 @@ pub struct Settings {
     pub transparency_log_api_key: Option<String>,
 
     /// Per-call timeout for the transparency-log POST. Default `2.0`s
-    /// 
+    ///
     pub transparency_log_timeout_seconds: f64,
 
     // -------------------------------------------------------------
@@ -263,8 +263,7 @@ impl Settings {
             .ok()
             .filter(|v| !v.trim().is_empty())
             .map(PathBuf::from);
-        let tls_sni =
-            env::var("QORCH_KERNEL_SNI").unwrap_or_else(|_| DEFAULT_TLS_SNI.to_string());
+        let tls_sni = env::var("QORCH_KERNEL_SNI").unwrap_or_else(|_| DEFAULT_TLS_SNI.to_string());
         let tls_enable = tls_cert_path.is_some() && tls_key_path.is_some();
 
         //  — transparency-log integration env.

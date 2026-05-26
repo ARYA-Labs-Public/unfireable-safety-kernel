@@ -94,11 +94,21 @@ mod tests {
     #[test]
     fn static_policy_resolves_exact_match() {
         let p = StaticPolicy::from_routes([
-            (Method::GET, "/public/hello".into(), MiddlewarePolicy::Unrestricted),
+            (
+                Method::GET,
+                "/public/hello".into(),
+                MiddlewarePolicy::Unrestricted,
+            ),
             (Method::POST, "/gated/run".into(), MiddlewarePolicy::Gated),
         ]);
-        assert_eq!(p.resolve(&Method::GET, "/public/hello"), MiddlewarePolicy::Unrestricted);
-        assert_eq!(p.resolve(&Method::POST, "/gated/run"), MiddlewarePolicy::Gated);
+        assert_eq!(
+            p.resolve(&Method::GET, "/public/hello"),
+            MiddlewarePolicy::Unrestricted
+        );
+        assert_eq!(
+            p.resolve(&Method::POST, "/gated/run"),
+            MiddlewarePolicy::Gated
+        );
     }
 
     #[test]
@@ -110,7 +120,10 @@ mod tests {
             "/gated/run".into(),
             MiddlewarePolicy::Gated,
         )]);
-        assert_eq!(p.resolve(&Method::GET, "/no/such/path"), MiddlewarePolicy::Unrestricted);
+        assert_eq!(
+            p.resolve(&Method::GET, "/no/such/path"),
+            MiddlewarePolicy::Unrestricted
+        );
     }
 
     #[test]
@@ -121,7 +134,13 @@ mod tests {
             MiddlewarePolicy::Gated,
         )]);
         // POST is gated; GET on the same path is not.
-        assert_eq!(p.resolve(&Method::POST, "/gated/run"), MiddlewarePolicy::Gated);
-        assert_eq!(p.resolve(&Method::GET, "/gated/run"), MiddlewarePolicy::Unrestricted);
+        assert_eq!(
+            p.resolve(&Method::POST, "/gated/run"),
+            MiddlewarePolicy::Gated
+        );
+        assert_eq!(
+            p.resolve(&Method::GET, "/gated/run"),
+            MiddlewarePolicy::Unrestricted
+        );
     }
 }

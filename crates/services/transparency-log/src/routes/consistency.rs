@@ -82,10 +82,10 @@ mod tests {
 
     use qorch_adapters::clock::SystemClock;
     use qorch_domain::safety::Clock;
-    use qorch_domain::transparency::{
-        compute_root, verify_consistency_proof, MerkleLeaf,
+    use qorch_domain::transparency::{compute_root, verify_consistency_proof, MerkleLeaf};
+    use qorch_transparency_store::{
+        memory::MemoryTransparencyStore, AppendInput, TransparencyStore,
     };
-    use qorch_transparency_store::{memory::MemoryTransparencyStore, AppendInput, TransparencyStore};
 
     use crate::routes::consistency::consistency;
     use crate::state::AppState;

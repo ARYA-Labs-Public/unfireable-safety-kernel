@@ -1,6 +1,6 @@
 //! Production `Clock` adapter — wall-clock as f64 epoch seconds.
 //!
-//! Implements `qorch_domain::safety::Clock`. Per 
+//! Implements `qorch_domain::safety::Clock`. Per
 //! Appendix B and §6.1, every `SystemTime`/`now`-style read in the
 //! Rust workspace lives here so the domain crate stays pure (no
 //! `std::time::SystemTime`, no system-dependent state).

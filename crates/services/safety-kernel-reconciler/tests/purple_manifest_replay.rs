@@ -197,7 +197,7 @@ async fn purple_d1_30_day_old_manifest_rejected_as_expired() {
         .await
         .expect_err("30-day-old manifest replay must be rejected");
     assert!(
-        matches!(err, ReconcileError::ExpiredManifest {.. }),
+        matches!(err, ReconcileError::ExpiredManifest { .. }),
         "expected ExpiredManifest, got {err:?}"
     );
     assert!(
@@ -221,7 +221,11 @@ async fn purple_d1_30_day_old_manifest_rejected_as_expired() {
         Arc::new(VecTlog::default()),
     );
     let outcome = r2.tick_once().await.expect("fresh manifest must verify");
-    assert_eq!(outcome, TickOutcome::Match, "fresh same-digest must be Match");
+    assert_eq!(
+        outcome,
+        TickOutcome::Match,
+        "fresh same-digest must be Match"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -268,7 +272,11 @@ async fn purple_d2_registry_returns_different_digest_drift_detected() {
     assert_eq!(snap[0].expected_digest, expected);
 
     let tsnap = tlog.snapshot();
-    assert_eq!(tsnap.len(), 1, "transparency-log MUST receive the drift POST");
+    assert_eq!(
+        tsnap.len(),
+        1,
+        "transparency-log MUST receive the drift POST"
+    );
     assert_eq!(tsnap[0], snap[0]);
 }
 
@@ -301,8 +309,12 @@ async fn purple_d2_tlog_unreachable_drift_still_audited_locally() {
     );
 
     let outcome = r.tick_once().await.expect("tick must not error");
-    assert!(matches!(outcome, TickOutcome::Drift {.. }));
-    assert_eq!(audit.snapshot().len(), 1, "local audit must capture the drift");
+    assert!(matches!(outcome, TickOutcome::Drift { .. }));
+    assert_eq!(
+        audit.snapshot().len(),
+        1,
+        "local audit must capture the drift"
+    );
     assert!(tlog.snapshot().is_empty(), "failing t-log records nothing");
 }
 
@@ -335,7 +347,10 @@ async fn purple_d2b_signature_tamper_rejected() {
         Arc::new(VecTlog::default()),
     );
 
-    let err = r.tick_once().await.expect_err("tampered sig must be rejected");
+    let err = r
+        .tick_once()
+        .await
+        .expect_err("tampered sig must be rejected");
     assert!(matches!(err, ReconcileError::BadSignature));
 }
 
@@ -368,7 +383,10 @@ async fn purple_d2c_digest_field_tamper_post_signing_rejected() {
         Arc::new(VecTlog::default()),
     );
 
-    let err = r.tick_once().await.expect_err("post-sign digest tamper must be rejected");
+    let err = r
+        .tick_once()
+        .await
+        .expect_err("post-sign digest tamper must be rejected");
     assert!(matches!(err, ReconcileError::BadSignature));
 }
 
@@ -397,6 +415,9 @@ async fn purple_d2d_wrong_image_manifest_rejected_image_mismatch() {
         Arc::new(VecTlog::default()),
     );
 
-    let err = r.tick_once().await.expect_err("wrong-image manifest must be rejected");
-    assert!(matches!(err, ReconcileError::ImageMismatch {.. }));
+    let err = r
+        .tick_once()
+        .await
+        .expect_err("wrong-image manifest must be rejected");
+    assert!(matches!(err, ReconcileError::ImageMismatch { .. }));
 }

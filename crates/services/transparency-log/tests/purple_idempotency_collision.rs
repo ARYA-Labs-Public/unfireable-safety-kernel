@@ -135,7 +135,11 @@ async fn purple_f1_idempotency_collision_with_different_payload_409s() {
     // returns the SAME leaf_index + leaf_hash — i.e. the attacker's
     // 409 did not silently overwrite the ledger.
     let (s3, v3) = post_json(&router, first).await;
-    assert_eq!(s3, axum::http::StatusCode::OK, "legitimate replay should 200");
+    assert_eq!(
+        s3,
+        axum::http::StatusCode::OK,
+        "legitimate replay should 200"
+    );
     assert_eq!(v3["idempotent_replay"], true);
     assert_eq!(v3["leaf_index"], original_leaf_index);
     assert_eq!(v3["leaf_hash_hex"], original_leaf_hash);

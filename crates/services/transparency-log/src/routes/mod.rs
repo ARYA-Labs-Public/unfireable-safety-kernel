@@ -20,9 +20,10 @@ use crate::state::AppState;
 /// `GET /health` — liveness check. Public (no `x-api-key`). Includes
 /// the current tree size so operator dashboards can chart growth
 /// without a separate `/v1/sth` hit.
-pub async fn health(
-    State(state): State<AppState>,
-) -> Result<Json<HealthResponse>, ServiceError> {
+pub async fn health(State(state): State<AppState>) -> Result<Json<HealthResponse>, ServiceError> {
     let tree_size = state.store.current_size().await?;
-    Ok(Json(HealthResponse { ok: true, tree_size }))
+    Ok(Json(HealthResponse {
+        ok: true,
+        tree_size,
+    }))
 }

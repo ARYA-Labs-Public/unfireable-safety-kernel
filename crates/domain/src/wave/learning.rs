@@ -580,7 +580,9 @@ mod tests {
         let mut r = populated_record();
         r.goal_summary = "before\nafter\rmore\u{2028}then\u{2029}done\u{85}end".into();
         let s = r.to_ltp_summary();
-        for bad in ['\n', '\r', '\u{2028}', '\u{2029}', '\u{85}', '\u{0B}', '\u{0C}'] {
+        for bad in [
+            '\n', '\r', '\u{2028}', '\u{2029}', '\u{85}', '\u{0B}', '\u{0C}',
+        ] {
             assert!(
                 !s.contains(bad),
                 "to_ltp_summary leaked {:?} into output: {}",

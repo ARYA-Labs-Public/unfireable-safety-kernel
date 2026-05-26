@@ -10,7 +10,7 @@
 //! `proposal_fingerprint` (`apps/safety_kernel/routes/approvals.py:97-101`).
 //!
 //! `reason` is `JSON null` (NOT omitted) when absent on approve / on
-//! reject without a body-supplied reason — see 
+//! reject without a body-supplied reason — see
 //! "Approval tokens" paragraph and `routes/approvals.py:97-98`.
 
 use std::collections::BTreeMap;

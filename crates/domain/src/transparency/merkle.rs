@@ -241,8 +241,8 @@ pub fn build_inclusion_proof(
         return Err(VerificationError::LeafIndexOutOfBounds);
     }
     let hashes: Vec<[u8; 32]> = leaves.iter().map(|l| l.hash).collect();
-    let idx_usize = usize::try_from(leaf_index)
-        .map_err(|_| VerificationError::LeafIndexOutOfBounds)?;
+    let idx_usize =
+        usize::try_from(leaf_index).map_err(|_| VerificationError::LeafIndexOutOfBounds)?;
     let mut path = Vec::new();
     inclusion_path(&hashes, idx_usize, &mut path);
     Ok(InclusionProof {
@@ -293,10 +293,10 @@ pub fn verify_inclusion_proof(
     if proof.leaf_index >= proof.tree_size {
         return Err(VerificationError::LeafIndexOutOfBounds);
     }
-    let tree_size = usize::try_from(proof.tree_size)
-        .map_err(|_| VerificationError::LeafIndexOutOfBounds)?;
-    let mut index = usize::try_from(proof.leaf_index)
-        .map_err(|_| VerificationError::LeafIndexOutOfBounds)?;
+    let tree_size =
+        usize::try_from(proof.tree_size).map_err(|_| VerificationError::LeafIndexOutOfBounds)?;
+    let mut index =
+        usize::try_from(proof.leaf_index).map_err(|_| VerificationError::LeafIndexOutOfBounds)?;
     let mut last_node = tree_size - 1;
     let mut hash = proof.leaf_hash;
     let mut path_iter = proof.path.iter();
@@ -354,10 +354,9 @@ pub fn build_consistency_proof(
     if to_size > leaves.len() as u64 {
         return Err(VerificationError::LeafIndexOutOfBounds);
     }
-    let to_end = usize::try_from(to_size)
-        .map_err(|_| VerificationError::LeafIndexOutOfBounds)?;
-    let from_count = usize::try_from(from_size)
-        .map_err(|_| VerificationError::LeafIndexOutOfBounds)?;
+    let to_end = usize::try_from(to_size).map_err(|_| VerificationError::LeafIndexOutOfBounds)?;
+    let from_count =
+        usize::try_from(from_size).map_err(|_| VerificationError::LeafIndexOutOfBounds)?;
     let hashes: Vec<[u8; 32]> = leaves[..to_end].iter().map(|l| l.hash).collect();
     let mut proof = Vec::new();
     subproof(from_count, &hashes, true, &mut proof);
@@ -424,16 +423,16 @@ pub fn verify_consistency_proof(
         return Ok(());
     }
 
-    let from_size = usize::try_from(proof.from_size)
-        .map_err(|_| VerificationError::InvalidConsistencyRange)?;
-    let to_size = usize::try_from(proof.to_size)
-        .map_err(|_| VerificationError::InvalidConsistencyRange)?;
+    let from_size =
+        usize::try_from(proof.from_size).map_err(|_| VerificationError::InvalidConsistencyRange)?;
+    let to_size =
+        usize::try_from(proof.to_size).map_err(|_| VerificationError::InvalidConsistencyRange)?;
 
     // RFC-6962 §2.1.2 verification: walk the proof, splitting the
     // "to" tree around the largest power of two less than its size
     // until `from` is itself a complete subtree. Each step consumes
     // one proof element.
-    
+
     // Variables:
     //   `node`  — index of the last leaf in the earlier tree (0-based)
     //   `last`  — index of the last leaf in the later tree (0-based)
@@ -537,18 +536,16 @@ mod tests {
     #[test]
     fn leaf_hash_rfc6962() {
         let got = leaf_hash(b"");
-        let expected: [u8; 32] = hex_to_bytes32(
-            "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
-        );
+        let expected: [u8; 32] =
+            hex_to_bytes32("6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d");
         assert_eq!(got, expected);
 
         // Second KAT: leaf_hash(b"L123456")
         //  SHA-256(0x00 || "L123456") =
         //  395aa064aa4c29f7010acfe3f25db9485bbd4b91897b6ad7ad547639252b4d56
         let got2 = leaf_hash(b"L123456");
-        let expected2: [u8; 32] = hex_to_bytes32(
-            "395aa064aa4c29f7010acfe3f25db9485bbd4b91897b6ad7ad547639252b4d56",
-        );
+        let expected2: [u8; 32] =
+            hex_to_bytes32("395aa064aa4c29f7010acfe3f25db9485bbd4b91897b6ad7ad547639252b4d56");
         assert_eq!(got2, expected2);
     }
 
@@ -699,12 +696,9 @@ mod tests {
         let leaves = leaves_n(32);
         for from in 1u64..=32 {
             for to in from..=32 {
-                let from_root =
-                    compute_root(&leaves[..from as usize]).unwrap();
+                let from_root = compute_root(&leaves[..from as usize]).unwrap();
                 let to_root = compute_root(&leaves[..to as usize]).unwrap();
-                let proof =
-                    build_consistency_proof(&leaves[..to as usize], from, to)
-                        .unwrap();
+                let proof = build_consistency_proof(&leaves[..to as usize], from, to).unwrap();
                 verify_consistency_proof(&proof, &from_root, &to_root)
                     .unwrap_or_else(|e| panic!("from={from} to={to}: {e:?}"));
             }
@@ -719,8 +713,7 @@ mod tests {
         let mut proof = build_consistency_proof(&leaves, 4, 8).unwrap();
         assert!(!proof.proof.is_empty());
         proof.proof[0][0] ^= 0xff;
-        let err = verify_consistency_proof(&proof, &from_root, &to_root)
-            .unwrap_err();
+        let err = verify_consistency_proof(&proof, &from_root, &to_root).unwrap_err();
         assert_eq!(err, VerificationError::RootMismatch);
     }
 

@@ -116,9 +116,7 @@ async fn p99_under_200ms_for_100_concurrent_appends() {
     let p99 = latencies[98];
     let p50 = latencies[49];
     let max = latencies[99];
-    eprintln!(
-        "load-test wave-session: n={n}, p50={p50:?}, p99={p99:?}, max={max:?}"
-    );
+    eprintln!("load-test wave-session: n={n}, p50={p50:?}, p99={p99:?}, max={max:?}");
     assert!(
         p99.as_millis() < 200,
         "p99 latency {}ms exceeds 200ms spec",

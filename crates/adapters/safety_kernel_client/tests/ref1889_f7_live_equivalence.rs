@@ -59,22 +59,15 @@ fn discover_live_kernel_url() -> Option<String> {
         let ip = String::from_utf8_lossy(&out.stdout).trim().to_string();
         if !ip.is_empty() {
             let addr = format!("{ip}:9000");
-            if TcpStream::connect_timeout(
-                &addr.parse().ok()?,
-                Duration::from_millis(1000),
-            )
-            .is_ok()
+            if TcpStream::connect_timeout(&addr.parse().ok()?, Duration::from_millis(1000)).is_ok()
             {
                 return Some(format!("http://{addr}"));
             }
         }
     }
     // Last-resort: host-port 9001 (per CLAUDE.md port table).
-    if TcpStream::connect_timeout(
-        &"127.0.0.1:9001".parse().ok()?,
-        Duration::from_millis(500),
-    )
-    .is_ok()
+    if TcpStream::connect_timeout(&"127.0.0.1:9001".parse().ok()?, Duration::from_millis(500))
+        .is_ok()
     {
         return Some("http://127.0.0.1:9001".to_string());
     }
@@ -174,14 +167,21 @@ async fn f7_live_kernel_round_trip_is_well_formed() {
 
     if status.is_success() {
         // ALLOW path.
-        assert_eq!(parsed["ok"].as_bool(), Some(true), "F7.RS.2 allow path ok != true");
+        assert_eq!(
+            parsed["ok"].as_bool(),
+            Some(true),
+            "F7.RS.2 allow path ok != true"
+        );
         assert!(
             parsed["token"].is_string() && !parsed["token"].as_str().unwrap().is_empty(),
             "F7.RS.2 allow path missing token"
         );
         let sha = parsed["token_sha256"].as_str().unwrap_or("");
         assert_eq!(sha.len(), 64, "F7.RS.2 token_sha256 must be 64 hex chars");
-        assert!(parsed["claims"].is_object(), "F7.RS.2 allow path missing claims object");
+        assert!(
+            parsed["claims"].is_object(),
+            "F7.RS.2 allow path missing claims object"
+        );
     } else {
         // DENY / not-allowlisted path.
         let ok_field = parsed["ok"].as_bool().unwrap_or(true);
@@ -200,9 +200,7 @@ async fn f7_live_kernel_round_trip_is_well_formed() {
 #[tokio::test]
 async fn f7_live_public_key_well_formed() {
     let Some(base_url) = discover_live_kernel_url() else {
-        eprintln!(
-            "F7.RS.3 SKIP: no live Rust kernel reachable."
-        );
+        eprintln!("F7.RS.3 SKIP: no live Rust kernel reachable.");
         return;
     };
     let client = reqwest::Client::builder()
@@ -219,9 +217,17 @@ async fn f7_live_public_key_well_formed() {
     let body: serde_json::Value = resp.json().await.expect("/public_key json");
     assert_eq!(body["ok"].as_bool(), Some(true));
     assert_eq!(body["algorithm"].as_str(), Some("Ed25519"));
-    let pk = body["public_key_b64"].as_str().expect("public_key_b64 string");
+    let pk = body["public_key_b64"]
+        .as_str()
+        .expect("public_key_b64 string");
     // base64url-no-pad of 32 bytes = 43 chars
-    assert_eq!(pk.len(), 43, "F7.RS.3 public_key_b64 must be 43 chars (32B b64url-nopad)");
-    let fp = body["public_key_fingerprint"].as_str().expect("fingerprint string");
+    assert_eq!(
+        pk.len(),
+        43,
+        "F7.RS.3 public_key_b64 must be 43 chars (32B b64url-nopad)"
+    );
+    let fp = body["public_key_fingerprint"]
+        .as_str()
+        .expect("fingerprint string");
     assert_eq!(fp.len(), 64, "F7.RS.3 fingerprint must be SHA-256 hex");
 }

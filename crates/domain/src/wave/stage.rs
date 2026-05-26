@@ -26,9 +26,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Wire form is `SCREAMING_SNAKE_CASE` so log scrapers and the Python
 /// shadow library land on the same string.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum WaveStage {
     /// `/plan` produced a wave context but no role assignments yet.
@@ -78,9 +76,7 @@ impl WaveStage {
 /// A non-`Pass` outcome is still persisted — the ledger records the
 /// fact that the stage ran. The closeout/gate decision is left to the
 /// reader.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum WaveOutcome {
     /// Stage completed and all gates green.

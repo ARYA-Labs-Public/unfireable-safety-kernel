@@ -27,8 +27,6 @@ are caller-side only.
 
 from __future__ import annotations
 
-from typing import Optional
-
 __all__ = [
     "PolicyDenied",
     "KernelUnavailable",
@@ -58,7 +56,7 @@ class PolicyDenied(PermissionError):
         self,
         reason: str,
         *,
-        decision_token_sha256: Optional[str] = None,
+        decision_token_sha256: str | None = None,
     ) -> None:
         super().__init__(f"safety-kernel denied: {reason}")
         self.reason = reason

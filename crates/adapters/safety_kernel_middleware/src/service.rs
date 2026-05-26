@@ -146,7 +146,7 @@ where
                 // await it. Log the outcome for observability.
                 tokio::spawn(async move {
                     match client_for_task.authorize(&req_clone).await {
-                        Ok(KernelDecision::Allow {.. }) => {
+                        Ok(KernelDecision::Allow { .. }) => {
                             info!("safety_middleware: supervised allow");
                         }
                         Ok(KernelDecision::Deny { reason }) => {
@@ -196,21 +196,17 @@ where
             match client.authorize(&claims.request).await {
                 Ok(KernelDecision::Allow { token, claims: vc }) => {
                     let mut rebuilt = Request::from_parts(parts, Body::from(bytes));
-                    rebuilt
-                        .extensions_mut()
-                        .insert(SafetyToken::new(token, vc));
+                    rebuilt.extensions_mut().insert(SafetyToken::new(token, vc));
                     inner.call(rebuilt).await
                 }
                 Ok(KernelDecision::Deny { reason })
                 | Err(KernelClientError::Decision(KernelDecisionError::Denied { reason })) => {
                     Ok(MiddlewareError::Denied { reason }.into_response())
                 }
-                Err(KernelClientError::Verification(e)) => {
-                    Ok(MiddlewareError::Forged {
-                        reason: e.to_string(),
-                    }
-                    .into_response())
+                Err(KernelClientError::Verification(e)) => Ok(MiddlewareError::Forged {
+                    reason: e.to_string(),
                 }
+                .into_response()),
                 Err(
                     KernelClientError::Decision(KernelDecisionError::Unavailable { reason })
                     | KernelClientError::Transport(reason)

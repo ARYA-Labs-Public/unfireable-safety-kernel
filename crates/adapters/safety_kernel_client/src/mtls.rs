@@ -200,10 +200,7 @@ fn parse_cert_chain(
     Ok(certs)
 }
 
-fn parse_private_key(
-    pem_bytes: &[u8],
-    path: &Path,
-) -> Result<PrivateKeyDer<'static>, MtlsError> {
+fn parse_private_key(pem_bytes: &[u8], path: &Path) -> Result<PrivateKeyDer<'static>, MtlsError> {
     let mut cursor = Cursor::new(pem_bytes);
     let key = rustls_pemfile::private_key(&mut cursor)
         .map_err(|e| MtlsError::InvalidPem {
@@ -243,7 +240,7 @@ mod tests {
         let bad = Path::new("/tmp/qorch-ref1883-nonexistent.pem");
         let result = make_client_config(bad, bad, None);
         match result {
-            Err(MtlsError::ReadFile {.. }) => {}
+            Err(MtlsError::ReadFile { .. }) => {}
             other => panic!("expected ReadFile error, got {other:?}"),
         }
     }
@@ -267,7 +264,7 @@ mod tests {
         let _ = std::fs::remove_file(&cert);
         let _ = std::fs::remove_file(&key);
         match result {
-            Err(MtlsError::EmptyCertificateChain {.. }) => {}
+            Err(MtlsError::EmptyCertificateChain { .. }) => {}
             other => panic!("expected EmptyCertificateChain, got {other:?}"),
         }
     }

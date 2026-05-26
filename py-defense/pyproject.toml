@@ -59,5 +59,17 @@ omit = [
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
-# ≥95% target per the architecture overview.
+# ≥95% target.
 fail_under = 95
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+# Tests intentionally use broad excepts, magic values, etc.
+per-file-ignores = { "safety_kernel_defense/tests/*" = ["B017", "S101", "PLR2004"] }
+
+[tool.ruff.format]
+quote-style = "double"

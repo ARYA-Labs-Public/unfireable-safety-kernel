@@ -26,7 +26,7 @@ use thiserror::Error;
 /// `apps/safety_kernel/routes/authorize.py` — kept in lockstep via the
 /// generated types from `contracts/openapi/safety_kernel.yaml`.
 ///
-/// **Field declaration order is lexicographic** per 
+/// **Field declaration order is lexicographic** per
 /// Addendum 2a §5 (rule 1). `boundary_check.rs` enforces this
 /// structurally; reordering fields here will break a structural test.
 /// `traceparent` is NOT sent in the body — it is an HTTP header — but

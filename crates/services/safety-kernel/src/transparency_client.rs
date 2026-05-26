@@ -51,7 +51,7 @@ use thiserror::Error;
 #[derive(Debug, Clone)]
 pub struct TransparencyAppendInput {
     /// 32-byte idempotency fingerprint (kernel uses SHA-256 of the
-    /// token bytes 
+    /// token bytes
     pub idempotency_key: [u8; 32],
     /// Raw bytes the transparency-log will hash + persist as the
     /// leaf (RFC-6962 leaf hash = SHA-256(0x00 || payload)).
@@ -119,7 +119,7 @@ pub enum TransparencyError {
     /// The t-log returned a 2xx with a `leaf_hash_hex` (or other
     /// protocol-level field) that diverges from what the kernel
     /// locally computed. Treated as evidence that the ledger is
-    /// compromised or buggy — kernel fails CLOSED.  / 
+    /// compromised or buggy — kernel fails CLOSED.  /
     /// Step 8 defense-in-depth: catches a malicious or buggy t-log
     /// instance that stores leaf A but reports leaf B (future
     /// inclusion proofs would diverge silently otherwise).
@@ -134,11 +134,11 @@ impl TransparencyError {
     #[must_use]
     pub fn kind(&self) -> &'static str {
         match self {
-            TransparencyError::Unreachable {.. } => "unreachable",
-            TransparencyError::Rejected {.. } => "append_failed",
-            TransparencyError::ServerError {.. } => "server_error",
+            TransparencyError::Unreachable { .. } => "unreachable",
+            TransparencyError::Rejected { .. } => "append_failed",
+            TransparencyError::ServerError { .. } => "server_error",
             TransparencyError::Conflict => "conflict",
-            TransparencyError::Malformed {.. } => "malformed_response",
+            TransparencyError::Malformed { .. } => "malformed_response",
             TransparencyError::ProtocolViolation(_) => "protocol_violation",
         }
     }
@@ -215,7 +215,7 @@ impl ReqwestTransparencyClient {
     /// installed on the underlying `reqwest::Client` so every outbound
     /// request carries the client cert.
     ///
-    /// `rustls-tls` is the only TLS backend (per 
+    /// `rustls-tls` is the only TLS backend (per
     /// Addendum 2a §2 — NO native-tls, NO aws-lc-rs). The workspace
     /// `reqwest` dep enables this feature.
     ///
@@ -334,9 +334,11 @@ impl TransparencyClient for ReqwestTransparencyClient {
         }
         if status.is_success() {
             let parsed: AppendResponseBody =
-                resp.json().await.map_err(|e| TransparencyError::Malformed {
-                    detail: truncate(&format!("{e}"), 300),
-                })?;
+                resp.json()
+                    .await
+                    .map_err(|e| TransparencyError::Malformed {
+                        detail: truncate(&format!("{e}"), 300),
+                    })?;
             //  /  Step 8 — cross-verify that the
             // returned leaf_hash_hex corresponds to the kernel's local
             // SHA-256(0x00 || payload). A divergence proves the t-log
@@ -387,7 +389,7 @@ fn truncate(s: &str, max: usize) -> String {
 }
 
 /// Compute the idempotency key the kernel uses for `POST /v1/append`.
-/// 
+///
 #[must_use]
 pub fn idempotency_key_for_token(token: &str) -> [u8; 32] {
     let mut h = Sha256::new();
@@ -468,9 +470,7 @@ mod tests {
         let cases: Vec<(&'static str, TransparencyError)> = vec![
             (
                 "unreachable",
-                TransparencyError::Unreachable {
-                    detail: "x".into(),
-                },
+                TransparencyError::Unreachable { detail: "x".into() },
             ),
             (
                 "append_failed",
@@ -489,9 +489,7 @@ mod tests {
             ("conflict", TransparencyError::Conflict),
             (
                 "malformed_response",
-                TransparencyError::Malformed {
-                    detail: "x".into(),
-                },
+                TransparencyError::Malformed { detail: "x".into() },
             ),
             (
                 "protocol_violation",
@@ -519,7 +517,7 @@ mod tests {
             })
             .await
             .unwrap_err();
-        assert!(matches!(err, TransparencyError::Unreachable {.. }));
+        assert!(matches!(err, TransparencyError::Unreachable { .. }));
     }
 
     #[test]

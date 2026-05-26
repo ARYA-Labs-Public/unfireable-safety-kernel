@@ -14,12 +14,11 @@ hex-anchor test are the bit-equivalent checks that prove the Python
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import logging
 import os
 import sys
-import threading
-import time
 from typing import Any
 
 import pytest
@@ -27,12 +26,9 @@ import pytest
 from safety_kernel_defense import (
     HookConfigError,
     PolicyDenied,
+    _wire,
     install_audit_hook,
-    wrap_subprocess,
 )
-import importlib
-
-from safety_kernel_defense import _wire
 from safety_kernel_defense.exceptions import KernelUnavailable
 from safety_kernel_defense.install_audit_hook import _audit_callback
 
@@ -277,9 +273,7 @@ def test_compile_event_uses_sha256_of_source(mock_kernel: Any) -> None:
     )
     sys.audit("compile", "x=1", "<test>")
     auth_reqs = mock_kernel.authorize_requests()
-    compile_reqs = [
-        r for r in auth_reqs if r["body"] and r["body"]["event_kind"] == "compile"
-    ]
+    compile_reqs = [r for r in auth_reqs if r["body"] and r["body"]["event_kind"] == "compile"]
     assert len(compile_reqs) >= 1
     expected = hashlib.sha256(b"x=1").hexdigest()
     assert compile_reqs[0]["body"]["module_path"] == expected
@@ -419,9 +413,7 @@ def test_adv_forged_event_fingerprint_in_hook(
     zeros. Kernel responds with 400; hook re-raises as
     :class:`ImportError`. The chain entry (when the real kernel runs)
     records the forgery attempt."""
-    monkeypatch.setattr(
-        _wire, "compute_event_fingerprint", lambda **kw: "0" * 64
-    )
+    monkeypatch.setattr(_wire, "compute_event_fingerprint", lambda **kw: "0" * 64)
     # The mock kernel doesn't actually validate fingerprints — we
     # configure it to return 400 to simulate the real kernel's rejection.
     mock_kernel.response_status_authorize = 400
@@ -734,7 +726,9 @@ def test_unit_audit_callback_400_hookbug(mock_kernel: Any) -> None:
         _install_mod._installed.armed = False
 
 
-def test_unit_audit_callback_400_hookbug_runtimeerror_for_exec(mock_kernel: Any) -> None:
+def test_unit_audit_callback_400_hookbug_runtimeerror_for_exec(
+    mock_kernel: Any,
+) -> None:
     mock_kernel.response_status_authorize = 400
     mock_kernel.response_body_authorize = {"reason": "event_fingerprint_invalid"}
     _install_mod._installed.config = _make_cfg(mock_kernel)
@@ -853,7 +847,9 @@ def test_unit_audit_callback_derive_failure_fail_closed(mock_kernel: Any) -> Non
         _install_mod._installed.armed = False
 
 
-def test_unit_audit_callback_derive_failure_runtimeerror_for_exec(mock_kernel: Any) -> None:
+def test_unit_audit_callback_derive_failure_runtimeerror_for_exec(
+    mock_kernel: Any,
+) -> None:
     _install_mod._installed.config = _make_cfg(mock_kernel)
     _install_mod._installed.armed = True
     try:
@@ -890,13 +886,11 @@ def test_unit_audit_callback_kernel_unavailable_fail_open(
 
 # ============================================================================
 #  — kill-switch emits `hook_install_violation` chain entry
-# 
+#
 # ============================================================================
 
 
-def test_kill_switch_emits_chain_entry(
-    mock_kernel: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_kill_switch_emits_chain_entry(mock_kernel: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     """The kill-switch install path MUST POST a single
     ``hook_install_violation`` audit event to ``/policy/audit-event``
     BEFORE returning. The chain entry plus the CRITICAL log line are
@@ -910,9 +904,7 @@ def test_kill_switch_emits_chain_entry(
     )
 
     audit_events = mock_kernel.audit_event_requests()
-    assert len(audit_events) == 1, (
-        f"expected 1 audit-event POST, got {len(audit_events)}"
-    )
+    assert len(audit_events) == 1, f"expected 1 audit-event POST, got {len(audit_events)}"
     body = audit_events[0]["body"]
     assert body is not None
     assert body["event_kind"] == "hook_install_violation"
@@ -948,9 +940,7 @@ def test_kill_switch_handles_kernel_unreachable(
     # At least two CRITICAL log lines: the kill-switch banner + the
     # POST-failure record.
     assert any("kill switch" in r.message.lower() for r in crit)
-    assert any(
-        "install-time audit event post failed" in r.message.lower() for r in crit
-    )
+    assert any("install-time audit event post failed" in r.message.lower() for r in crit)
 
 
 def test_kill_switch_handles_kernel_5xx(
@@ -1016,15 +1006,12 @@ def test_kill_switch_uses_custom_env_var_name(
     )
     audit_events = mock_kernel.audit_event_requests()
     assert len(audit_events) == 1
-    assert (
-        audit_events[0]["body"]["metadata"]["kill_switch_env_var"]
-        == "CUSTOM_KILL_SWITCH"
-    )
+    assert audit_events[0]["body"]["metadata"]["kill_switch_env_var"] == "CUSTOM_KILL_SWITCH"
 
 
 # ============================================================================
 #  — `report_preloaded_modules=True` public param
-# 
+#
 # ============================================================================
 
 
@@ -1094,7 +1081,7 @@ def test_report_preloaded_modules_caps_at_256(
     # Build a synthetic sys.modules with > 256 entries. Use existing
     # values from sys.modules to avoid disturbing import machinery.
     real_modules = dict(sys.modules)
-    synthetic: Dict[str, Any] = dict(real_modules)
+    synthetic: dict[str, Any] = dict(real_modules)
     # Add enough sentinel keys to push us well past the 256 cap.
     for i in range(300):
         synthetic[f"_zzz_preload_sentinel_{i:04d}"] = real_modules.get("sys")
@@ -1182,9 +1169,7 @@ def test_report_preloaded_modules_fail_soft_on_kernel_unreachable(
     assert _install_mod._installed.armed is True
     # CRITICAL log records the failure.
     crit = [r for r in caplog.records if r.levelno == logging.CRITICAL]
-    assert any(
-        "install-time audit event post failed" in r.message.lower() for r in crit
-    )
+    assert any("install-time audit event post failed" in r.message.lower() for r in crit)
 
 
 # ============================================================================
@@ -1247,9 +1232,7 @@ def test_unit_post_install_audit_event_swallows_kernel_unavailable(
             metadata={"reason": "test_reason"},
         )
     crit = [r for r in caplog.records if r.levelno == logging.CRITICAL]
-    assert any(
-        "install-time audit event post failed" in r.message.lower() for r in crit
-    )
+    assert any("install-time audit event post failed" in r.message.lower() for r in crit)
 
 
 def test_unit_post_install_audit_event_swallows_unserializable_metadata(
@@ -1290,9 +1273,7 @@ def test_unit_post_install_audit_event_swallows_unexpected_exception(
             metadata={"reason": "x"},
         )
     crit = [r for r in caplog.records if r.levelno == logging.CRITICAL]
-    assert any(
-        "raised unexpected error" in r.message.lower() for r in crit
-    )
+    assert any("raised unexpected error" in r.message.lower() for r in crit)
 
 
 def test_unit_diagnostics_metadata_handles_gethostname_failure(

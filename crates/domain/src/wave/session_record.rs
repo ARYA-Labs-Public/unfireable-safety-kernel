@@ -81,7 +81,7 @@ impl WaveSessionRecord {
     /// touch network state.
     #[must_use]
     #[allow(clippy::too_many_arguments)] // The record genuinely has 9
-    // fields and a builder shape would defeat the wire-clean intent.
+                                         // fields and a builder shape would defeat the wire-clean intent.
     pub fn new(
         wave_id: WaveId,
         linear_issue: impl Into<String>,
@@ -129,11 +129,7 @@ impl WaveSessionRecord {
     /// existing `idempotency_key` derivation in
     /// `crates/services/safety-kernel`.
     #[must_use]
-    pub fn idempotency_key(
-        wave_id: &WaveId,
-        stage: WaveStage,
-        session_id: &str,
-    ) -> [u8; 32] {
+    pub fn idempotency_key(wave_id: &WaveId, stage: WaveStage, session_id: &str) -> [u8; 32] {
         // Wire-form stage string mirrors what `serde` would emit. Pin
         // the mapping here so a future serde-rename does not silently
         // re-key existing rows.

@@ -142,13 +142,13 @@ mod tests {
     fn default_extractor_rejects_missing_run_id() {
         let h = headers_with(None, Some("worker"));
         let r = DefaultExtractor.extract(&Method::POST, "/gated/run", &h, None);
-        assert!(matches!(r, Err(MiddlewareError::BadRequest {.. })));
+        assert!(matches!(r, Err(MiddlewareError::BadRequest { .. })));
     }
 
     #[test]
     fn default_extractor_rejects_missing_subject() {
         let h = headers_with(Some("run-1"), None);
         let r = DefaultExtractor.extract(&Method::POST, "/gated/run", &h, None);
-        assert!(matches!(r, Err(MiddlewareError::BadRequest {.. })));
+        assert!(matches!(r, Err(MiddlewareError::BadRequest { .. })));
     }
 }

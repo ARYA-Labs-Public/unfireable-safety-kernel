@@ -55,7 +55,7 @@ use qorch_domain::safety::Clock;
 /// ancient manifest at us.
 pub const DEFAULT_MANIFEST_STALENESS_SECONDS: u64 = 7 * 24 * 60 * 60;
 
-/// Default reconcile interval — 15 minutes 
+/// Default reconcile interval — 15 minutes
 pub const DEFAULT_INTERVAL_SECONDS: u64 = 900;
 
 /// Configuration shared across `Reconciler` instances. Values come
@@ -564,7 +564,9 @@ impl Reconciler {
         // pass through here (they aren't "stale"); if a malicious
         // future-dated manifest got past signature verification, the
         // pinned-key compromise is the bigger problem.
-        if now >= manifest.issued_at && now - manifest.issued_at > self.config.manifest_staleness_seconds {
+        if now >= manifest.issued_at
+            && now - manifest.issued_at > self.config.manifest_staleness_seconds
+        {
             return Err(ReconcileError::ExpiredManifest {
                 issued_at: manifest.issued_at,
                 now,
@@ -906,7 +908,7 @@ mod tests {
         );
 
         let err = r.tick_once().await.expect_err("should reject expired");
-        assert!(matches!(err, ReconcileError::ExpiredManifest {.. }));
+        assert!(matches!(err, ReconcileError::ExpiredManifest { .. }));
         assert!(audit.snapshot().is_empty());
         assert!(tlog.snapshot().is_empty());
     }
@@ -940,7 +942,7 @@ mod tests {
         // fail-closed policy.
         let outcome = r.tick_once().await.expect("tick must not error");
         assert!(
-            matches!(outcome, TickOutcome::Drift {.. }),
+            matches!(outcome, TickOutcome::Drift { .. }),
             "expected Drift outcome even with transparency-log down",
         );
         assert_eq!(
@@ -983,7 +985,7 @@ mod tests {
             .tick_once()
             .await
             .expect_err("should reject image mismatch");
-        assert!(matches!(err, ReconcileError::ImageMismatch {.. }));
+        assert!(matches!(err, ReconcileError::ImageMismatch { .. }));
         assert!(audit.snapshot().is_empty());
         assert!(tlog.snapshot().is_empty());
     }

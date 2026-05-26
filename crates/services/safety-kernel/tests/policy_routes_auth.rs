@@ -313,7 +313,7 @@ async fn policy_authorize_returns_401_with_wrong_x_api_key() {
 //
 // THIS test is the slice-1 positive-control contract: with a valid
 // worker key the auth layer passes the request through to the scaffold
-// handler, which returns 501 with the slice-1 marker body. 
+// handler, which returns 501 with the slice-1 marker body.
 // MUST update this expectation to 200 (allow) / 403 (deny) /
 // 503 (kernel-unavailable) when the real authorize path lands. The
 // 401-without-key and 401-with-wrong-key assertions above are

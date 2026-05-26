@@ -12,7 +12,7 @@
 //! serialization conflicts; the caller decides whether to retry the
 //! outer logical operation.
 //!
-//! The implementation is intentionally minimal — Step 5 of 
+//! The implementation is intentionally minimal — Step 5 of
 //! is the one that wires routes against this adapter and adds the
 //! integration tests against a real DB. The unit-level confidence
 //! comes from [`crate::memory`].
@@ -204,10 +204,7 @@ impl TransparencyStore for PgTransparencyStore {
         compute_root(&leaves).map_err(StoreError::Verification)
     }
 
-    async fn build_inclusion_proof(
-        &self,
-        leaf_index: u64,
-    ) -> Result<InclusionProof, StoreError> {
+    async fn build_inclusion_proof(&self, leaf_index: u64) -> Result<InclusionProof, StoreError> {
         let leaves = self.load_all_leaves().await?;
         if leaves.is_empty() {
             return Err(StoreError::Verification(VerificationError::EmptyTree));
@@ -247,7 +244,9 @@ mod tests {
     #[tokio::test]
     #[ignore = "requires live Postgres via $TEST_DATABASE_URL"]
     async fn pg_append_returns_monotonic_indices() {
-        let Some(store) = store_from_env().await else { return };
+        let Some(store) = store_from_env().await else {
+            return;
+        };
         // Reset between runs is Step 5's responsibility; this test
         // just smokes the wiring.
         for i in 0u8..3 {
@@ -259,7 +258,10 @@ mod tests {
                 })
                 .await
                 .unwrap();
-            assert_eq!(outcome.leaf_hash, qorch_domain::transparency::leaf_hash(&[i, i, i]));
+            assert_eq!(
+                outcome.leaf_hash,
+                qorch_domain::transparency::leaf_hash(&[i, i, i])
+            );
         }
     }
 }

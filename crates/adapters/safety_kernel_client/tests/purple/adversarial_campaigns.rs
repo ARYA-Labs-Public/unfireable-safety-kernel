@@ -228,7 +228,7 @@ fn campaign_d_partition_fail_closed_100_concurrent() {
     for h in handles {
         match h.join().unwrap() {
             Ok(()) => ok_count += 1,
-            Err(KernelClientError::Decision(KernelDecisionError::Unavailable {.. })) => {
+            Err(KernelClientError::Decision(KernelDecisionError::Unavailable { .. })) => {
                 unavail_count += 1;
             }
             Err(_) => other_count += 1,
@@ -240,7 +240,10 @@ fn campaign_d_partition_fail_closed_100_concurrent() {
         ok_count, 0,
         "FAIL-CLOSED breach: {ok_count}/100 callers received Ok during partition"
     );
-    assert_eq!(unavail_count, 100, "expected 100 Unavailable, got {unavail_count} (other={other_count})");
+    assert_eq!(
+        unavail_count, 100,
+        "expected 100 Unavailable, got {unavail_count} (other={other_count})"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -288,7 +291,7 @@ fn campaign_e_half_open_race_exactly_one_probe() {
     for h in handles {
         match h.join().unwrap() {
             Ok(()) => ok_count += 1,
-            Err(KernelClientError::Decision(KernelDecisionError::Unavailable {.. })) => {
+            Err(KernelClientError::Decision(KernelDecisionError::Unavailable { .. })) => {
                 unavail_count += 1;
             }
             Err(other) => panic!("unexpected error type during HalfOpen race: {other:?}"),
@@ -378,7 +381,7 @@ async fn campaign_f_slow_loris_timeout_fires() {
     // below the configured 5s timeout (we allow some slack for
     // scheduler + tokio overhead).
     match result {
-        Err(KernelClientError::Decision(KernelDecisionError::Unavailable {.. })) => {}
+        Err(KernelClientError::Decision(KernelDecisionError::Unavailable { .. })) => {}
         other => panic!("expected Decision(Unavailable) on slow-loris, got {other:?}"),
     }
     assert!(
@@ -514,8 +517,7 @@ async fn campaign_i_audit_chain_traceparent_round_trip() {
                 claims_hint: None,
                 token,
             };
-            ResponseTemplate::new(200)
-                .set_body_json(serde_json::to_value(&body).unwrap())
+            ResponseTemplate::new(200).set_body_json(serde_json::to_value(&body).unwrap())
         }
     }
 
@@ -561,7 +563,7 @@ async fn campaign_i_audit_chain_traceparent_round_trip() {
         .authorize(&req)
         .await
         .expect("authorize must succeed against valid mock");
-    assert!(matches!(decision, KernelDecision::Allow {.. }));
+    assert!(matches!(decision, KernelDecision::Allow { .. }));
 
     // (a) Server side received exactly the traceparent we sent.
     let kernel_saw = captured_tp.lock().unwrap().clone();

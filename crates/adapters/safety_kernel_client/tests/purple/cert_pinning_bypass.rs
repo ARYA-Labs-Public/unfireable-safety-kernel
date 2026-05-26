@@ -79,10 +79,7 @@ fn write(path: &Path, contents: &str) {
 /// Build a minimal TLS listener using rustls + tokio that just accepts
 /// connections (does not need to send a real response — the handshake
 /// is the test point).
-async fn spawn_rustls_acceptor(
-    cert_pem: String,
-    key_pem: String,
-) -> SocketAddr {
+async fn spawn_rustls_acceptor(cert_pem: String, key_pem: String) -> SocketAddr {
     use tokio::io::AsyncReadExt;
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
@@ -172,7 +169,9 @@ async fn campaign_c_cert_pinning_bypass_handshake_fails() {
     // SDK plumbing.
     let (signing, public) = (
         SigningKey::from_bytes(&[7u8; 32]),
-        SigningKey::from_bytes(&[7u8; 32]).verifying_key().to_bytes(),
+        SigningKey::from_bytes(&[7u8; 32])
+            .verifying_key()
+            .to_bytes(),
     );
     let _ = signing;
     let verifier = PinnedKeyVerifier::from_pubkey_bytes(public).unwrap();

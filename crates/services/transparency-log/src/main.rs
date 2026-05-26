@@ -2,7 +2,7 @@
 //!  Step 5).
 //!
 //! Binds the four endpoints on internal port 8100 (host port 8102
-//! per `docker-compose.yml`; 8101 reserved for the optional 
+//! per `docker-compose.yml`; 8101 reserved for the optional
 //! Rekor proxy). Wires:
 //!
 //!   - `GET  /health`               (public liveness probe)

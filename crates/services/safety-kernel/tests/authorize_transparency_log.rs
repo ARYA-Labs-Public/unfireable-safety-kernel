@@ -213,11 +213,7 @@ fn test_settings(sock: PathBuf) -> Settings {
     }
 }
 
-fn build_state(
-    behavior: MockBehavior,
-    sock: PathBuf,
-    timeout_s: f64,
-) -> AppState {
+fn build_state(behavior: MockBehavior, sock: PathBuf, timeout_s: f64) -> AppState {
     let mut seed = [0u8; 32];
     OsRng.fill_bytes(&mut seed);
     let signing_key = SigningKey::from_bytes(&seed);
@@ -259,7 +255,8 @@ fn router(state: AppState) -> Router {
         .route("/kernel/v1/authorize", post(routes::authorize::authorize))
         .layer(from_fn(
             |mut req: axum::extract::Request, next: axum::middleware::Next| async move {
-                req.extensions_mut().insert(CallerRole("worker".to_string()));
+                req.extensions_mut()
+                    .insert(CallerRole("worker".to_string()));
                 next.run(req).await
             },
         ))
@@ -331,11 +328,7 @@ async fn authorize_transparency_500_fails_closed() {
 async fn authorize_transparency_timeout_fails_closed() {
     let (_dir, sock, _h) = fresh_sidecar().await;
     // Mock sleeps 1s; settings timeout is 0.1s ⇒ tokio::time::timeout fires.
-    let state = build_state(
-        MockBehavior::SlowSleep(Duration::from_secs(1)),
-        sock,
-        0.1,
-    );
+    let state = build_state(MockBehavior::SlowSleep(Duration::from_secs(1)), sock, 0.1);
     let router = router(state);
     let (status, v) = post_json(router, authorize_body()).await;
     assert_eq!(status, StatusCode::FORBIDDEN, "body={v:?}");

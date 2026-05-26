@@ -1,5 +1,5 @@
 //! Kernel-decision pure types — promoted from the adapter under
-//!   Step 2 
+//!   Step 2
 //!
 //! The adapter still owns the *implementation* of `SafetyKernelClient`
 //! (HTTP, breaker, mTLS, key verification), but the **decision shape**

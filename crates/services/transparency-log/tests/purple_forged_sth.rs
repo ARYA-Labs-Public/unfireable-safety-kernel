@@ -26,8 +26,8 @@
 use ed25519_dalek::SigningKey;
 
 use qorch_domain::transparency::{
-    build_inclusion_proof, compute_root, leaf_hash, mint_sth, verify_inclusion_proof,
-    verify_sth, MerkleLeaf, VerificationError,
+    build_inclusion_proof, compute_root, leaf_hash, mint_sth, verify_inclusion_proof, verify_sth,
+    MerkleLeaf, VerificationError,
 };
 
 /// Deterministic legitimate ledger STH-signing key (the "honest" key
@@ -95,7 +95,10 @@ fn purple_b1_tampered_inclusion_proof_rejected() {
 
     // Pick a non-leftmost leaf so the proof has a non-trivial path.
     let proof = build_inclusion_proof(&leaves, 5).unwrap();
-    assert!(!proof.path.is_empty(), "proof for n=16 idx=5 must have a non-empty path");
+    assert!(
+        !proof.path.is_empty(),
+        "proof for n=16 idx=5 must have a non-empty path"
+    );
 
     // Tamper: flip ONE bit in the first sibling hash.
     let mut tampered = proof.clone();

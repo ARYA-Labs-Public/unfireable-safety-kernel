@@ -314,7 +314,7 @@ pub fn verify_kernel_token(
     }
 
     // Audience check.
-    
+
     // The audience claim partitions the signing-key space between
     // `/kernel/v1/authorize` and `/policy/*` so a token minted for
     // one endpoint cannot be presented to the verifier of another.
@@ -739,7 +739,7 @@ mod tests {
 
     // ========================================================================
     //  ( slice 5) — `aud` claim + verifier allowlist tests.
-    
+
     // The kernel signing key is shared between `/kernel/v1/authorize` and
     // `/policy/*`. Without an audience tag, a token minted for one endpoint
     // could in principle be presented to the verifier of another. The `aud`
@@ -986,7 +986,7 @@ mod tests {
 
     // ========================================================================
     //  (-followup item 1) — `aud` on the APPROVALS path.
-    
+
     //  closed the `aud` cross-tenant replay surface on the
     // authorize + policy claim types only. `ApprovalClaims` was left without
     // an audience tag, so an approval-decision token signed by the shared

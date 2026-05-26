@@ -412,7 +412,7 @@ fn error_kind_from_setbuilder(e: &regex::Error) -> &'static str {
 }
 
 /// SHA-256 hex of `stable_json({"patterns": <patterns>})` — binds the
-/// regex set into the receipt without sending it. Matches 
+/// regex set into the receipt without sending it. Matches
 /// `required_patterns_regex_set_fingerprint` field.
 fn patterns_fingerprint(patterns: &[String]) -> String {
     let mut map: BTreeMap<String, Value> = BTreeMap::new();

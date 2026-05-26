@@ -11,12 +11,11 @@ path (i.e. unauthorized). The warm-up moves those imports BEFORE
 
 from __future__ import annotations
 
+import importlib
 import sys
 from typing import Any
 
 import pytest
-
-import importlib
 
 from safety_kernel_defense import install_audit_hook
 from safety_kernel_defense.install_audit_hook import _warm_stdlib_deps
@@ -84,9 +83,7 @@ def test_warm_idempotent() -> None:
     _warm_stdlib_deps()  # second call must be a no-op.
 
 
-def test_kill_switch_skips_warm_up(
-    mock_kernel: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_kill_switch_skips_warm_up(mock_kernel: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     """the architecture overview: when the kill switch is active, the hook never
     arms — so we MUST NOT spend the warm-up cost either. Verify by
     monkey-patching ``_warm_stdlib_deps`` to record invocations."""
@@ -108,6 +105,4 @@ def test_kill_switch_skips_warm_up(
         caller_subject="t",
         caller_run_id="r",
     )
-    assert warm_calls["count"] == 0, (
-        "kill-switch path must skip the warm-up to keep its cost zero"
-    )
+    assert warm_calls["count"] == 0, "kill-switch path must skip the warm-up to keep its cost zero"

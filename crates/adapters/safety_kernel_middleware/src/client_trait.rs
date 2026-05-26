@@ -115,7 +115,7 @@ mod tests {
         assert!(matches!(
             r,
             Err(KernelClientError::Decision(
-                KernelDecisionError::Unavailable {.. }
+                KernelDecisionError::Unavailable { .. }
             ))
         ));
     }

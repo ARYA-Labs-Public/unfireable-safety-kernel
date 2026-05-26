@@ -30,8 +30,8 @@ use std::sync::Arc;
 use ed25519_dalek::SigningKey;
 use qorch_domain::transparency::{
     build_consistency_proof, build_inclusion_proof, compute_root, leaf_hash, mint_sth,
-    verify_consistency_proof, verify_inclusion_proof, verify_sth, ConsistencyProof,
-    MerkleLeaf, VerificationError,
+    verify_consistency_proof, verify_inclusion_proof, verify_sth, ConsistencyProof, MerkleLeaf,
+    VerificationError,
 };
 use qorch_transparency_store::{memory::MemoryTransparencyStore, AppendInput, TransparencyStore};
 
@@ -238,8 +238,7 @@ fn purple_h1_legitimate_append_only_consistency_holds() {
     // matches the tampered tree's view of [..4]. But the FULL root
     // diverges, so the consistency proof generated against the honest
     // 8-tree fails when verified against `tampered_root_8`.
-    let err =
-        verify_consistency_proof(&proof, &root_4, &tampered_root_8).unwrap_err();
+    let err = verify_consistency_proof(&proof, &root_4, &tampered_root_8).unwrap_err();
     assert_eq!(err, VerificationError::RootMismatch);
 }
 

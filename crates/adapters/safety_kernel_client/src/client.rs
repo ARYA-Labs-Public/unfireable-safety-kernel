@@ -90,10 +90,7 @@ impl SafetyKernelClient {
     /// this is treated as an invariant, not a recoverable condition.
     #[must_use]
     pub fn audit_trail(&self) -> Vec<AuditEntry> {
-        self.audit
-            .lock()
-            .expect("audit mutex poisoned")
-            .clone()
+        self.audit.lock().expect("audit mutex poisoned").clone()
     }
 
     /// Append an entry to the local audit trail. Internal helper used
@@ -168,9 +165,11 @@ impl SafetyKernelClient {
                     subject: request.subject.clone(),
                     traceparent: request.traceparent.clone(),
                 });
-                return Err(KernelClientError::Decision(KernelDecisionError::Unavailable {
-                    reason: format!("kernel call failed: {e}"),
-                }));
+                return Err(KernelClientError::Decision(
+                    KernelDecisionError::Unavailable {
+                        reason: format!("kernel call failed: {e}"),
+                    },
+                ));
             }
         };
 
@@ -184,9 +183,11 @@ impl SafetyKernelClient {
                 subject: request.subject.clone(),
                 traceparent: request.traceparent.clone(),
             });
-            return Err(KernelClientError::Decision(KernelDecisionError::Unavailable {
-                reason: format!("kernel returned {status}"),
-            }));
+            return Err(KernelClientError::Decision(
+                KernelDecisionError::Unavailable {
+                    reason: format!("kernel returned {status}"),
+                },
+            ));
         }
         if status == reqwest::StatusCode::FORBIDDEN {
             // Authoritative DENY from the kernel — distinct from
@@ -276,9 +277,11 @@ impl SafetyKernelClient {
             })?;
         let status = resp.status();
         if !status.is_success() {
-            return Err(KernelClientError::Decision(KernelDecisionError::Unavailable {
-                reason: format!("kernel health returned {status}"),
-            }));
+            return Err(KernelClientError::Decision(
+                KernelDecisionError::Unavailable {
+                    reason: format!("kernel health returned {status}"),
+                },
+            ));
         }
         resp.json::<HealthResponse>()
             .await
@@ -315,9 +318,11 @@ impl SafetyKernelClient {
             })?;
         let status = resp.status();
         if !status.is_success() {
-            return Err(KernelClientError::Decision(KernelDecisionError::Unavailable {
-                reason: format!("kernel public_key returned {status}"),
-            }));
+            return Err(KernelClientError::Decision(
+                KernelDecisionError::Unavailable {
+                    reason: format!("kernel public_key returned {status}"),
+                },
+            ));
         }
         resp.json::<PublicKeyResponse>().await.map_err(|e| {
             KernelClientError::Decode(format!("public_key response decode failed: {e}"))
@@ -327,10 +332,7 @@ impl SafetyKernelClient {
     /// Shared header builder for the GET endpoints. Always emits
     /// `x-api-key` (per ADR §5 rule 6 — never Authorization Bearer)
     /// and `traceparent` when supplied.
-    fn build_get_headers(
-        &self,
-        traceparent: Option<&str>,
-    ) -> Result<HeaderMap, KernelClientError> {
+    fn build_get_headers(&self, traceparent: Option<&str>) -> Result<HeaderMap, KernelClientError> {
         let mut headers = HeaderMap::new();
         headers.insert(
             HeaderName::from_static(API_KEY_HEADER),
@@ -382,8 +384,10 @@ mod tests {
         // wiring checklist ( docs/integration/wiring-checklist.md).
         let signing = ed25519_dalek::SigningKey::from_bytes(&[3u8; 32]);
         let pubkey = signing.verifying_key().to_bytes();
-        let expected_fp =
-            PinnedKeyVerifier::from_pubkey_bytes(pubkey).unwrap().fingerprint().to_string();
+        let expected_fp = PinnedKeyVerifier::from_pubkey_bytes(pubkey)
+            .unwrap()
+            .fingerprint()
+            .to_string();
         let client = build_test_client();
         assert_eq!(client.pinned_key_fingerprint(), expected_fp);
     }

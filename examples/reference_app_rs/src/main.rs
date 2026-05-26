@@ -31,8 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = build_app(build_dev_client());
 
-    let bind = std::env::var("REFERENCE_APP_RS_ADDR")
-        .unwrap_or_else(|_| DEFAULT_BIND.to_string());
+    let bind = std::env::var("REFERENCE_APP_RS_ADDR").unwrap_or_else(|_| DEFAULT_BIND.to_string());
     let listener = tokio::net::TcpListener::bind(&bind).await?;
     tracing::info!(bind = %bind, "reference_app_rs listening");
     axum::serve(listener, app).await?;

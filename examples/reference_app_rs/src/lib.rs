@@ -28,11 +28,7 @@ pub fn build_app(client: Arc<dyn SafetyKernelClientTrait>) -> Router {
             "/public/hello".into(),
             MiddlewarePolicy::Unrestricted,
         ),
-        (
-            Method::POST,
-            "/gated/run".into(),
-            MiddlewarePolicy::Gated,
-        ),
+        (Method::POST, "/gated/run".into(), MiddlewarePolicy::Gated),
     ]));
 
     let layer = SafetyLayer::new(client, policy);

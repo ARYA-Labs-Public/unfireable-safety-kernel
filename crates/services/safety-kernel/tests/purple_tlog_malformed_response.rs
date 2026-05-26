@@ -75,10 +75,10 @@ use qorch_safety_kernel::transparency_client::{
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)] // `Ok` is held for parity with the existing
-// `MockBehavior` shape in `authorize_transparency_log.rs` and to
-// document the available test surface; the success path is already
-// exercised by `authorize_with_transparency_log_succeeds` in that
-// file, so we don't repeat it here.
+                    // `MockBehavior` shape in `authorize_transparency_log.rs` and to
+                    // document the available test surface; the success path is already
+                    // exercised by `authorize_with_transparency_log_succeeds` in that
+                    // file, so we don't repeat it here.
 enum PurpleBehavior {
     /// 2xx but the response body did not parse → Malformed.
     Malformed,
@@ -222,7 +222,11 @@ fn test_settings(sock: PathBuf) -> Settings {
     }
 }
 
-fn build_state(behavior: PurpleBehavior, sock: PathBuf, timeout_s: f64) -> (AppState, Arc<AtomicUsize>) {
+fn build_state(
+    behavior: PurpleBehavior,
+    sock: PathBuf,
+    timeout_s: f64,
+) -> (AppState, Arc<AtomicUsize>) {
     let mut seed = [0u8; 32];
     OsRng.fill_bytes(&mut seed);
     let signing_key = SigningKey::from_bytes(&seed);
@@ -266,7 +270,8 @@ fn router(state: AppState) -> Router {
         .route("/kernel/v1/authorize", post(routes::authorize::authorize))
         .layer(from_fn(
             |mut req: axum::extract::Request, next: axum::middleware::Next| async move {
-                req.extensions_mut().insert(CallerRole("worker".to_string()));
+                req.extensions_mut()
+                    .insert(CallerRole("worker".to_string()));
                 next.run(req).await
             },
         ))
@@ -370,11 +375,7 @@ async fn purple_c2_trait_mock_does_not_exercise_wire_cross_check_snapshot() {
 async fn purple_c3_concurrent_slow_tlog_all_fail_closed() {
     const STORM: usize = 100;
     let (_dir, sock, _h) = fresh_sidecar().await;
-    let (state, calls) = build_state(
-        PurpleBehavior::SlowSleep(Duration::from_secs(1)),
-        sock,
-        0.1,
-    );
+    let (state, calls) = build_state(PurpleBehavior::SlowSleep(Duration::from_secs(1)), sock, 0.1);
 
     // Spawn STORM concurrent in-process requests against the same
     // router. We clone the router (`Arc<Router>` semantics) per task.
@@ -402,9 +403,7 @@ async fn purple_c3_concurrent_slow_tlog_all_fail_closed() {
         let (status, v) = h.await.unwrap();
         if status == StatusCode::OK && v["ok"] == true {
             allows += 1;
-        } else if status == StatusCode::FORBIDDEN
-            && v["reason"] == "transparency_error:timeout"
-        {
+        } else if status == StatusCode::FORBIDDEN && v["reason"] == "transparency_error:timeout" {
             denies += 1;
         } else {
             other.push(status.as_u16());

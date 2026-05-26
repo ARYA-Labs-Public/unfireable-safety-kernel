@@ -6,7 +6,7 @@
 //! - `store` — `Arc<dyn TransparencyStore>` (Step 4 trait). The
 //!   Postgres impl in production; the memory impl in tests + dev.
 //! - `signing_key` — the Ed25519 private key used to mint STHs. STH
-//!   signs with a separate, independently-rotated key per 
+//!   signs with a separate, independently-rotated key per
 //!    §4b — distinct from the kernel's token-signing key. Read
 //!   from env var `QORCH_TRANSPARENCY_SIGNING_KEY_B64` at service
 //!   startup.
@@ -52,8 +52,7 @@ pub type WaveSessionIndex = Arc<Mutex<HashMap<String, Vec<u64>>>>;
 /// this in-memory;  will denormalize into Postgres. The
 /// transparency-log ledger remains the source of truth — this map is
 /// rebuildable by walking the leaves at boot..
-pub type WaveSessionPayloadMap =
-    Arc<Mutex<HashMap<u64, (WaveSessionRecord, [u8; 32])>>>;
+pub type WaveSessionPayloadMap = Arc<Mutex<HashMap<u64, (WaveSessionRecord, [u8; 32])>>>;
 
 /// Process-level state shared by every handler.
 ///

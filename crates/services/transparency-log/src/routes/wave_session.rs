@@ -77,7 +77,7 @@ fn build_leaf_payload(record_bytes: &[u8], hmac_bytes: &[u8; 32]) -> Vec<u8> {
 /// (shouldn't happen for leaves we wrote ourselves, but defensive).
 ///
 /// Currently unused at the route layer because stashes the
-/// decoded record in [`AppState::wave_session_payloads`]. 
+/// decoded record in [`AppState::wave_session_payloads`].
 /// (Postgres-backed denormalization) drops the side map and this
 /// function becomes the verify-route's payload decoder. Kept here
 /// (a) as documentation of the committed-to framing, and (b) so the
@@ -135,12 +135,12 @@ fn verify_kernel_hmac(
 /// Map a `/test` / `/purple-team` / `/user-acceptance` / `/closeout`
 /// `written_by` string to the stage it is allowed to attest to.
 /// Returns true if the pair is consistent.
-fn written_by_matches_stage(
-    written_by: &str,
-    stage: qorch_domain::wave::stage::WaveStage,
-) -> bool {
+fn written_by_matches_stage(written_by: &str, stage: qorch_domain::wave::stage::WaveStage) -> bool {
     use qorch_domain::wave::stage::WaveStage;
-    let normalized = written_by.trim().trim_start_matches('/').to_ascii_lowercase();
+    let normalized = written_by
+        .trim()
+        .trim_start_matches('/')
+        .to_ascii_lowercase();
     match stage {
         // Planned and Decomposed are allowed from either /plan or /team —
         // the writing skill name is informational at those stages.
@@ -152,7 +152,9 @@ fn written_by_matches_stage(
         WaveStage::Tested => normalized == "test",
         WaveStage::PurpleTeamed => normalized == "purple-team" || normalized == "purple_team",
         WaveStage::Accepted => {
-            normalized == "user-acceptance" || normalized == "user_acceptance" || normalized == "uat"
+            normalized == "user-acceptance"
+                || normalized == "user_acceptance"
+                || normalized == "uat"
         }
         WaveStage::Closed => normalized == "closeout",
     }
@@ -165,7 +167,10 @@ pub async fn append_session(
 ) -> Result<Response, ServiceError> {
     // 1. Kernel-fingerprint pin (re-uses the same field shape as
     //    /v1/append for operator familiarity).
-    let supplied_fpr = body.kernel_key_fingerprint_sha256.trim().to_ascii_lowercase();
+    let supplied_fpr = body
+        .kernel_key_fingerprint_sha256
+        .trim()
+        .to_ascii_lowercase();
     let expected_fpr = state.kernel_key_fingerprint_hex.to_ascii_lowercase();
     if supplied_fpr != expected_fpr {
         return Err(ServiceError::KernelFingerprintMismatch);
@@ -246,7 +251,7 @@ pub async fn verify_session(
         // Read the leaf metadata (we need its hash, but we use the
         // payload — which we have to recompute via the inclusion-proof
         // route's underlying mechanism). For now: hold the raw payload
-        // alongside the metadata in the in-process index. 
+        // alongside the metadata in the in-process index.
         // (Postgres) will denormalize.
         //
         // The TransparencyStore trait does not expose `get_payload`
@@ -278,8 +283,7 @@ pub async fn verify_session(
             .then(a.leaf_index.cmp(&b.leaf_index))
     });
 
-    let records: Vec<WaveSessionRecord> =
-        entries.iter().map(|e| e.record.clone()).collect();
+    let records: Vec<WaveSessionRecord> = entries.iter().map(|e| e.record.clone()).collect();
     let all_required = all_required_stages_present(&records);
 
     let resp = VerifyWaveSessionResponse {
@@ -590,7 +594,12 @@ mod tests {
         // Tested has gate_surfaces non-empty; PURPLE_TEAMED omitted.
         for (stage, sid, wb, gs_local) in [
             (WaveStage::Tested, "adv", "/test", gs.clone()),
-            (WaveStage::Accepted, "uat", "/user-acceptance", HashSet::new()),
+            (
+                WaveStage::Accepted,
+                "uat",
+                "/user-acceptance",
+                HashSet::new(),
+            ),
             (WaveStage::Closed, "cls", "/closeout", HashSet::new()),
         ] {
             let r = record("w-missing-pt", stage, sid, WaveOutcome::Pass, gs_local, wb);

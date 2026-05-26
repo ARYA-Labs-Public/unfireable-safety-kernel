@@ -108,7 +108,7 @@ async fn ac8_traceparent_propagated_as_header_not_body_field() {
     };
     let result = client.authorize(&req).await;
     assert!(
-        matches!(result, Ok(KernelDecision::Allow {.. })),
+        matches!(result, Ok(KernelDecision::Allow { .. })),
         "AC8 happy path: expected Allow with header match, got {result:?}"
     );
 
@@ -124,7 +124,11 @@ async fn ac8_traceparent_propagated_as_header_not_body_field() {
 
     // (3) W3C trace-context shape: `version-trace_id-parent_id-flags`.
     let parts: Vec<&str> = TRACEPARENT_VALUE.split('-').collect();
-    assert_eq!(parts.len(), 4, "traceparent must have 4 dash-separated parts");
+    assert_eq!(
+        parts.len(),
+        4,
+        "traceparent must have 4 dash-separated parts"
+    );
     assert_eq!(parts[0].len(), 2, "version field must be 2 hex chars");
     assert_eq!(parts[1].len(), 32, "trace_id field must be 32 hex chars");
     assert_eq!(parts[2].len(), 16, "parent_id field must be 16 hex chars");
@@ -185,7 +189,7 @@ async fn ac8_none_traceparent_omits_header_does_not_error() {
     };
     let result = client.authorize(&req).await;
     assert!(
-        matches!(result, Ok(KernelDecision::Allow {.. })),
+        matches!(result, Ok(KernelDecision::Allow { .. })),
         "AC8 None path: expected Allow, got {result:?}"
     );
 

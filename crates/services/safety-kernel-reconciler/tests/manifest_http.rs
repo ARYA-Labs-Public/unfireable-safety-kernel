@@ -78,12 +78,7 @@ fn test_keypair() -> (SigningKey, ed25519_dalek::VerifyingKey) {
 /// can sign and serialize a payload directly into a wiremock body.
 /// The reconciler's `verify_manifest()` must agree byte-for-byte
 /// with this construction.
-fn signed_manifest_json(
-    signing: &SigningKey,
-    image: &str,
-    digest: &str,
-    issued_at: u64,
-) -> String {
+fn signed_manifest_json(signing: &SigningKey, image: &str, digest: &str, issued_at: u64) -> String {
     let mut map: BTreeMap<String, Value> = BTreeMap::new();
     map.insert("digest".into(), Value::String(digest.into()));
     map.insert("image".into(), Value::String(image.into()));
@@ -159,7 +154,7 @@ async fn drift_round_trip_with_real_http() {
 
     let outcome = r.tick_once().await.expect("tick succeeds");
     assert!(
-        matches!(outcome, TickOutcome::Drift {.. }),
+        matches!(outcome, TickOutcome::Drift { .. }),
         "expected Drift outcome, got {outcome:?}",
     );
 
@@ -234,7 +229,7 @@ async fn http_transparency_log_500_does_not_block_polling() {
         .await
         .expect("tick must not error even with 500 from t-log");
     assert!(
-        matches!(outcome, TickOutcome::Drift {.. }),
+        matches!(outcome, TickOutcome::Drift { .. }),
         "drift must still be reported when t-log is 500",
     );
     // Local audit still captures it — the durable trail of last

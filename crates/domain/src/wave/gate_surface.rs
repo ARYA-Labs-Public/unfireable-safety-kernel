@@ -59,20 +59,14 @@ impl GateSurface {
                 "crates/domain/src/safety",
                 "python/safety_kernel/",
             ],
-            Self::Dispatcher => &[
-                "packages/aara/dispatch",
-                "crates/application/src/dispatch",
-            ],
+            Self::Dispatcher => &["packages/aara/dispatch", "crates/application/src/dispatch"],
             Self::McpBridge => &["packages/mcp/", "crates/adapters/src/mcp"],
             Self::GitHooks => &[".claude/hooks/", ".githooks/"],
             Self::TransparencyLog => &[
                 "crates/domain/src/transparency",
                 "crates/adapters/src/transparency",
             ],
-            Self::CogcoreLanes => &[
-                "packages/autonomy/cogcore/",
-                "crates/application/src/lanes",
-            ],
+            Self::CogcoreLanes => &["packages/autonomy/cogcore/", "crates/application/src/lanes"],
         }
     }
 

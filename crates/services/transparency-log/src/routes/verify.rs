@@ -38,9 +38,8 @@ pub async fn verify(
     // before returning. A failure here means the storage adapter
     // disagrees with the pure-domain verifier — surface as 500 so
     // operators see the discrepancy.
-    verify_inclusion_proof(&proof, &current_root).map_err(|e| {
-        ServiceError::Backend(format!("internal proof verification failed: {e}"))
-    })?;
+    verify_inclusion_proof(&proof, &current_root)
+        .map_err(|e| ServiceError::Backend(format!("internal proof verification failed: {e}")))?;
 
     Ok(Json(VerifyResponse {
         current_root_hash: hex::encode(current_root),
@@ -64,7 +63,9 @@ mod tests {
     use qorch_adapters::clock::SystemClock;
     use qorch_domain::safety::Clock;
     use qorch_domain::transparency::verify_inclusion_proof;
-    use qorch_transparency_store::{memory::MemoryTransparencyStore, AppendInput, TransparencyStore};
+    use qorch_transparency_store::{
+        memory::MemoryTransparencyStore, AppendInput, TransparencyStore,
+    };
 
     use crate::routes::verify::verify;
     use crate::state::AppState;

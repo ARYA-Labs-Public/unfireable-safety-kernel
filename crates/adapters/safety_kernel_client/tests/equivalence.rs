@@ -129,8 +129,15 @@ fn fixture_authorize_headers_are_lowercase_lex_sorted() {
     let keys: Vec<&String> = fx.headers.keys().collect();
     let mut sorted = keys.clone();
     sorted.sort();
-    assert_eq!(keys, sorted, "headers must already be lex-sorted in fixture");
+    assert_eq!(
+        keys, sorted,
+        "headers must already be lex-sorted in fixture"
+    );
     for k in &keys {
-        assert_eq!(k.as_str(), &k.to_lowercase(), "header key {k} must be lowercase");
+        assert_eq!(
+            k.as_str(),
+            &k.to_lowercase(),
+            "header key {k} must be lowercase"
+        );
     }
 }

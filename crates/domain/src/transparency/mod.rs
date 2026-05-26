@@ -21,9 +21,8 @@ pub mod merkle;
 pub mod sth;
 
 pub use merkle::{
-    build_consistency_proof, build_inclusion_proof, compute_root, leaf_hash,
-    node_hash, verify_consistency_proof, verify_inclusion_proof,
-    ConsistencyProof, InclusionProof, MerkleLeaf, MerkleNode, SignedTreeHead,
-    VerificationError,
+    build_consistency_proof, build_inclusion_proof, compute_root, leaf_hash, node_hash,
+    verify_consistency_proof, verify_inclusion_proof, ConsistencyProof, InclusionProof, MerkleLeaf,
+    MerkleNode, SignedTreeHead, VerificationError,
 };
 pub use sth::{mint_sth, verify_sth};

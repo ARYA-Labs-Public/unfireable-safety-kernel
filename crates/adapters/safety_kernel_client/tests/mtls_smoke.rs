@@ -39,9 +39,7 @@ use axum::routing::get;
 use axum::Router;
 use axum_server::tls_rustls::RustlsConfig;
 use qorch_safety_kernel_client::mtls::make_client_config;
-use rcgen::{
-    BasicConstraints, CertificateParams, DnType, IsCa, KeyPair, KeyUsagePurpose, SanType,
-};
+use rcgen::{BasicConstraints, CertificateParams, DnType, IsCa, KeyPair, KeyUsagePurpose, SanType};
 use rustls::server::WebPkiClientVerifier;
 use rustls::{RootCertStore, ServerConfig};
 use tempfile::TempDir;
@@ -164,9 +162,7 @@ fn build_server_config(
 /// bound address. The server task lives until the test process exits.
 async fn spawn_server(rustls_cfg: RustlsConfig) -> SocketAddr {
     let port = pick_free_port();
-    let addr: SocketAddr = format!("127.0.0.1:{port}")
-        .parse()
-        .expect("parse addr");
+    let addr: SocketAddr = format!("127.0.0.1:{port}").parse().expect("parse addr");
 
     let app = Router::new().route(
         "/kernel/v1/health",
@@ -246,7 +242,10 @@ async fn ac4_mtls_handshake_via_sdk_factory_returns_200() {
         resp.status()
     );
     let body = resp.text().await.expect("decode body");
-    assert!(body.contains(r#""ok":true"#), "AC4: response body shape: {body}");
+    assert!(
+        body.contains(r#""ok":true"#),
+        "AC4: response body shape: {body}"
+    );
 }
 
 // ---------------------------------------------------------------------------

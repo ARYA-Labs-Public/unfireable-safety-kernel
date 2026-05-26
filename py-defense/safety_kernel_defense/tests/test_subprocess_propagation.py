@@ -10,10 +10,8 @@ context-manager + monkey-patch lifecycle is what we verify.
 
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
-import time
 from typing import Any
 
 import pytest
@@ -24,7 +22,6 @@ from safety_kernel_defense import (
     wrap_subprocess,
 )
 from safety_kernel_defense import subprocess_propagation as sp
-
 
 # ============================================================================
 # 1. wrap_subprocess_injects_prologue (python child)
@@ -59,9 +56,7 @@ def test_wrap_subprocess_python_child_gets_propagation_env(
     captured = {}
 
     class _FakePopen:
-        def __init__(
-            self, args: Any, *a: Any, env: Any = None, **kw: Any
-        ) -> None:
+        def __init__(self, args: Any, *a: Any, env: Any = None, **kw: Any) -> None:
             captured["args"] = args
             captured["env"] = env
 
@@ -171,8 +166,7 @@ def test_wrap_subprocess_detects_env_var_stripping(
     # Assert a propagation_failed event was emitted to the mock kernel.
     events = mock_kernel.audit_event_requests()
     assert any(
-        e["body"]["metadata"].get("reason", "").startswith("env_var_stripped")
-        for e in events
+        e["body"]["metadata"].get("reason", "").startswith("env_var_stripped") for e in events
     ), "env-stripping must emit subprocess_propagation_failed event"
 
     # And the vars were re-injected into the child env (architect risk #2:
@@ -251,10 +245,7 @@ def test_wrap_subprocess_shell_form_treated_as_non_python(
         subprocess.Popen = monkey_orig  # type: ignore[misc]
 
     events = mock_kernel.audit_event_requests()
-    assert any(
-        e["body"]["metadata"].get("reason") == "shell_form_invocation"
-        for e in events
-    )
+    assert any(e["body"]["metadata"].get("reason") == "shell_form_invocation" for e in events)
 
 
 # ============================================================================
@@ -322,9 +313,7 @@ def test_unit_inject_python_prologue_with_script_path() -> None:
 
 def test_unit_inject_python_prologue_with_interpreter_flags() -> None:
     """``python -u -X dev script.py`` — flags skipped, script rewritten."""
-    out = sp._inject_python_prologue(
-        [sys.executable, "-u", "-X", "dev", "/tmp/x.py", "extra"]
-    )
+    out = sp._inject_python_prologue([sys.executable, "-u", "-X", "dev", "/tmp/x.py", "extra"])
     assert "-c" in out
     c_idx = out.index("-c")
     assert "install_audit_hook" in out[c_idx + 1]
@@ -350,7 +339,9 @@ def test_unit_build_propagation_env_no_caller_env(mock_kernel: Any) -> None:
     assert env["SAFETY_KERNEL_FAIL_CLOSED"] == "1"
 
 
-def test_unit_build_propagation_env_preserves_caller_env_overlay(mock_kernel: Any) -> None:
+def test_unit_build_propagation_env_preserves_caller_env_overlay(
+    mock_kernel: Any,
+) -> None:
     install_audit_hook(
         kernel_url=mock_kernel.url,
         worker_api_key="k",
@@ -443,9 +434,7 @@ def test_unit_patched_run_with_config_install_failure_logs() -> None:
     # Hand-craft a config that triggers reinstall-with-different-config
     # path. Set the state so the first install_audit_hook call inside
     # _patched_run sees a different existing config.
-    sp._installed.config = sp._installed.config or type(
-        "_C", (), {"kernel_url": "http://prev"}
-    )()
+    sp._installed.config = sp._installed.config or type("_C", (), {"kernel_url": "http://prev"})()
     sp._mp_patch_state["original"] = fake_original
     try:
         sp._patched_run(object())

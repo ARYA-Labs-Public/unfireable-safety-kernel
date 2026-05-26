@@ -81,7 +81,9 @@ impl TransparencyStore for MemoryTransparencyStore {
         };
         inner.leaves.push(new_leaf);
         inner.payloads.push(payload.payload);
-        inner.idempotency.insert(payload.idempotency_key, leaf_index);
+        inner
+            .idempotency
+            .insert(payload.idempotency_key, leaf_index);
 
         Ok(AppendOutcome {
             leaf_index,
@@ -111,10 +113,7 @@ impl TransparencyStore for MemoryTransparencyStore {
         compute_root(&inner.leaves).map_err(StoreError::Verification)
     }
 
-    async fn build_inclusion_proof(
-        &self,
-        leaf_index: u64,
-    ) -> Result<InclusionProof, StoreError> {
+    async fn build_inclusion_proof(&self, leaf_index: u64) -> Result<InclusionProof, StoreError> {
         let inner = self.inner.lock().await;
         if inner.leaves.is_empty() {
             return Err(StoreError::Verification(VerificationError::EmptyTree));

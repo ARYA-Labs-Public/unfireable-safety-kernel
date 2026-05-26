@@ -125,9 +125,7 @@ fn load_client_ca_roots(path: &Path) -> Result<RootCertStore> {
     }
     let mut roots = RootCertStore::empty();
     for c in cas {
-        roots
-            .add(c)
-            .context("add client-CA to RootCertStore")?;
+        roots.add(c).context("add client-CA to RootCertStore")?;
     }
     Ok(roots)
 }

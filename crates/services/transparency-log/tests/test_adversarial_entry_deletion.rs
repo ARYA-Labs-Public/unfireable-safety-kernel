@@ -86,10 +86,7 @@ async fn ac7_deletion_invalidates_prior_inclusion_proof() {
     assert_eq!(original.current_size().await.unwrap(), 10);
 
     // Auditor cached a proof for leaf 7 against the original root.
-    let proof_7 = original
-        .build_inclusion_proof(7)
-        .await
-        .expect("proof at 7");
+    let proof_7 = original.build_inclusion_proof(7).await.expect("proof at 7");
     verify_inclusion_proof(&proof_7, &original_root).expect("proof verifies originally");
 
     // Operator deletes leaf 5 — the tampered ledger has 9 leaves,
@@ -135,9 +132,7 @@ async fn ac7_deletion_breaks_consistency_proof() {
     // because from_size > to_size.
     let leaves_for_tampered: Vec<_> = (0..9u8)
         .map(|i| qorch_domain::transparency::MerkleLeaf {
-            hash: leaf_hash(
-                format!("entry-{}", if i < 5 { i } else { i + 1 }).as_bytes(),
-            ),
+            hash: leaf_hash(format!("entry-{}", if i < 5 { i } else { i + 1 }).as_bytes()),
             leaf_index: u64::from(i),
             occurred_at_epoch_seconds: 1_700_000_000 + u64::from(i),
         })

@@ -57,7 +57,10 @@ pub async fn append(
 ) -> Result<Response, ServiceError> {
     // Step 1: kernel-key pinning. Compare hex-normalised both sides so
     // case differences don't reject a legitimate caller.
-    let supplied_fpr = body.kernel_key_fingerprint_sha256.trim().to_ascii_lowercase();
+    let supplied_fpr = body
+        .kernel_key_fingerprint_sha256
+        .trim()
+        .to_ascii_lowercase();
     let expected_fpr = state.kernel_key_fingerprint_hex.to_ascii_lowercase();
     if supplied_fpr != expected_fpr {
         return Err(ServiceError::KernelFingerprintMismatch);

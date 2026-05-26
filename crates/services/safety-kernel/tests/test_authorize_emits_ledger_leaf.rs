@@ -204,7 +204,8 @@ fn router(state: AppState) -> Router {
         .route("/kernel/v1/authorize", post(routes::authorize::authorize))
         .layer(from_fn(
             |mut req: axum::extract::Request, next: axum::middleware::Next| async move {
-                req.extensions_mut().insert(CallerRole("worker".to_string()));
+                req.extensions_mut()
+                    .insert(CallerRole("worker".to_string()));
                 next.run(req).await
             },
         ))

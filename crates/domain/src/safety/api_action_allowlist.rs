@@ -10,7 +10,7 @@
 //! The action format is `METHOD:/path` (e.g. `POST:/api/v1/chat`); we
 //! extract the path portion and prefix-match against the const list.
 //! Equivalence harness (W3) MUST cover both allowed and disallowed
-//! actions 
+//! actions
 //!
 //! **Last upstream sync**: `safety_kernel_routes.py` 2026-04-02 (the
 //! "Last Updated" tag in the Python source). Any addition to the
@@ -83,8 +83,8 @@ pub const API_ALLOWED_PREFIXES: &[&str] = &[
     "/api/v1/qcad/",
     "/api/v1/pulse/",
     "/api/v1/qec/",
-    "/api/v1/wps/",       // Globex / wireless_power_systems
-    "/api/v1/models/",    // per-model invocation surface (initech-quantum/models.jsx primary path)
+    "/api/v1/wps/",    // Globex / wireless_power_systems
+    "/api/v1/models/", // per-model invocation surface (initech-quantum/models.jsx primary path)
     // Metrics and system
     "/api/v1/metrics/",
     "/api/v1/system/",
