@@ -1,11 +1,11 @@
-//! Policy-engine domain types — Slice 1 scaffold (ADR-018, internal-ref).
+//! Policy-engine domain types —  scaffold (, ).
 //!
 //! This module hosts the pure, side-effect-free shapes for the
-//! `/policy/module/authorize` family of endpoints added in ADR-018.
-//! Slice 1 is **scaffold-only**: the four kernel routes return
+//! `/policy/module/authorize` family of endpoints added in.
+//!  is **scaffold-only**: the four kernel routes return
 //! `501 Not Implemented` and the registry / signing / audit-chain wiring
 //! lands in slice 2. The types here exist so the slice-1 HTTP handlers,
-//! contract tests, and the `OpenAPI` sketch in ADR-018 can typecheck
+//! contract tests, and the `OpenAPI` sketch in can typecheck
 //! end-to-end against a single source of truth.
 //!
 //! # Boundary

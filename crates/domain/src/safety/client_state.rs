@@ -6,24 +6,24 @@
 //! injects a `Clock` from the domain `super::Clock` trait and drives
 //! the transitions.
 //!
-//! Per internal-ref Phase 2a (internal-ref), the FAIL-CLOSED property is the
+//! Per, the FAIL-CLOSED property is the
 //! whole point: when the kernel is unreachable, the breaker enters
 //! `Open` and every `authorize()` call returns `KernelError::Unavailable`
-//! — never a silent ALLOW. internal-ref reconciliation pinned this to the
+//! — never a silent ALLOW.  reconciliation pinned this to the
 //! Rust substrate (the Python `packages/safety/client/circuit_breaker.py`
 //! remains for Python callers until they migrate).
 
 use serde::{Deserialize, Serialize};
 
 /// Circuit-breaker state. Transitions are:
-///
+/
 /// ```text
 ///   Closed  -- N consecutive failures -->  Open
 ///   Open    -- cooldown elapsed       -->  HalfOpen
 ///   HalfOpen -- probe succeeds        -->  Closed
 ///   HalfOpen -- probe fails           -->  Open
 /// ```
-///
+/
 /// FAIL-CLOSED invariant: while in `Open`, the breaker MUST refuse
 /// requests with `KernelError::Unavailable`. Never auto-approve.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -54,7 +54,7 @@ pub struct CircuitConfig {
     pub failure_threshold: u32,
     /// Seconds to wait in `Open` before allowing a probe (`HalfOpen`).
     pub cooldown_seconds: f64,
-    /// Timeout (seconds) for the underlying kernel call. internal-ref AC6
+    /// Timeout (seconds) for the underlying kernel call.  AC6
     /// pins this to 5.0 s by default.
     pub call_timeout_seconds: f64,
 }
@@ -103,7 +103,7 @@ mod tests {
 
     #[test]
     fn default_config_matches_ref_1883_ac6() {
-        // internal-ref AC6 (R): mock kernel timeout → circuit-breaker fires
+        //  AC6 (R): mock kernel timeout → circuit-breaker fires
         // within configured timeout (default 5 s). Pinning that default
         // here is the structural enforcement.
         let cfg = CircuitConfig::default();

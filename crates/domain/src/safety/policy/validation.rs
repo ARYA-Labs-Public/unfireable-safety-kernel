@@ -1,4 +1,4 @@
-//! Canonical `module_path` charset validation (ADR-018 §2.5, internal-ref).
+//! Canonical `module_path` charset validation (, ).
 //!
 //! Per the slice-3 design freeze (`docs/safety_kernel/audit_hook_design.md`
 //! §7), the canonical `module_path` charset is:
@@ -14,7 +14,7 @@
 //!
 //! # Backward-compat caveat
 //!
-//! Slice 2 accepted hyphens via the status-route charset
+//!  accepted hyphens via the status-route charset
 //! `^[A-Za-z0-9_.-]{1,256}$`. The hyphen is REMOVED here because
 //! Python dotted module names per PEP 8 / language reference §6.4
 //! cannot contain hyphens. Any hyphenated entry in the chain from
@@ -39,14 +39,14 @@ pub const MAX_MODULE_PATH_LEN: usize = 256;
 pub const MODULE_PATH_INVALID_CHARSET_REASON: &str = "module_path_invalid_charset";
 
 /// Validate `s` against the canonical `module_path` charset.
-///
+/
 /// Returns `true` iff `s` is:
-///
+/
 ///   * non-empty,
 ///   * at most [`MAX_MODULE_PATH_LEN`] bytes,
 ///   * AND matches either the dotted-name form (ASCII alnum / `_` / `.`)
 ///     OR the SHA-256-hex form (exactly 64 lowercase hex chars).
-///
+/
 /// Returns `false` otherwise. The check is a single linear scan; no
 /// regex engine is used. Callers should reject with HTTP 400 +
 /// `reason: MODULE_PATH_INVALID_CHARSET_REASON` on `false`.

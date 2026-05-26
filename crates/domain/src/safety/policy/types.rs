@@ -1,7 +1,7 @@
 //! Pure types for the policy-engine HTTP surface — slice 2 binding.
 //!
-//! All four endpoint request/response shapes are now frozen by ADR-018
-//! §"Slice 2 design". `ModuleAuthorizeRequest` / `ModuleAuthorizeResponse`
+//! All four endpoint request/response shapes are now frozen by 
+//! §" design". `ModuleAuthorizeRequest` / `ModuleAuthorizeResponse`
 //! were locked in slice 1; `ModuleRegisterRequest` / `ModuleAuditEventRequest`
 //! / `ModuleStatusResponse` are locked here in slice 2 and the handler
 //! shapes in `crates/services/safety-kernel/src/routes/policy/` deserialize
@@ -23,10 +23,10 @@ use serde_json::Value;
 // ============================================================================
 
 /// `CPython` audit-event class that triggered the authorize call (PEP 578).
-///
+/
 /// `Import` covers the standard `import` audit event; `Exec` and
 /// `Compile` cover string-source execution and compilation respectively.
-/// Per ADR-018 §`OpenAPI` delta the wire form is lowercase.
+/
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ModuleEventKind {
@@ -38,10 +38,10 @@ pub enum ModuleEventKind {
     Compile,
 }
 
-/// Frozen request body for `POST /policy/module/authorize` (ADR-018
+/// Frozen request body for `POST /policy/module/authorize` (
 /// §`OpenAPI` delta). Field set is binding; slice 2 implementation MUST
 /// conform byte-equivalently.
-///
+/
 /// Free-form audit `metadata` is `BTreeMap<String, Value>` so when the
 /// slice-2 handler re-serializes it through `stable_json`, the key
 /// order stays deterministic (matches the existing kernel pattern in
@@ -75,7 +75,7 @@ pub struct ModuleAuthorizeRequest {
 }
 
 /// Decision verdict for a module-authorize call.
-///
+/
 /// `KernelUnavailable` is wire-distinct from `Deny`: the kernel issues
 /// `Deny` only when policy says no, and `KernelUnavailable` when the
 /// decision backend itself is unreachable. The Python audit-hook
@@ -93,41 +93,41 @@ pub enum ModuleAuthorizeDecision {
 }
 
 /// Signed-envelope response for `POST /policy/module/authorize`.
-///
-/// Field set mirrors ADR-018 §`OpenAPI` delta — the Allow shape requires
+/
+/// Field set mirrors  §`OpenAPI` delta — the Allow shape requires
 /// `ok` / `decision` / `token` / `token_sha256` / `claims`; the Deny
 /// shape additionally requires `reason`. One Rust struct covers both
 /// wire shapes; the optionality is at the field level because slice-1
 /// handlers return `501 Not Implemented` and never populate the signed
 /// envelope.
-///
+/
 /// `token` / `token_sha256` / `claims` reuse the existing
 /// `AuthorizeResponse` envelope from `crates/domain/src/safety/token.rs`
 /// (`sign_kernel_token`, `token_sha256`) — same Ed25519 key, same
-/// canonicalization, no new crypto. Slice 2 wires these fields through;
+/// canonicalization, no new crypto.  wires these fields through;
 /// slice 1 leaves them `None`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModuleAuthorizeResponse {
     /// `true` when `decision == Allow`; `false` for `Deny` /
     /// `KernelUnavailable`. Redundant with `decision` but required by
-    /// the ADR-018 envelope so non-Rust clients (Python audit hook)
+    /// the envelope so non-Rust clients (Python audit hook)
     /// can short-circuit without parsing the enum string.
     pub ok: bool,
     /// Verdict (`allow` / `deny` / `kernel_unavailable`).
     pub decision: ModuleAuthorizeDecision,
     /// Compact `<payload_b64>.<signature_b64>` `Ed25519` token. `None`
-    /// in slice-1 scaffolds; required by ADR-018 for both Allow and
+    /// in slice-1 scaffolds; required by for both Allow and
     /// Deny responses in slice 2.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub token: Option<String>,
     /// `SHA-256` hex of the compact token bytes — the transparency-log
     /// handle. Mirrors `super::super::token::token_sha256`. `None` in
-    /// slice 1; required by ADR-018 in slice 2.
+    /// slice 1; required by in slice 2.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub token_sha256: Option<String>,
     /// Decoded claims for debugging / replay (`event_kind`,
     /// `module_path`, `exp`, etc.). `None` in slice 1; required by
-    /// ADR-018 in slice 2. Same `BTreeMap` shape as
+    ///  in slice 2. Same `BTreeMap` shape as
     /// `super::super::token::VerifiedKernelToken::claims` so key order
     /// stays deterministic across signing + replay.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -142,8 +142,8 @@ pub struct ModuleAuthorizeResponse {
 // Frozen — `POST /policy/module/register` (slice 2)
 // ============================================================================
 
-/// `POST /policy/module/register` request body — ADR-018 §2.1.
-///
+/// `POST /policy/module/register` request body — 
+/
 /// Registers a module path + the regex set every authorize call for
 /// that path will be evaluated against. The signed receipt returned to
 /// the caller is built from `ModuleRegisterClaims` (see `claims.rs`).
@@ -162,7 +162,7 @@ pub struct ModuleRegisterRequest {
     pub caller_subject: String,
 }
 
-/// `POST /policy/module/register` 201 success body — ADR-018 §2.1.
+/// `POST /policy/module/register` 201 success body — 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModuleRegisterResponse {
     /// Always `true` on 201.
@@ -183,7 +183,7 @@ pub struct ModuleRegisterResponse {
 // Frozen — `POST /policy/audit-event` (slice 2)
 // ============================================================================
 
-/// `event_kind` enum for the audit-event endpoint — ADR-018 §2.3
+/// `event_kind` enum for the audit-event endpoint — 
 /// frozen set. New variants require an ADR amendment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -196,14 +196,14 @@ pub enum AuditEventKind {
     RegistryConsistencyWarning,
 }
 
-/// `POST /policy/audit-event` request body — ADR-018 §2.3.
-///
+/// `POST /policy/audit-event` request body — 
+/
 /// Non-decision audit surface. Does not render a verdict, does not
 /// sign a token; appends one entry to the chain and returns 202.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ModuleAuditEventRequest {
-    /// Event class — closed enum per ADR-018 §2.3.
+    /// Event class — closed enum 3.
     pub event_kind: AuditEventKind,
     /// Caller identity from request body (NOT the trusted `caller_role`).
     pub subject: String,
@@ -254,7 +254,7 @@ pub struct ModuleStatusRegistration {
 }
 
 /// `GET /policy/module/{module_path}/status` 200 success body —
-/// ADR-018 §2.4.
+/
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModuleStatusResponse {
     /// Always `true` on 200.
@@ -271,7 +271,7 @@ pub struct ModuleStatusResponse {
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     //! Shape sanity — slice 1 only confirms the types serialize and
-    //! deserialize as ADR-018 expects. Real protocol equivalence lands
+    //! deserialize as expects. Real protocol equivalence lands
     //! in slice 2 alongside `sign_kernel_token` wiring.
 
     use super::*;

@@ -1,4 +1,4 @@
-//! Safety Kernel domain types — Slice 1 (ADR-014 / internal-ref).
+//! Safety Kernel domain types —  ( / ).
 //!
 //! This module is the pure, side-effect-free port of the Python
 //! `packages/core/safety_tokens.py` token surface and the per-role
@@ -10,7 +10,7 @@
 //!
 //! # Boundary
 //!
-//! Per `agent/boundaries.toml` and ADR-014 Slice 1 §6.1, this module
+//! Per `agent/boundaries.toml` and, this module
 //! does NOT import:
 //!
 //! - `std::fs`, `std::env`, `std::net`, `std::time::SystemTime`
@@ -23,7 +23,7 @@
 pub mod api_action_allowlist;
 pub mod claims;
 pub mod client_state;
-// internal-ref Phase 2a Step 2 — kernel-decision pure types promoted from
+//   Step 2 — kernel-decision pure types promoted from
 // the adapter so the SDK can re-export them across the domain boundary
 // (Addendum 2a §4 "Pure-types inventory").
 pub mod decision;
@@ -33,7 +33,7 @@ pub mod policy;
 pub mod token;
 
 pub use api_action_allowlist::is_api_action_allowed;
-// internal-ref — Core constraint types re-exported for the cogcore Core
+//  — Core constraint types re-exported for the cogcore Core
 // lane callers and Safety Kernel per-tenant enforcement.
 pub use claims::{
     ApprovalClaims, AuthorizeClaims, ConstraintKind, CoreConstraint, CoreConstraintSet,
@@ -41,7 +41,7 @@ pub use claims::{
 };
 pub use client_state::{CircuitConfig, CircuitState, CircuitTransition};
 pub use decision::{KernelDecision, KernelDecisionError};
-// internal-ref — Episodic chain audit types re-exported for cross-layer
+//  — Episodic chain audit types re-exported for cross-layer
 // audit-chain integrity verification at the Safety Kernel boundary.
 pub use episodic_chain::{
     compute_entry_hash, verify_chain_integrity, EpisodicChainEntry, GENESIS_PREV_HASH,
@@ -58,8 +58,8 @@ pub use token::{
 /// Test seam — pure trait describing wall-clock time as `f64` epoch
 /// seconds. The Safety Kernel sources `now` from a `Clock` so the
 /// equivalence harness can pin both Python and Rust to the same value.
-///
-/// Per ADR-014 Slice 1 Appendix B, the production implementation lives
+/
+/// Per Appendix B, the production implementation lives
 /// in `crates/adapters/src/clock.rs` and uses `SystemTime::now`; tests
 /// inject a `FixedClock(f64)` via this trait.
 pub trait Clock: Send + Sync {
@@ -68,7 +68,7 @@ pub trait Clock: Send + Sync {
 }
 
 /// Test seam — pure trait describing a base64url-no-pad nonce source.
-///
+/
 /// The production implementation in `crates/adapters/` uses `OsRng` and
 /// the `base64::engine::general_purpose::URL_SAFE_NO_PAD` engine; tests
 /// inject `FixedNonce(&'static str)` so the equivalence harness can

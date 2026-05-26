@@ -3,14 +3,14 @@
 //!
 //! Single source of truth for which `api`-caller-role actions the
 //! Safety Kernel will mint authorize tokens for. Used by the HTTP
-//! handler in step 4.2(2) (ADR-014 Slice 1 §4.2): when
+//! handler in step 4.2(2) (): when
 //! `caller_role == "api"`, deny with `api_action_forbidden` if the
 //! action is not in the allowlist.
 //!
 //! The action format is `METHOD:/path` (e.g. `POST:/api/v1/chat`); we
 //! extract the path portion and prefix-match against the const list.
 //! Equivalence harness (W3) MUST cover both allowed and disallowed
-//! actions per ADR-014 Slice 1 §10 inconsistency note 5.
+//! actions 
 //!
 //! **Last upstream sync**: `safety_kernel_routes.py` 2026-04-02 (the
 //! "Last Updated" tag in the Python source). Any addition to the
@@ -21,7 +21,7 @@
 /// these strings is allowed for the `api` caller role. Mirrored from
 /// `packages/core/safety_kernel_routes.py::API_ALLOWED_PREFIXES`.
 pub const API_ALLOWED_PREFIXES: &[&str] = &[
-    // orchestrator engine (single entry point)
+    //  engine (single entry point)
     "/api/v1/aara-engine/",
     "/api/v1/aara/",
     "/api/v1/aara-orchestrator/",
@@ -52,7 +52,7 @@ pub const API_ALLOWED_PREFIXES: &[&str] = &[
     "/api/v1/compliance/",
     "/api/v1/safety/",
     "/api/v1/autonomous/",
-    // self-improvement / improvement
+    //  / improvement
     "/api/v1/rsi/",
     "/api/v1/hypothesis-evolution/",
     "/api/v1/problem-discovery/",
@@ -80,10 +80,10 @@ pub const API_ALLOWED_PREFIXES: &[&str] = &[
     "/api/v1/telco/",
     // Vertical demos (built on demand; will move to runtime registration — see followup ticket)
     "/api/v1/acme/", // Acme vertical
-    "/api/v1/qcad/",      // Initech / quantum_computing (internal-ref)
-    "/api/v1/pulse/",     // Initech / quantum_computing (internal-ref)
-    "/api/v1/qec/",       // Initech / quantum_computing (internal-ref)
-    "/api/v1/wps/",       // Globex / wireless_power_systems (internal-ref)
+    "/api/v1/qcad/",
+    "/api/v1/pulse/",
+    "/api/v1/qec/",
+    "/api/v1/wps/",       // Globex / wireless_power_systems
     "/api/v1/models/",    // per-model invocation surface (initech-quantum/models.jsx primary path)
     // Metrics and system
     "/api/v1/metrics/",
@@ -92,7 +92,7 @@ pub const API_ALLOWED_PREFIXES: &[&str] = &[
     // MCP (both API-prefixed and direct mount)
     "/api/v1/mcp/",
     "/mcp/",
-    // orchestrator engine direct mount
+    //  engine direct mount
     "/aara-engine/",
     // Demo builder REST endpoints and jobs
     "/api/v1/demo/",
@@ -112,7 +112,7 @@ pub const API_ALLOWED_PREFIXES: &[&str] = &[
 ];
 
 /// Checks whether an `api`-role action is in the allowlist.
-///
+/
 /// The action string format is `METHOD:/path` (e.g. `POST:/api/v1/chat`).
 /// We split on the first `:` and prefix-match the path portion. If no
 /// colon is present, the whole string is treated as the path (matches

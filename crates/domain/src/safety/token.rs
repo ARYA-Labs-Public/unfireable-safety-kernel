@@ -1,11 +1,11 @@
-//! Ed25519 sign/verify + stable-JSON serialization — Slice 1 binding.
+//! Ed25519 sign/verify + stable-JSON serialization —  binding.
 //!
 //! Load-bearing for the equivalence gate: the byte-stable JSON
 //! serialization here MUST match Python's
 //! `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`
 //! for every input the Safety Kernel feeds it, and Ed25519 signatures
 //! are computed over the **base64url-no-pad ASCII bytes of the
-//! serialized payload** (NOT the raw JSON) per ADR-014 Slice 1 §1.3.
+//! serialized payload** (NOT the raw JSON) 3.
 //!
 //! Source of truth: `packages/core/safety_tokens.py` (`_stable_json`,
 //! `_b64url_encode`, `sign_kernel_token`, `verify_kernel_token`,
@@ -57,9 +57,9 @@ fn sort_value(v: &Value) -> Value {
 /// Serialize a `BTreeMap<String, Value>` (top-level claims map) as
 /// canonical stable JSON: lexicographic key order at every nesting
 /// level, no whitespace, UTF-8 passthrough.
-///
+/
 /// Mirrors Python `_stable_json` exactly. Required for byte equality
-/// of the signed payload — see ADR-014 Slice 1 §1.5 mandatory test.
+/// of the signed payload — see mandatory test.
 #[must_use]
 pub fn stable_json(map: &BTreeMap<String, Value>) -> String {
     // The top-level BTreeMap iterates in sorted order, but its child
@@ -101,12 +101,12 @@ pub fn token_sha256(token: &str) -> String {
 }
 
 /// Stable fingerprint of an arbitrary params object.
-///
+/
 /// The input is a `serde_json::Value` representing the params dict.
 /// Non-object inputs are coerced through the same JSON-string surface
 /// Python uses (`dict(params)` then `_stable_json`).
-///
-/// Per ADR-014 Slice 1 §1.6 binding: `sha256_hex(stable_json(params))`.
+/
+/// 6 binding: `sha256_hex(stable_json(params))`.
 /// Equivalent to Python `params_fingerprint` (`safety_tokens.py:53-56`).
 #[must_use]
 pub fn params_fingerprint(params: &Value) -> String {
@@ -135,8 +135,8 @@ pub struct VerifiedClaims {
 }
 
 /// Sign a typed claim set and return the compact token
-/// `<payload_b64>.<signature_b64>` per ADR-014 Slice 1 §1.1.
-///
+/// `<payload_b64>.<signature_b64>` 1.
+/
 /// The signature is computed over the ASCII bytes of `payload_b64`
 /// (NOT the raw JSON) per §1.3 / Python `safety_tokens.py:163-165`.
 #[must_use]
@@ -163,30 +163,30 @@ const REQUIRED_FIELDS: &[&str] = &[
 ];
 
 /// Verify a compact token against a public key and time bounds.
-///
+/
 /// Returns `Ok(VerifiedClaims)` on success or a typed
 /// `KernelTokenError` on any failure. Mirrors Python
 /// `verify_kernel_token` (`safety_tokens.py:170-267`) exactly.
-///
-/// # `expected_aud` parameter (internal-ref slice 5, PT-S2-M1 fold-in)
-///
+/
+/// # `expected_aud` parameter ( slice 5,  fold-in)
+/
 /// When `Some(aud)`, the verifier requires the token's `aud` claim to
 /// be present AND equal to the supplied string. Failure modes:
-///
+/
 /// - Token has no `aud` claim ⇒ `KernelTokenError::Claims("missing_claim:aud")`
 /// - Token's `aud` is the wrong type ⇒ `KernelTokenError::Claims("invalid_aud")`
 /// - Token's `aud` doesn't match ⇒ `KernelTokenError::Claims("invalid_audience")`
-///
+/
 /// When `None`, the `aud` claim (if present) is NOT inspected. This is
 /// the **backwards-compatible** mode — pre-slice-5 callers and legacy
 /// tokens that don't have an `aud` claim keep working. New callers
 /// (Bundle A handlers, future verifiers) MUST pass `Some(&...)` to opt
-/// in to enforcement. PT-S2-M1 closes the cross-tenant replay surface
+/// in to enforcement.  closes the cross-tenant replay surface
 /// between `/kernel/v1/authorize` and `/policy/*` tokens; the surface
 /// only closes for callers that opt in.
-///
+/
 /// # Errors
-///
+/
 /// Returns `Err` for: malformed token (Format), failed signature
 /// (Signature), missing or wrong-typed claim (Claims), expired token
 /// (Expired), audience mismatch (Claims). Specific error code strings
@@ -313,8 +313,8 @@ pub fn verify_kernel_token(
         return Err(KernelTokenError::claims("invalid_expiry_window"));
     }
 
-    // Audience check (PT-S2-M1, internal-ref slice 5).
-    //
+    // Audience check.
+    
     // The audience claim partitions the signing-key space between
     // `/kernel/v1/authorize` and `/policy/*` so a token minted for
     // one endpoint cannot be presented to the verifier of another.
@@ -377,8 +377,8 @@ mod tests {
     }
 
     /// Slice-5 binding vector — `AuthorizeClaims` with the `aud` field
-    /// (PT-S2-M1) produces a stable JSON string with `aud` in lex
-    /// position. The ADR-014 Appendix A original vector (no `aud`) is
+    /// produces a stable JSON string with `aud` in lex
+    /// position. The Appendix A original vector (no `aud`) is
     /// preserved in `stable_json_matches_legacy_pre_slice5_vector`
     /// because old tokens without `aud` MUST still verify when
     /// `expected_aud=None`.
@@ -406,7 +406,7 @@ mod tests {
         );
     }
 
-    /// ADR-014 Slice 1 Appendix A — the legacy binding test vector
+    ///  Appendix A — the legacy binding test vector
     /// (no `aud` claim). Pre-slice-5 tokens MUST still serialize the
     /// same way when emitted via a hand-built `BTreeMap`. The
     /// `AuthorizeClaims` struct itself now always carries `aud`, so
@@ -654,16 +654,16 @@ mod tests {
     }
 
     /// W4 purple-team T1 — Ed25519 signature malleability check.
-    ///
+    /
     /// An Ed25519 signature is (R, S) where S MUST be in [0, L) for
     /// the curve order L. A signature with S >= L (or with the high
     /// bit set in the encoded S) is non-canonical and creates a
     /// signature-malleability surface (RFC 8032 §5.1.7, RFC 8032
     /// errata).
-    ///
+    /
     /// ed25519-dalek v2's default `Verifier::verify` enforces
     /// canonical S — but verify by experiment, not by docs.
-    ///
+    /
     /// We construct a non-canonical signature by computing a real
     /// signature, then mutating S to be > L (by setting high bits
     /// in the encoded S half), and assert that
@@ -738,8 +738,8 @@ mod tests {
     }
 
     // ========================================================================
-    // PT-S2-M1 (internal-ref slice 5) — `aud` claim + verifier allowlist tests.
-    //
+    //  ( slice 5) — `aud` claim + verifier allowlist tests.
+    
     // The kernel signing key is shared between `/kernel/v1/authorize` and
     // `/policy/*`. Without an audience tag, a token minted for one endpoint
     // could in principle be presented to the verifier of another. The `aud`
@@ -748,7 +748,7 @@ mod tests {
     // ========================================================================
 
     /// Helper — sign a slice-5-shape `AuthorizeClaims` with the given
-    /// `aud` value. Used by the PT-S2-M1 tests.
+    /// `aud` value. Used by the tests.
     fn sign_authorize_with_aud(sk: &SigningKey, aud: &str) -> String {
         let claims = AuthorizeClaims {
             action: "sio_run_cycles".to_string(),
@@ -764,7 +764,7 @@ mod tests {
         sign_kernel_token(&claims, sk)
     }
 
-    /// PT-S2-M1 case (a) — token signed with `aud=A` verifies under
+    ///  case (a) — token signed with `aud=A` verifies under
     /// `expected_aud=A`. Happy-path.
     #[test]
     #[allow(clippy::panic)]
@@ -783,7 +783,7 @@ mod tests {
         }
     }
 
-    /// PT-S2-M1 case (b) — token signed with `aud=A` rejected under
+    ///  case (b) — token signed with `aud=A` rejected under
     /// `expected_aud=B`. The negative-direction of the aud check.
     #[test]
     fn aud_claim_mismatch_is_rejected() {
@@ -803,7 +803,7 @@ mod tests {
         }
     }
 
-    /// PT-S2-M1 case (c) — token signed with `aud=A` and verified with
+    ///  case (c) — token signed with `aud=A` and verified with
     /// `expected_aud=None` STAYS PERMISSIVE. This is the documented
     /// backwards-compat behaviour — pre-slice-5 callers (and verifiers
     /// that don't opt in) keep working. New callers MUST pass
@@ -824,7 +824,7 @@ mod tests {
         }
     }
 
-    /// PT-S2-M1 case (d) — old-shape tokens with NO `aud` claim are
+    ///  case (d) — old-shape tokens with NO `aud` claim are
     /// rejected when the verifier opts in via `Some(...)`. The check
     /// produces `KernelTokenError::Claims("missing_claim:aud")`.
     #[test]
@@ -863,7 +863,7 @@ mod tests {
         }
     }
 
-    /// PT-S2-M1 case (e) — cross-tenant replay scenario. A token minted
+    ///  case (e) — cross-tenant replay scenario. A token minted
     /// for `/kernel/v1/authorize` (aud=`kernel/authorize`) presented to
     /// a `/policy/module/authorize` verifier (expected
     /// `policy/module/authorize`) MUST be rejected. This is the
@@ -888,7 +888,7 @@ mod tests {
         );
     }
 
-    /// PT-S2-M1 case (f) — allowlist with multiple tokens: token signed
+    ///  case (f) — allowlist with multiple tokens: token signed
     /// with `aud=A` verifies under `expected_aud=A`, but the
     /// *complementary* token (aud=B) is rejected under
     /// `expected_aud=A`. Demonstrates a single-element allowlist via
@@ -943,7 +943,7 @@ mod tests {
         ));
     }
 
-    /// PT-S2-M1 — wrong-typed `aud` (number, not string) is rejected
+    ///  — wrong-typed `aud` (number, not string) is rejected
     /// with `Claims("invalid_aud")`. Hardens against attackers who
     /// might try to bypass the audience check by emitting `aud: 0`
     /// (which is falsy in Python `if aud:` but not in our explicit
@@ -985,9 +985,9 @@ mod tests {
     }
 
     // ========================================================================
-    // PT-S5-M1 (internal-ref-followup item 1) — `aud` on the APPROVALS path.
-    //
-    // Slice 5 (PT-S2-M1) closed the `aud` cross-tenant replay surface on the
+    //  (-followup item 1) — `aud` on the APPROVALS path.
+    
+    //  closed the `aud` cross-tenant replay surface on the
     // authorize + policy claim types only. `ApprovalClaims` was left without
     // an audience tag, so an approval-decision token signed by the shared
     // kernel key could in principle be replayed against the
@@ -996,7 +996,7 @@ mod tests {
     // exercise `ApprovalClaims` minted with `APPROVAL_AUD`.
     // ========================================================================
 
-    /// Helper — sign a PT-S5-M1-shape `ApprovalClaims` with the given
+    /// Helper — sign a -shape `ApprovalClaims` with the given
     /// `aud` value. Mirrors `sign_authorize_with_aud`.
     fn sign_approval_with_aud(sk: &SigningKey, aud: &str) -> String {
         let claims = ApprovalClaims {
@@ -1017,7 +1017,7 @@ mod tests {
         sign_kernel_token(&claims, sk)
     }
 
-    /// PT-S5-M1 case (a) — approval token signed with `aud=APPROVAL_AUD`
+    ///  case (a) — approval token signed with `aud=APPROVAL_AUD`
     /// verifies under `expected_aud=APPROVAL_AUD`. Happy-path.
     #[test]
     #[allow(clippy::panic)]
@@ -1035,7 +1035,7 @@ mod tests {
         }
     }
 
-    /// PT-S5-M1 case (b) — approval token signed with `aud=APPROVAL_AUD`
+    ///  case (b) — approval token signed with `aud=APPROVAL_AUD`
     /// rejected under a different `expected_aud`. Negative direction.
     #[test]
     fn approval_aud_mismatch_is_rejected() {
@@ -1050,7 +1050,7 @@ mod tests {
         }
     }
 
-    /// PT-S5-M1 case (c) — approval token verified with `expected_aud=None`
+    ///  case (c) — approval token verified with `expected_aud=None`
     /// STAYS PERMISSIVE (documented backwards-compat: legacy verifiers that
     /// have not opted in keep working). Do not regress authorize/policy.
     #[test]
@@ -1069,13 +1069,13 @@ mod tests {
         }
     }
 
-    /// PT-S5-M1 case (d) — pre-followup-shape approval tokens with NO
+    ///  case (d) — pre-followup-shape approval tokens with NO
     /// `aud` claim are rejected when the verifier opts in via `Some(...)`.
     #[test]
     fn approval_missing_aud_rejected_when_expected_aud_set() {
         let sk = fixed_signing_key();
         let vk = sk.verifying_key();
-        // Hand-craft a pre-PT-S5-M1-shape approval claims map (no `aud`).
+        // Hand-craft a pre--shape approval claims map (no `aud`).
         let mut map: BTreeMap<String, Value> = BTreeMap::new();
         map.insert(
             "action".to_string(),
@@ -1115,10 +1115,10 @@ mod tests {
         }
     }
 
-    /// PT-S5-M1 case (e) — cross-tenant replay scenario. An approval
+    ///  case (e) — cross-tenant replay scenario. An approval
     /// token (aud=`kernel/approvals/decision`) presented to a
     /// `/kernel/v1/authorize` verifier (expected `kernel/authorize`) MUST
-    /// be rejected. Load-bearing test for the PT-S5-M1 finding.
+    /// be rejected. Load-bearing test for the finding.
     #[test]
     fn cross_tenant_replay_approval_to_authorize_rejected() {
         let sk = fixed_signing_key();
@@ -1132,7 +1132,7 @@ mod tests {
         );
     }
 
-    /// PT-S5-M1 case (f) — allowlist: an approval token verifies under
+    ///  case (f) — allowlist: an approval token verifies under
     /// `expected_aud=APPROVAL_AUD`, but the complementary authorize token
     /// (aud=`kernel/authorize`) is rejected under `expected_aud=APPROVAL_AUD`
     /// — and symmetrically. Confirms the approvals tag does not regress

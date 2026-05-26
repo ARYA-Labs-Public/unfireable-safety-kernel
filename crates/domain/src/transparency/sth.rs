@@ -1,5 +1,5 @@
-//! Signed Tree Head minting + verification (ADR-014 Phase 3 §4b,
-//! internal-ref Step 4).
+//! Signed Tree Head minting + verification (b,
+//!  Step 4).
 //!
 //! A `SignedTreeHead` is the authoritative public statement of
 //! "ledger state as of `timestamp_epoch_seconds`". The signed payload
@@ -13,7 +13,7 @@
 //!
 //! 48 bytes total. No JSON: STHs are a wire-format primitive and we
 //! want a compact + byte-stable representation. Big-endian matches
-//! the convention used elsewhere in the workspace (Slice 1 token
+//! the convention used elsewhere in the workspace ( token
 //! envelope, RFC-6962 nonce framing).
 //!
 //! No key material lives here — this module signs / verifies given a
@@ -43,7 +43,7 @@ fn canonical_payload(
 
 /// Mint a `SignedTreeHead` for `(root_hash, tree_size,
 /// timestamp_epoch_seconds)` using `signing_key`.
-///
+/
 /// The signature is over the canonical payload described in the
 /// module doc; the result is independent of any JSON / serde
 /// framing.
@@ -65,9 +65,9 @@ pub fn mint_sth(
 }
 
 /// Verify a `SignedTreeHead` against `verifying_key`.
-///
+/
 /// # Errors
-///
+/
 /// Returns [`VerificationError::SignatureInvalid`] if the Ed25519
 /// signature does not validate over the canonical payload.
 pub fn verify_sth(

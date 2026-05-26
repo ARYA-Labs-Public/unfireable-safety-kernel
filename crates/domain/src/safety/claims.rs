@@ -1,4 +1,4 @@
-//! Typed claim wrappers — Slice 1 (ADR-014 §1.2 binding).
+//! Typed claim wrappers —  ( binding).
 //!
 //! Both authorize and approval claim sets are represented as typed
 //! structs that emit a `BTreeMap<String, serde_json::Value>` for
@@ -10,7 +10,7 @@
 //! `proposal_fingerprint` (`apps/safety_kernel/routes/approvals.py:97-101`).
 //!
 //! `reason` is `JSON null` (NOT omitted) when absent on approve / on
-//! reject without a body-supplied reason — see ADR-014 Slice 1 §1.2
+//! reject without a body-supplied reason — see 
 //! "Approval tokens" paragraph and `routes/approvals.py:97-98`.
 
 use std::collections::BTreeMap;
@@ -28,8 +28,8 @@ pub trait ToClaimsMap {
 }
 
 /// Canonical `aud` claim value for `/kernel/v1/authorize` tokens.
-///
-/// Introduced in internal-ref slice 5 (Bundle A, PT-S2-M1 carry-forward).
+/
+/// Introduced in slice 5 (Bundle A,  carry-forward).
 /// The kernel signing key is shared across `/kernel/v1/authorize` and
 /// the policy-engine endpoints; the `aud` claim partitions the audience
 /// space so a token minted for one endpoint cannot be replayed against
@@ -38,8 +38,8 @@ pub trait ToClaimsMap {
 pub const KERNEL_AUTHORIZE_AUD: &str = "kernel/authorize";
 
 /// Canonical `aud` claim value for `/kernel/v1/approvals/decision` tokens.
-///
-/// Introduced in internal-ref-followup item 1 (PT-S5-M1). Slice 5 closed the
+/
+/// Introduced in -followup item 1.  closed the
 /// `aud` cross-tenant replay surface on the authorize + policy claim
 /// types only; `ApprovalClaims` was left without an audience tag, so an
 /// approval-decision token signed by the shared kernel key could in
@@ -51,14 +51,14 @@ pub const KERNEL_AUTHORIZE_AUD: &str = "kernel/authorize";
 /// pass `expected_aud = None` keep working (backwards-compat).
 pub const APPROVAL_AUD: &str = "kernel/approvals/decision";
 
-/// Authorize-token claim set — required keys per ADR-014 Slice 1 §1.2.
-///
+/// Authorize-token claim set — required keys 2.
+/
 /// `subject` is overwritten by the Rust HTTP handler with `caller_role`
 /// before signing — the request-body subject is recorded only as audit
-/// metadata (ADR-014 Slice 1 §10 inconsistency note 4). This struct
+/// metadata ( inconsistency note 4). This struct
 /// holds whatever the handler decides to sign; it is shape-only.
-///
-/// **`aud` claim (internal-ref slice 5, PT-S2-M1 fold-in):** the kernel
+/
+/// **`aud` claim ( slice 5,  fold-in):** the kernel
 /// signing key is the SAME key used by the policy-engine endpoints;
 /// without an audience tag, a `/kernel/v1/authorize` token could in
 /// principle be presented to a `/policy/*` verifier (or vice versa).
@@ -68,10 +68,10 @@ pub const APPROVAL_AUD: &str = "kernel/approvals/decision";
 /// (backwards-compat, see `token::verify_kernel_token`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AuthorizeClaims {
-    /// Sensitive action being authorized (e.g. `sio_run_cycles`).
+    /// Sensitive action being authorized (e.g. ).
     pub action: String,
     /// Audience tag — for `/kernel/v1/authorize` always
-    /// `KERNEL_AUTHORIZE_AUD` (`"kernel/authorize"`). PT-S2-M1 fold-in.
+    /// `KERNEL_AUTHORIZE_AUD` (`"kernel/authorize"`).  fold-in.
     pub aud: String,
     /// Run identifier bound into the token.
     pub run_id: String,
@@ -91,7 +91,7 @@ impl ToClaimsMap for AuthorizeClaims {
     fn to_btreemap(&self) -> BTreeMap<String, Value> {
         let mut m = BTreeMap::new();
         m.insert("action".to_string(), Value::String(self.action.clone()));
-        // `aud` claim (PT-S2-M1). `BTreeMap` already gives lex-sorted
+        // `aud` claim. `BTreeMap` already gives lex-sorted
         // iteration so the insertion order here is decorative — the
         // emitted byte stream is sorted at serialization time.
         m.insert("aud".to_string(), Value::String(self.aud.clone()));
@@ -123,7 +123,7 @@ impl ToClaimsMap for AuthorizeClaims {
 /// Approval-token claim set — adds `decision`, `reason`, `approver`,
 /// `proposal_fingerprint` to the authorize-shape required keys (see
 /// `apps/safety_kernel/routes/approvals.py:90-101`).
-///
+/
 /// `reason` is JSON null when absent (on approve, or on reject without a
 /// caller-supplied reason); Rust must emit `Value::Null`, not omit the
 /// key, for byte equality with Python.
@@ -132,8 +132,8 @@ pub struct ApprovalClaims {
     /// Sensitive action being attested (e.g. `kernel_signed_approval`).
     pub action: String,
     /// Audience tag — for `/kernel/v1/approvals/decision` always
-    /// `APPROVAL_AUD` (`"kernel/approvals/decision"`). PT-S5-M1 fold-in
-    /// (internal-ref-followup item 1). Mirrors `AuthorizeClaims::aud`: closes
+    /// `APPROVAL_AUD` (`"kernel/approvals/decision"`).  fold-in
+    /// (-followup item 1). Mirrors `AuthorizeClaims::aud`: closes
     /// the cross-tenant approval-token replay surface left open by
     /// slice 5 (which tagged authorize + policy claims only).
     pub aud: String,
@@ -164,7 +164,7 @@ impl ToClaimsMap for ApprovalClaims {
     fn to_btreemap(&self) -> BTreeMap<String, Value> {
         let mut m = BTreeMap::new();
         m.insert("action".to_string(), Value::String(self.action.clone()));
-        // `aud` claim (PT-S5-M1, internal-ref-followup item 1). `BTreeMap`
+        // `aud` claim. `BTreeMap`
         // already gives lex-sorted iteration so the insertion order here
         // is decorative — the emitted byte stream is sorted at
         // serialization time ("aud" sorts between "approver" and
@@ -190,7 +190,7 @@ impl ToClaimsMap for ApprovalClaims {
             Value::String(self.proposal_fingerprint.clone()),
         );
         // `reason` is null (NOT omitted) when absent — binding contract
-        // per ADR-014 Slice 1 §1.2.
+        // 2.
         m.insert(
             "reason".to_string(),
             self.reason
@@ -204,8 +204,8 @@ impl ToClaimsMap for ApprovalClaims {
 }
 
 // ---------------------------------------------------------------------------
-// Core constraints — per internal-ref.
-//
+// Core constraints — per.
+
 // Customer-supplied compliance / brand / privacy / scope rules that the
 // Safety Kernel loads per tenant at request time. The cogcore `CoreLane`
 // (arya-speaks-language-core commit `a0dc571`) stores `CoreConstraint`
@@ -236,10 +236,10 @@ pub enum ConstraintKind {
 /// the Safety Kernel must enforce at request time. Versioned and
 /// provenance-tracked so cogcore's `CoreLane` can store, retrieve, and
 /// supersede rules without losing history.
-///
+/
 /// Construction is direct field-by-field — there is no builder. The
 /// struct is logically immutable: cogcore writes a new entry with
-/// `version + 1` rather than mutating in place (see internal-ref design
+/// `version + 1` rather than mutating in place (see design
 /// notes). Note however that Rust ownership rules do not forbid an
 /// owner of a `CoreConstraintSet` from mutating fields in place;
 /// callers wishing to expose a `CoreConstraintSet` as read-only should
@@ -287,7 +287,7 @@ pub struct CoreConstraintSet {
 
 impl CoreConstraintSet {
     /// Return constraints with `priority == 0` (must-never-violate).
-    ///
+    /
     /// AC3 — the returned slice contains exclusively `priority == 0`
     /// entries; any non-zero-priority constraint is filtered out.
     #[must_use]
@@ -299,20 +299,20 @@ impl CoreConstraintSet {
     }
 
     /// Return constraints active at the given RFC3339 timestamp.
-    ///
+    /
     /// A constraint is active iff
     /// `valid_from <= ts && (valid_to.is_none() || ts < valid_to)`.
     /// The lower bound is inclusive and the upper bound is exclusive:
     /// a constraint whose `valid_to` exactly equals `ts` is considered
     /// already retired.
-    ///
+    /
     /// Comparison is lexicographic on the RFC3339 strings, which is
     /// correct when `ts`, `valid_from`, and `valid_to` are all
     /// well-formed RFC3339 UTC (`Z` suffix, identical precision).
     /// Mixed offsets, missing `Z`, or differing fractional-second
     /// precision are the caller's responsibility — `active_at` does
     /// not parse.
-    ///
+    /
     /// AC4 — filters by `valid_from`/`valid_to` boundaries.
     #[must_use]
     pub fn active_at<'a>(&'a self, ts: &str) -> Vec<&'a CoreConstraint> {

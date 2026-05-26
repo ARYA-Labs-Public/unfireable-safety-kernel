@@ -1,4 +1,4 @@
-//! Policy-engine claim shapes — Slice 2 (ADR-018 §3 binding).
+//! Policy-engine claim shapes —  ( binding).
 //!
 //! Two new typed claim shapes, both signed via the existing
 //! `super::super::sign_kernel_token` primitive in
@@ -23,7 +23,7 @@
 //!   application-level `subject` field adds discrimination),
 //! - reusing `params_fingerprint` to carry the operation-specific
 //!   fingerprint (`event_fingerprint` for authorize, the registered
-//!   payload's fingerprint for register) — per ADR-018 §3 the
+//!   payload's fingerprint for register) — per the
 //!   `event_fingerprint` claim is REUSED into the `params_fingerprint`
 //!   required slot so `verify_kernel_token` validates unchanged,
 //! - `issued_at` / `expires_at` are `f64` epoch seconds (binding with
@@ -35,7 +35,7 @@
 //! imports nothing beyond `std::collections::BTreeMap`, `serde`,
 //! `serde_json`, and `super::super::claims::ToClaimsMap`. Time and
 //! randomness enter the signed claim via the calling handler (which
-//! pulls from `Clock` and `NonceSource` adapters per ADR-014 §6.1).
+//! pulls from `Clock` and `NonceSource` adapters 1).
 
 use std::collections::BTreeMap;
 
@@ -57,8 +57,8 @@ pub const POLICY_AUTHORIZE_ACTION: &str = "policy_module_authorize";
 pub const POLICY_REGISTER_ACTION: &str = "policy_module_register";
 
 /// Canonical `aud` value for `POST /policy/module/authorize` tokens.
-///
-/// Introduced in internal-ref slice 5 (Bundle A, PT-S2-M1 carry-forward).
+/
+/// Introduced in slice 5 (Bundle A,  carry-forward).
 /// Closes the cross-tenant replay surface between
 /// `/kernel/v1/authorize` and `/policy/module/authorize` — both endpoints
 /// sign with the same kernel key, so without an audience tag a token
@@ -66,14 +66,14 @@ pub const POLICY_REGISTER_ACTION: &str = "policy_module_register";
 pub const POLICY_AUTHORIZE_AUD: &str = "policy/module/authorize";
 
 /// Canonical `aud` value for `POST /policy/module/register` receipt tokens.
-///
-/// Introduced in internal-ref slice 5 (Bundle A, PT-S2-M1 carry-forward).
+/
+/// Introduced in slice 5 (Bundle A,  carry-forward).
 /// Same rationale as `POLICY_AUTHORIZE_AUD`.
 pub const POLICY_REGISTER_AUD: &str = "policy/module/register";
 
 /// Signed claim set for `POST /policy/module/authorize` — emitted for
-/// BOTH `Allow` and `Deny` decisions (ADR-018 §3 table, lines 522-540).
-///
+/// BOTH `Allow` and `Deny` decisions ( table, lines 522-540).
+/
 /// `decision` and `reason` are payload fields; the §1.2 required-claim
 /// set is satisfied via `action` / `run_id` / `subject` /
 /// `params_fingerprint` / `issued_at` / `expires_at` / `nonce`. The
@@ -84,14 +84,14 @@ pub const POLICY_REGISTER_AUD: &str = "policy/module/register";
 pub struct ModuleAuthorizeClaims {
     /// Audience tag — for `/policy/module/authorize` always
     /// `POLICY_AUTHORIZE_AUD` (`"policy/module/authorize"`).
-    /// PT-S2-M1 fold-in (internal-ref slice 5).
+    ///  fold-in ( slice 5).
     pub aud: String,
     /// Kernel identity — `"qorch-safety-kernel/<build_version>@<pk_fingerprint[:16]>"`.
     pub iss: String,
     /// Issued-at, `f64` epoch seconds. Matches `AuthorizeClaims::issued_at`
     /// for binding consistency with `verify_kernel_token`.
     pub iat: f64,
-    /// Expiry, `f64` epoch seconds. Default `iat + 60` (ADR-018 §3
+    /// Expiry, `f64` epoch seconds. Default `iat + 60` (
     /// "Why `ttl_s` = 60s default").
     pub exp: f64,
     /// `caller_subject` from the request body (NOT the trusted
@@ -105,12 +105,12 @@ pub struct ModuleAuthorizeClaims {
     /// `Exec`/`Compile`).
     pub module_path: String,
     /// Server-recomputed event fingerprint (NOT the value supplied by
-    /// the caller — bind the trusted recomputation per ADR-018 §3).
+    /// the caller — bind the trusted recomputation 
     pub event_fingerprint: String,
     /// `Allow` or `Deny` — the actual verdict.
     pub decision: ModuleAuthorizeDecision,
     /// Machine-readable refusal reason on `Deny`; `None` (→ JSON null)
-    /// on `Allow`. ADR-018 §3 binds the key to be PRESENT in both
+    /// on `Allow`.  binds the key to be PRESENT in both
     /// cases — `Value::Null` on allow, NOT omitted.
     pub reason: Option<String>,
     /// Per-issuance nonce (base64url-no-pad).
@@ -125,7 +125,7 @@ impl ToClaimsMap for ModuleAuthorizeClaims {
             "action".to_string(),
             Value::String(POLICY_AUTHORIZE_ACTION.to_string()),
         );
-        // `aud` claim (PT-S2-M1, internal-ref slice 5). Position in the
+        // `aud` claim. Position in the
         // emitted byte stream is determined by `BTreeMap` lex iteration
         // at serialization time, not by insertion order here.
         m.insert("aud".to_string(), Value::String(self.aud.clone()));
@@ -133,7 +133,7 @@ impl ToClaimsMap for ModuleAuthorizeClaims {
         m.insert("subject".to_string(), Value::String(self.subject.clone()));
         // params_fingerprint mirrors event_fingerprint so the existing
         // verify_kernel_token required-claim check passes unchanged
-        // (ADR-018 §3, deliverable #1).
+        // (, deliverable #1).
         m.insert(
             "params_fingerprint".to_string(),
             Value::String(self.event_fingerprint.clone()),
@@ -177,7 +177,7 @@ impl ToClaimsMap for ModuleAuthorizeClaims {
             Value::String(self.module_path.clone()),
         );
         // `reason` is null (NOT omitted) when absent on Allow — binding
-        // contract per ADR-018 §3 (mirrors the existing approval-claims
+        // contract per  (mirrors the existing approval-claims
         // pattern at `claims.rs:140-148`).
         m.insert(
             "reason".to_string(),
@@ -195,8 +195,8 @@ impl ToClaimsMap for ModuleAuthorizeClaims {
 // ============================================================================
 
 /// Signed receipt for a successful `POST /policy/module/register`
-/// (ADR-018 §3 table, lines 542-552).
-///
+/// ( table, lines 542-552).
+/
 /// `register` has no per-run context, so `run_id` is set to the
 /// `caller_subject` (per the ADR). The regex set is bound into the
 /// receipt via a fingerprint, so the registered patterns can be
@@ -205,7 +205,7 @@ impl ToClaimsMap for ModuleAuthorizeClaims {
 pub struct ModuleRegisterClaims {
     /// Audience tag — for `/policy/module/register` always
     /// `POLICY_REGISTER_AUD` (`"policy/module/register"`).
-    /// PT-S2-M1 fold-in (internal-ref slice 5).
+    ///  fold-in ( slice 5).
     pub aud: String,
     /// Kernel identity — same format as `ModuleAuthorizeClaims::iss`.
     pub iss: String,
@@ -215,7 +215,7 @@ pub struct ModuleRegisterClaims {
     pub exp: f64,
     /// `caller_subject` from the request body.
     pub subject: String,
-    /// Echo of `subject` per ADR-018 §3 ("`run_id` is the
+    /// Echo of `subject` per  ("`run_id` is the
     /// `caller_subject` since `register` has no per-run context").
     pub run_id: String,
     /// Registered module path.
@@ -239,7 +239,7 @@ impl ToClaimsMap for ModuleRegisterClaims {
             "action".to_string(),
             Value::String(POLICY_REGISTER_ACTION.to_string()),
         );
-        // `aud` claim (PT-S2-M1, internal-ref slice 5).
+        // `aud` claim.
         m.insert("aud".to_string(), Value::String(self.aud.clone()));
         m.insert(
             "expires_at".to_string(),
@@ -284,8 +284,8 @@ mod tests {
     use super::*;
 
     /// `ModuleAuthorizeClaims::to_btreemap` emits keys in lex order
-    /// and includes EVERY ADR-018 §3 field, including the `aud` claim
-    /// added in slice 5 (PT-S2-M1).
+    /// and includes EVERY field, including the `aud` claim
+    /// added in slice 5.
     #[test]
     fn authorize_claims_emit_all_keys_in_lex_order() {
         let c = ModuleAuthorizeClaims {
@@ -306,7 +306,7 @@ mod tests {
         let m = c.to_btreemap();
         let keys: Vec<&String> = m.keys().collect();
         // BTreeMap iterates in lex order — assert the EXACT sequence.
-        // lex order: "action" < "aud" < ... < "iss" < "issued_at" (empty
+        // lex order: "action" < "aud" <... < "iss" < "issued_at" (empty
         // segment after shared "iss" prefix is less than any char).
         assert_eq!(
             keys,
@@ -341,7 +341,7 @@ mod tests {
             m.get("action").and_then(Value::as_str),
             Some(POLICY_AUTHORIZE_ACTION),
         );
-        // aud is the canonical policy-module-authorize tag (PT-S2-M1).
+        // aud is the canonical policy-module-authorize tag.
         assert_eq!(
             m.get("aud").and_then(Value::as_str),
             Some(POLICY_AUTHORIZE_AUD),
@@ -374,8 +374,8 @@ mod tests {
     }
 
     /// `ModuleRegisterClaims::to_btreemap` emits keys in lex order
-    /// and includes all ADR-018 §3 fields plus the `aud` claim added
-    /// in slice 5 (PT-S2-M1).
+    /// and includes all fields plus the `aud` claim added
+    /// in slice 5.
     #[test]
     fn register_claims_emit_all_keys_in_lex_order() {
         let c = ModuleRegisterClaims {
@@ -416,7 +416,7 @@ mod tests {
             m.get("action").and_then(Value::as_str),
             Some(POLICY_REGISTER_ACTION),
         );
-        // aud is the canonical policy-module-register tag (PT-S2-M1).
+        // aud is the canonical policy-module-register tag.
         assert_eq!(
             m.get("aud").and_then(Value::as_str),
             Some(POLICY_REGISTER_AUD),

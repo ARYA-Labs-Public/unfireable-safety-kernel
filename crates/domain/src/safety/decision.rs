@@ -1,5 +1,5 @@
 //! Kernel-decision pure types — promoted from the adapter under
-//! internal-ref Phase 2a Step 2 per ADR-014 Slice 1 Addendum 2a §4.
+//!   Step 2 
 //!
 //! The adapter still owns the *implementation* of `SafetyKernelClient`
 //! (HTTP, breaker, mTLS, key verification), but the **decision shape**
@@ -12,7 +12,7 @@
 //! successful Ed25519 signature check against the caller-pinned key.
 //! There is no other constructor for `VerifiedClaims` in the workspace.
 //! Static auditors (Addendum 2a §4 "Static fail-closed invariant") rely
-//! on this: any path that yields `KernelDecision::Allow { ..., claims }`
+//! on this: any path that yields `KernelDecision::Allow {..., claims }`
 //! must therefore have flowed through verification — there is no way to
 //! build an `Allow` from un-verified bytes.
 //!
@@ -25,7 +25,7 @@ use super::token::VerifiedClaims;
 /// Outcome of a Safety Kernel `authorize` request from the *caller*'s
 /// point of view. Returned by the adapter-side `SafetyKernelClient`
 /// (see `qorch_safety_kernel_client::client::SafetyKernelClient`).
-///
+/
 /// This enum is deliberately **not** `Serialize` / `Deserialize`. The
 /// kernel wire format uses a compact signed-token envelope (see
 /// `sign_kernel_token` / `verify_kernel_token`); the decision shape is
@@ -57,7 +57,7 @@ pub enum KernelDecision {
 /// Failure modes a caller may observe from `authorize`. FAIL-CLOSED
 /// semantics: every variant here causes the caller's operation to be
 /// rejected — none of them are recoverable as ALLOW.
-///
+/
 /// This enum holds only `String` payloads so it is fully serializable
 /// for audit-log persistence. Transport-layer details (reqwest errors,
 /// decode errors, signature errors) live in the adapter's

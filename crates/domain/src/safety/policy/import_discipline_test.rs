@@ -1,5 +1,5 @@
-//! Forbidden-import lint for the policy domain module (ADR-018,
-//! internal-ref; `agent/boundaries.toml`).
+//! Forbidden-import lint for the policy domain module (,
+//!; `agent/boundaries.toml`).
 //!
 //! Domain crates are pure types/traits — no I/O, no network, no clock,
 //! no RNG, no logging. The `crates/domain` `Cargo.toml` and the
@@ -30,7 +30,7 @@ use std::path::PathBuf;
 
 /// The forbidden-import substrings from `agent/boundaries.toml` /
 /// `CLAUDE.md` §"Domain-crate forbidden imports".
-///
+/
 /// We match on `use <prefix>` patterns rather than bare `<prefix>::`
 /// because the latter has too many benign collisions (e.g. inside
 /// rustdoc links). The patterns below cover both classic imports
@@ -101,7 +101,7 @@ fn policy_domain_sources_have_no_forbidden_imports() {
     assert!(
         violations.is_empty(),
         "forbidden imports in crates/domain/src/safety/policy/ \
-         (see agent/boundaries.toml + ADR-018):\n{}",
+         (see agent/boundaries.toml + ):\n{}",
         violations.join("\n"),
     );
 }

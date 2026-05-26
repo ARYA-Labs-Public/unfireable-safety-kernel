@@ -1,4 +1,4 @@
-//! Transparency-log domain types (ADR-014 Phase 3, internal-ref).
+//! Transparency-log domain types (, ).
 //!
 //! Pure types only — no I/O, no clock, no RNG, no logging. RFC-6962
 //! compatible Merkle semantics. Verification logic and proof
@@ -12,9 +12,9 @@
 //!
 //! Implementations of Merkle append, inclusion-proof, consistency-proof
 //! and Ed25519 signed-tree-head minting live in the storage adapter
-//! (`crates/adapters/transparency_store/`, ADR-014 Phase 3 §5) and the
+//! (`crates/adapters/transparency_store/`, ) and the
 //! transparency-log service (`crates/services/transparency-log/`,
-//! ADR-014 Phase 3 §3). The types themselves stay here so the kernel,
+//! ). The types themselves stay here so the kernel,
 //! reconciler, and any external auditor share a single contract.
 
 pub mod merkle;
