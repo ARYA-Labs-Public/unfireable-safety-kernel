@@ -1,6 +1,6 @@
-//! ARY-1889 Phase 2c F7 — Live Rust kernel equivalence harness.
+//!   F7 — Live Rust kernel equivalence harness.
 //!
-//! Closes the AC7 milestone deferred at ARY-1883 (Addendum 2a §7 drift A):
+//! Closes the AC7 milestone deferred at  (Addendum 2a §7 drift A):
 //! the original AC7 was reinterpreted as "frozen golden fixtures" because
 //! a live Python equivalence test was infeasible at the time the Rust
 //! client landed. Now that 2c-python has migrated `sdk.py` to the new
@@ -52,7 +52,7 @@ fn discover_live_kernel_url() -> Option<String> {
             "inspect",
             "qorch-safety-kernel-rust",
             "--format",
-            "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
+            "{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
         ])
         .output()
     {
@@ -87,7 +87,7 @@ fn worker_api_key() -> String {
 }
 
 /// F7.RS.1 — The Rust SDK's serialized request body MUST byte-equal the
-/// canonical AuthorizeRequest serialization per ADR-014 Slice 1 Addendum
+/// canonical AuthorizeRequest serialization per Addendum
 /// 2a §5. This re-derives the canonical form in-process (Rule 9) rather
 /// than regex-matching a fixture file.
 #[test]

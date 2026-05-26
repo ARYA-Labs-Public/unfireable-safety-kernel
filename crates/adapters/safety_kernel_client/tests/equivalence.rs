@@ -1,6 +1,6 @@
 //! AC7 — golden-fixture equivalence test.
 //!
-//! Per ADR-014 Slice 1 Addendum 2a §7 (drift finding A, user-approved
+//! Per Addendum 2a §7 (drift finding A, user-approved
 //! 2026-05-22): the Python `sdk.py` cannot be byte-equivalent with the
 //! Rust client because the two SDKs target different routes / auth
 //! shapes. The reinterpreted AC7 instead pins the Rust client's
@@ -72,7 +72,7 @@ fn fixture_authorize_rsi_body_matches_rust_serialization() {
     assert_eq!(fx.path, "/kernel/v1/authorize");
     assert_eq!(
         serialized, fx.body,
-        "AuthorizeRequest body must byte-match the RSI fixture"
+        "AuthorizeRequest body must byte-match the fixture"
     );
     // The body MUST NOT contain traceparent — header-only field.
     assert!(

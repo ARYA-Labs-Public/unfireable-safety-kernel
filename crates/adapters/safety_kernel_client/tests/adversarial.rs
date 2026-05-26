@@ -1,4 +1,4 @@
-//! ARY-1883 Phase 2a — Adversarial test suite for the Safety Kernel
+//!   — Adversarial test suite for the Safety Kernel
 //! client SDK.
 //!
 //! This file is the **Rule 8 (adversarial-fixture)** gate for the
@@ -160,7 +160,7 @@ async fn ac6_kernel_timeout_fires_breaker_within_budget() {
     assert!(
         matches!(
             r1,
-            Err(KernelClientError::Decision(KernelDecisionError::Unavailable { .. }))
+            Err(KernelClientError::Decision(KernelDecisionError::Unavailable {.. }))
         ),
         "first call MUST yield Decision::Unavailable, got {r1:?}"
     );
@@ -170,7 +170,7 @@ async fn ac6_kernel_timeout_fires_breaker_within_budget() {
     assert!(
         matches!(
             r2,
-            Err(KernelClientError::Decision(KernelDecisionError::Unavailable { .. }))
+            Err(KernelClientError::Decision(KernelDecisionError::Unavailable {.. }))
         ),
         "second call MUST yield Decision::Unavailable, got {r2:?}"
     );
@@ -262,7 +262,7 @@ async fn forged_signature_kernel_response_rejected_with_verification_error() {
         Ok(_) => panic!(
             "CRITICAL: forged-signature response MUST be refused. \
              Accepting an attacker-signed ALLOW defeats the pinned-key \
-             defence (ARY-1886 AC9 / ARY-1883 AC2 R)."
+             defence ( AC9 /  AC2 R)."
         ),
         other => panic!(
             "forged-sig response MUST yield Verification error, got {other:?}"
@@ -340,7 +340,7 @@ async fn kernel_403_forbidden_returns_authoritative_deny_not_unavailable() {
                 "deny reason should be propagated, got: {reason}"
             );
         }
-        Ok(KernelDecision::Allow { .. }) => {
+        Ok(KernelDecision::Allow {.. }) => {
             panic!("CRITICAL: 403 MUST NOT yield Allow")
         }
         other => panic!("403 should yield Deny, got {other:?}"),
@@ -370,7 +370,7 @@ async fn unreachable_kernel_yields_unavailable_not_silent_approve() {
     assert!(
         matches!(
             r,
-            Err(KernelClientError::Decision(KernelDecisionError::Unavailable { .. }))
+            Err(KernelClientError::Decision(KernelDecisionError::Unavailable {.. }))
         ),
         "unreachable kernel MUST yield Decision::Unavailable, got {r:?}"
     );

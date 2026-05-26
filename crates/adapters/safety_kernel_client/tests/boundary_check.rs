@@ -1,8 +1,8 @@
-//! ARY-1883 Phase 2a — Boundary check for AC10.
+//!   — Boundary check for AC10.
 //!
 //! Per `agent/boundaries.toml` (Jankurai stack profile), `crates/domain`
 //! is the only pure-types substrate; adapter crates may freely import
-//! `std::fs`, `reqwest`, `tracing`, etc. The Phase 2a Step 2 type-split
+//! `std::fs`, `reqwest`, `tracing`, etc. The Step 2 type-split
 //! (Addendum 2a §4) moved `KernelDecision` / `KernelDecisionError` into
 //! `crates/domain/src/safety/decision.rs`. The adapter's `src/types.rs`
 //! must continue to re-export them and must NOT pull in any of the

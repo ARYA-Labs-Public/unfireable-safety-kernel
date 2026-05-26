@@ -3,9 +3,9 @@
 //! `contracts/openapi/safety_kernel.yaml`; the canonical claim shapes
 //! live in `qorch_domain::safety::{AuthorizeClaims, ApprovalClaims}`.
 //!
-//! ARY-1883 Phase 2a Step 2 — kernel-decision pure types moved to
+//!   Step 2 — kernel-decision pure types moved to
 //! `qorch_domain::safety::decision` (Addendum 2a §4). The adapter
-//! re-exports them so existing callers (`use ...::types::KernelDecision`)
+//! re-exports them so existing callers (`use...::types::KernelDecision`)
 //! keep resolving; the adapter-local error taxonomy
 //! `KernelClientError` now wraps the domain's `KernelDecisionError`.
 
@@ -26,7 +26,7 @@ use thiserror::Error;
 /// `apps/safety_kernel/routes/authorize.py` — kept in lockstep via the
 /// generated types from `contracts/openapi/safety_kernel.yaml`.
 ///
-/// **Field declaration order is lexicographic** per ADR-014 Slice 1
+/// **Field declaration order is lexicographic** per 
 /// Addendum 2a §5 (rule 1). `boundary_check.rs` enforces this
 /// structurally; reordering fields here will break a structural test.
 /// `traceparent` is NOT sent in the body — it is an HTTP header — but
@@ -43,7 +43,7 @@ pub struct AuthorizeRequest {
     /// Subject (caller) requesting authorization.
     pub subject: String,
     /// Optional traceparent for cross-process correlation (W4 of
-    /// ARY-1990). `#[serde(skip)]` keeps this field strictly out of
+    /// ). `#[serde(skip)]` keeps this field strictly out of
     /// the JSON wire body — `traceparent` is an HTTP header (emitted
     /// by `SafetyKernelClient::authorize`), NEVER a body field. The
     /// adversarial / boundary tests (Step 6 `boundary_check.rs`)
@@ -74,7 +74,7 @@ pub struct AuthorizeResponse {
     /// adapter re-derives via `PinnedKeyVerifier::verify`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub claims_hint: Option<BTreeMap<String, Value>>,
-    /// Compact signed token (Ed25519, see ADR-014 Slice 1 §1.2).
+    /// Compact signed token (Ed25519, see ).
     pub token: String,
 }
 
@@ -96,7 +96,7 @@ pub struct HealthResponse {
 /// PublicKeyResponse`. **Lex-sorted fields** per ADR §5 rule 1.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PublicKeyResponse {
-    /// Always `"Ed25519"` for Slice 1.
+    /// Always `"Ed25519"` for.
     pub algorithm: String,
     /// Liveness flag — Python parity.
     pub ok: bool,
@@ -135,7 +135,7 @@ pub struct AuditEntry {
 /// semantics: every variant here causes the caller's operation to be
 /// rejected — none of them are recoverable as ALLOW.
 ///
-/// ARY-1883 Phase 2a Step 2 / Addendum 2a §4 — promoted from the
+///   Step 2 / Addendum 2a §4 — promoted from the
 /// monolithic `KernelError` so that:
 ///
 /// - `Decision(KernelDecisionError)` carries the **caller-visible**
@@ -159,7 +159,7 @@ pub enum KernelClientError {
     /// Kernel response signature did not match the pinned public key,
     /// or the token failed any structural / temporal verification
     /// step. Treated as a hard refusal — possibly a tampered or
-    /// substituted kernel (ARY-1881 Phase 4 / ARY-1886 key-pinning AC).
+    /// substituted kernel (  /  key-pinning AC).
     #[error("signature verification failed: {0}")]
     Verification(#[from] KernelTokenError),
 
@@ -179,7 +179,7 @@ impl From<KernelDecisionError> for KernelClientError {
     }
 }
 
-// ARY-1883 Phase 2a Step 2 — the pre-promotion `KernelError` enum has
+//   Step 2 — the pre-promotion `KernelError` enum has
 // been replaced by `KernelClientError` above per Addendum 2a §4. There
 // is no transitional alias: the spec calls for the old enum to be
 // removed and the in-crate callers (`client.rs`, `circuit_breaker.rs`)
@@ -195,7 +195,7 @@ mod tests {
 
     #[test]
     fn authorize_request_traceparent_omitted_when_none() {
-        // Per ARY-1990 W4, traceparent is optional. JSON output must
+        // Per W4, traceparent is optional. JSON output must
         // not emit `"traceparent": null` — the contract pins
         // skip_serializing_if = "Option::is_none".
         let req = AuthorizeRequest {
@@ -211,8 +211,8 @@ mod tests {
 
     #[test]
     fn unavailable_error_is_fail_closed_path() {
-        // ARY-1883 AC2 (R): Unavailable must NOT be confusable with
-        // an ALLOW path. After the Phase 2a Step 2 type split the
+        //  AC2 (R): Unavailable must NOT be confusable with
+        // an ALLOW path. After the Step 2 type split the
         // unavailable signal lives inside KernelDecisionError, wrapped
         // by the adapter's KernelClientError::Decision variant. The
         // structural test is unchanged: it must remain distinguishable.

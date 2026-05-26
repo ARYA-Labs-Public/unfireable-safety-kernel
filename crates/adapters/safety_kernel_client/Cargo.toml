@@ -1,14 +1,14 @@
 # crates/adapters/safety_kernel_client — Rust Safety Kernel client SDK.
 #
-# Promoted from `crates/adapters/src/safety_kernel_client/` (ARY-1990 W4)
-# to its own nested workspace member under ARY-1883 Phase 2a Step 2 per
-# ADR-014 Slice 1 Addendum 2a (docs/adr/adr-014-slice-1-addendum-2a-client.md).
+# Promoted from `crates/adapters/src/safety_kernel_client/`
+# to its own nested workspace member under Step 2 per
+#  Addendum 2a (docs/adr/adr-014-slice-1-addendum-2a-client.md).
 #
 # Why a separate crate (Addendum 2a §3):
 #   - Lets the client SDK declare its own TLS/transport deps (rustls,
 #     tokio-rustls, webpki-roots, wiremock) without leaking them into
 #     the rest of the adapters crate.
-#   - Keeps the boundary explicit so the public-repo cut (ARY-1884)
+#   - Keeps the boundary explicit so the public-repo cut
 #     can lift this crate intact.
 #   - Cargo-deny scopes the SDK's supply chain independently.
 #
@@ -23,7 +23,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
-description = "Rust client SDK for the QantmOrchstrtr-RSI Safety Kernel HTTP service."
+description = "Rust client SDK for the safety-kernel HTTP service."
 
 [lib]
 name = "qorch_safety_kernel_client"
@@ -55,9 +55,9 @@ async-trait = "0.1"
 # Crate-local TLS dependencies (Addendum 2a §2 — rustls only, NO
 # native-tls / NO openssl-sys / NO aws-lc-rs; cargo-deny enforces the ban).
 # Not promoted to the workspace pin yet because this crate is the only
-# consumer; promotion is the second-consumer trigger per ADR-014.
+# consumer; promotion is the second-consumer trigger 
 #
-# PT-1883-01 fix (ARY-2113): rustls + tokio-rustls default features pull
+#  fix: rustls + tokio-rustls default features pull
 # aws-lc-rs, which the ADR forbids. Mirror the server crate's pattern
 # (default-features = false + explicit ring/std/tls12/logging features).
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }

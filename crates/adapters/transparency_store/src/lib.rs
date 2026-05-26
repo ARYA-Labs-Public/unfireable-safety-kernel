@@ -1,5 +1,5 @@
-//! Append-only Merkle transparency-log storage adapter (ADR-014
-//! Phase 3 §5, ARY-1885 Step 4).
+//! Append-only Merkle transparency-log storage adapter (
+//!  §5,  Step 4).
 //!
 //! Two impls are provided:
 //!
@@ -8,8 +8,8 @@
 //!     tests, by the reconciler in dev, and by anyone who wants to
 //!     wire the trait without standing up Postgres.
 //!   - [`postgres::PgTransparencyStore`] — Postgres-backed production
-//!     store. Uses `SERIALIZABLE` isolation per ADR-014 Phase 3 §5;
-//!     `INSERT ... ON CONFLICT (idempotency_key) DO UPDATE ...
+//!     store. Uses `SERIALIZABLE` isolation per;
+//!     `INSERT... ON CONFLICT (idempotency_key) DO UPDATE...
 //!     RETURNING` guarantees that retried appends return the
 //!     **existing** row's index rather than minting a new one (ADR §6
 //!     idempotency demand).
@@ -36,7 +36,7 @@ use qorch_domain::transparency::{InclusionProof, MerkleLeaf, VerificationError};
 ///
 /// `idempotency_key` is a caller-chosen 32-byte fingerprint that the
 /// store de-duplicates on. The kernel uses SHA-256(token bytes) per
-/// ADR-014 Phase 3 §6; this trait does not enforce that choice — it
+///; this trait does not enforce that choice — it
 /// just requires the key be stable across retries of the same logical
 /// append.
 #[derive(Debug, Clone, PartialEq, Eq)]

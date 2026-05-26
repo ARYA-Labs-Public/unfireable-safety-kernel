@@ -1,8 +1,8 @@
-//! ARY-1883 Phase 2a /purple-team adversarial campaigns.
+//!   /purple-team adversarial campaigns.
 //!
 //! Session: ary1883-pt-5d8d4b5c.
 //! Worktree: /home/s/qo-ary1883 (branch
-//! seth/ary-1883-ary-1881-phase-2a-build-safety-kernel-client-sdk-network).
+//! seth/--phase-2a-build-safety-kernel-client-sdk-network).
 //!
 //! This file runs the adversarial probes that exercise the FAIL-CLOSED
 //! invariants of the Safety Kernel client SDK. Each campaign is a Rule-5
@@ -22,9 +22,9 @@
 //!
 //! Campaigns covered out-of-band (NOT in this file):
 //!   C — Cert-pinning bypass: external curl + mismatched CA; result
-//!       written to docs/security/ary-1883-purple-team-findings/.
+//!       written to docs/security/-purple-team-findings/.
 //!   G — Provider sneak-in: workspace-wide grep + cargo-tree analysis;
-//!       result written to docs/security/ary-1883-purple-team-findings/.
+//!       result written to docs/security/-purple-team-findings/.
 
 #![allow(
     clippy::unwrap_used,
@@ -228,7 +228,7 @@ fn campaign_d_partition_fail_closed_100_concurrent() {
     for h in handles {
         match h.join().unwrap() {
             Ok(()) => ok_count += 1,
-            Err(KernelClientError::Decision(KernelDecisionError::Unavailable { .. })) => {
+            Err(KernelClientError::Decision(KernelDecisionError::Unavailable {.. })) => {
                 unavail_count += 1;
             }
             Err(_) => other_count += 1,
@@ -288,7 +288,7 @@ fn campaign_e_half_open_race_exactly_one_probe() {
     for h in handles {
         match h.join().unwrap() {
             Ok(()) => ok_count += 1,
-            Err(KernelClientError::Decision(KernelDecisionError::Unavailable { .. })) => {
+            Err(KernelClientError::Decision(KernelDecisionError::Unavailable {.. })) => {
                 unavail_count += 1;
             }
             Err(other) => panic!("unexpected error type during HalfOpen race: {other:?}"),
@@ -378,7 +378,7 @@ async fn campaign_f_slow_loris_timeout_fires() {
     // below the configured 5s timeout (we allow some slack for
     // scheduler + tokio overhead).
     match result {
-        Err(KernelClientError::Decision(KernelDecisionError::Unavailable { .. })) => {}
+        Err(KernelClientError::Decision(KernelDecisionError::Unavailable {.. })) => {}
         other => panic!("expected Decision(Unavailable) on slow-loris, got {other:?}"),
     }
     assert!(
@@ -561,7 +561,7 @@ async fn campaign_i_audit_chain_traceparent_round_trip() {
         .authorize(&req)
         .await
         .expect("authorize must succeed against valid mock");
-    assert!(matches!(decision, KernelDecision::Allow { .. }));
+    assert!(matches!(decision, KernelDecision::Allow {.. }));
 
     // (a) Server side received exactly the traceparent we sent.
     let kernel_saw = captured_tp.lock().unwrap().clone();

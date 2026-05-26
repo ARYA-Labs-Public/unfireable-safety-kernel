@@ -1,18 +1,18 @@
-//! Postgres-backed `TransparencyStore` (ADR-014 Phase 3 §5).
+//! Postgres-backed `TransparencyStore` ().
 //!
 //! Schema is in `migrations/0001_transparency_log.sql`. Idempotency
 //! is enforced via the `UNIQUE (idempotency_key)` constraint and an
-//! `INSERT ... ON CONFLICT (idempotency_key) DO UPDATE SET
-//! leaf_index = transparency_log.leaf_index RETURNING ...` pattern
+//! `INSERT... ON CONFLICT (idempotency_key) DO UPDATE SET
+//! leaf_index = transparency_log.leaf_index RETURNING...` pattern
 //! that surfaces the **existing** row's index on retry.
 //!
-//! Isolation: per ADR-014 Phase 3 §5 the production store runs at
+//! Isolation: per the production store runs at
 //! `SERIALIZABLE` isolation. We set the isolation level per
 //! transaction (no DB-wide change required) and let Postgres detect
 //! serialization conflicts; the caller decides whether to retry the
 //! outer logical operation.
 //!
-//! The implementation is intentionally minimal — Step 5 of ARY-1885
+//! The implementation is intentionally minimal — Step 5 of 
 //! is the one that wires routes against this adapter and adds the
 //! integration tests against a real DB. The unit-level confidence
 //! comes from [`crate::memory`].
@@ -49,7 +49,7 @@ impl PgTransparencyStore {
 
     /// Load every leaf in `leaf_index` order. The in-process Merkle
     /// helpers (`compute_root`, `build_inclusion_proof_pure`) need
-    /// the full leaf list. The transparency-log service ARY-1885 is
+    /// the full leaf list. The transparency-log service is
     /// sized for O(10^6) appends over the burn-in horizon; for that
     /// scale a single ordered scan + serde is acceptable. Future
     /// work (out of scope here): cache the tree in memory, or
@@ -225,7 +225,7 @@ impl TransparencyStore for PgTransparencyStore {
 mod tests {
     //! Integration tests against a live Postgres instance. Gated
     //! behind `#[ignore]` so `cargo test` stays green without a DB.
-    //! Step 5 of ARY-1885 wires these to CI with an ephemeral
+    //! Step 5 of wires these to CI with an ephemeral
     //! container; until then run locally as:
     //!
     //! ```sh

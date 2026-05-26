@@ -1,4 +1,4 @@
-//! Cargo integration-test entry point for the ARY-1883 /purple-team
+//! Cargo integration-test entry point for the  /purple-team
 //! adversarial campaign suite (session ary1883-pt-5d8d4b5c).
 //!
 //! The actual campaigns live in `tests/purple/adversarial_campaigns.rs`

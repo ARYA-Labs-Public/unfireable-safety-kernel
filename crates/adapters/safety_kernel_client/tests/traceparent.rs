@@ -1,4 +1,4 @@
-//! ARY-1883 Phase 2a — Traceparent propagation test (AC8).
+//!   — Traceparent propagation test (AC8).
 //!
 //! AC8: a caller-supplied W3C `traceparent` MUST reach the kernel as
 //! an HTTP **header** (never as a JSON body field), and the kernel's
@@ -108,7 +108,7 @@ async fn ac8_traceparent_propagated_as_header_not_body_field() {
     };
     let result = client.authorize(&req).await;
     assert!(
-        matches!(result, Ok(KernelDecision::Allow { .. })),
+        matches!(result, Ok(KernelDecision::Allow {.. })),
         "AC8 happy path: expected Allow with header match, got {result:?}"
     );
 
@@ -166,7 +166,7 @@ async fn ac8_none_traceparent_omits_header_does_not_error() {
         "ok": true,
     });
 
-    // Note: we do NOT add a `header("traceparent", ...)` matcher here.
+    // Note: we do NOT add a `header("traceparent",...)` matcher here.
     // wiremock matches any header set; we instead use a body-only
     // matcher and inspect the captured request after.
     Mock::given(method("POST"))
@@ -185,7 +185,7 @@ async fn ac8_none_traceparent_omits_header_does_not_error() {
     };
     let result = client.authorize(&req).await;
     assert!(
-        matches!(result, Ok(KernelDecision::Allow { .. })),
+        matches!(result, Ok(KernelDecision::Allow {.. })),
         "AC8 None path: expected Allow, got {result:?}"
     );
 

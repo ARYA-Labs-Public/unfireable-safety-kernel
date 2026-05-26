@@ -1,14 +1,14 @@
-// ARY-1883 Phase 2a Step 2: same scaffold-stage allows that the parent
+//   Step 2: same scaffold-stage allows that the parent
 // `crates/adapters/src/lib.rs` carried before the module was promoted to
 // its own crate. Removing them is a separate code-quality pass (Step 3+).
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-//! Safety Kernel client adapter — ARY-1881 Phase 2a (ARY-1883).
+//! Safety Kernel client adapter —.
 //!
 //! Rust client SDK for the Safety Kernel HTTP service shipped by
-//! ARY-1990 (crates/services/safety-kernel/). Per ARY-2020
+//!  (crates/services/safety-kernel/). Per 
 //! reconciliation, this module is the Rust substrate equivalent of the
 //! Python `packages/safety/client/` SDK; the two coexist while
 //! per-slice ports complete.
@@ -33,10 +33,10 @@
 //! - `circuit_breaker` — Fail-closed breaker driven by `qorch_domain::safety::CircuitState`
 //! - `mtls`            — rustls config factory for mTLS to the kernel
 //! - `token`           — Ed25519 verifier wrapper using pinned public key
-//! - `reqwest_client`  — Slice 2 DDI dispatcher SK client (ARY-1991
+//! - `reqwest_client`  —   dispatcher SK client (
 //!                       MED-2): `ReqwestSafetyKernelClient` impl of
 //!                       `qorch_application::safety_kernel::SafetyKernelClient`.
-//!                       Predates this Phase 2a SDK and is still used by
+//!                       Predates this SDK and is still used by
 //!                       the `qorch-ddi-dispatch` binary; kept as a
 //!                       submodule + re-exported so that import path
 //!                       keeps resolving while the two SDKs converge.

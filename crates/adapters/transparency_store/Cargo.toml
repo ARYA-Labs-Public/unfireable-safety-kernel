@@ -1,5 +1,5 @@
 # crates/adapters/transparency_store — append-only Merkle ledger
-# storage adapter (ADR-014 Phase 3 §5, ARY-1885 Step 4).
+# storage adapter (,  Step 4).
 #
 # This is the *only* place I/O is allowed for the transparency-log
 # storage layer. Postgres is the production backend (CLAUDE.md "Rust +
@@ -18,7 +18,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
-description = "Append-only Merkle transparency-log storage adapter (Postgres + in-memory) for ARY-1885."
+description = "Append-only Merkle transparency-log storage adapter (Postgres + in-memory) for."
 
 [lib]
 name = "qorch_transparency_store"

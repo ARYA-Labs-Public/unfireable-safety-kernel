@@ -13,7 +13,7 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 
 use super::circuit_breaker::CircuitBreaker;
 use super::token::PinnedKeyVerifier;
-// ARY-1883 Phase 2a Step 2 — KernelClientError replaces the pre-split
+//   Step 2 — KernelClientError replaces the pre-split
 // KernelError; the unavailable / denied signal now lives inside
 // KernelDecisionError, wrapped by KernelClientError::Decision.
 use super::types::{
@@ -289,7 +289,7 @@ impl SafetyKernelClient {
     /// `public_key_b64` is the kernel's CURRENT signing key — the SDK
     /// caller compares it against the **pinned** verifier's fingerprint
     /// (via `pinned_key_fingerprint()`) and aborts the boot sequence if
-    /// they diverge (ADR-1886 AC9). This adapter intentionally does NOT
+    /// they diverge ( AC9). This adapter intentionally does NOT
     /// perform that comparison; the boot/wiring layer owns the abort
     /// policy.
     pub async fn public_key(
@@ -379,7 +379,7 @@ mod tests {
     fn client_exposes_pinned_key_fingerprint() {
         // Sanity check that the fingerprint surface is present at
         // construction time — used by the boot-log smoke test in the
-        // wiring checklist (ARY-1889 docs/integration/wiring-checklist.md).
+        // wiring checklist ( docs/integration/wiring-checklist.md).
         let signing = ed25519_dalek::SigningKey::from_bytes(&[3u8; 32]);
         let pubkey = signing.verifying_key().to_bytes();
         let expected_fp =

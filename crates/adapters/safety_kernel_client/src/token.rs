@@ -1,6 +1,6 @@
 //! Token verifier wrapper — pinned-key Ed25519 verification.
 //!
-//! ARY-1881 Phase 4 / ARY-1886 AC9: the client SDK MUST reject any
+//!   /  AC9: the client SDK MUST reject any
 //! `authorize()` response signed with a public key other than the one
 //! pinned at construction time. This is the structural defence against
 //! a substituted or tampered kernel.
@@ -35,7 +35,7 @@ pub struct PinnedKeyVerifier {
 impl PinnedKeyVerifier {
     /// Construct a verifier pinned to a specific 32-byte Ed25519 public
     /// key. Use the public key embedded in `arya-contracts` for the
-    /// installed kernel version (ARY-1886 AC8).
+    /// installed kernel version.
     ///
     /// # Errors
     ///
@@ -78,7 +78,7 @@ impl PinnedKeyVerifier {
     /// `now_epoch_seconds` is the caller-supplied wall-clock value,
     /// sourced from a `Clock` in the adapter layer.
     ///
-    /// **Audience claim (`expected_aud`)**: per PT-S2-M1 (ARY-2028
+    /// **Audience claim (`expected_aud`)**: per  (
     /// slice 5), this adapter passes `None` — preserving the legacy
     /// permissive verifier behaviour for callers that have not yet
     /// migrated. Callers that need cross-tenant replay protection
@@ -98,7 +98,7 @@ impl PinnedKeyVerifier {
     }
 
     /// Same as `verify`, but requires the token's `aud` claim to match
-    /// `expected_aud`. PT-S2-M1 (ARY-2028 slice 5) — closes the
+    /// `expected_aud`.  ( slice 5) — closes the
     /// cross-tenant replay surface between `/kernel/v1/authorize` and
     /// `/policy/*` tokens. Callers that know which endpoint they are
     /// verifying for should prefer this method over `verify`.
@@ -165,7 +165,7 @@ mod tests {
 
     #[test]
     fn pinned_verifier_rejects_token_signed_with_attacker_key() {
-        // ARY-1886 AC9 / ARY-1883 Migration Note AC8 (R): the verifier
+        //  AC9 /  Migration Note AC8 (R): the verifier
         // MUST reject any response signed with a key other than the
         // pinned one. This is the structural defence against kernel
         // substitution / tampering.
@@ -187,7 +187,7 @@ mod tests {
 
     #[test]
     fn pinned_verifier_rejects_expired_token() {
-        // ARY-1886 AC14: replay of an expired token must be rejected.
+        //  AC14: replay of an expired token must be rejected.
         let (signing, public) = fixed_keypair();
         let now = 1_700_000_000.0;
         let token = sign_kernel_token(&sample_claims(now), &signing);

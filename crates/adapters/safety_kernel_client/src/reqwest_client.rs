@@ -1,7 +1,7 @@
 //! Reqwest-based SK client adapter.
 //!
 //! Production impl of [`qorch_application::safety_kernel::SafetyKernelClient`]
-//! for the DDI dispatcher (ARY-1991 MED-2 remediation). POSTs an
+//! for the dispatcher ( MED-2 remediation). POSTs an
 //! `AuthorizeRequest` to the SK service's `/kernel/v1/authorize`
 //! endpoint with the `x-api-key` header set from
 //! `$QORCH_KERNEL_API_KEY_WORKER` per CLAUDE.md "Auth keys".
@@ -199,7 +199,7 @@ mod tests {
         };
         let result = client.authorize(claims).await;
         match result {
-            Err(SafetyKernelError::Unreachable { .. }) => {}
+            Err(SafetyKernelError::Unreachable {.. }) => {}
             other => panic!("expected Unreachable, got {other:?}"),
         }
     }

@@ -1,4 +1,4 @@
-//! ARY-1883 Phase 2a — mTLS smoke test (AC4 direct-rustls path).
+//!   — mTLS smoke test (AC4 direct-rustls path).
 //!
 //! This test stands up a real rustls-backed HTTPS server in-process
 //! that REQUIRES mTLS (client certificate verified against a known CA),

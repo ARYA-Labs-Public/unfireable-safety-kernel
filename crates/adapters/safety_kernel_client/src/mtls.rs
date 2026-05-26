@@ -1,6 +1,6 @@
 //! mTLS configuration factory for the Safety Kernel client.
 //!
-//! Per ARY-1883 Migration Note Step 5R and ADR-014 Slice 1 Addendum
+//! Per Migration Note Step 5R and Addendum
 //! 2a §2 (anti-pin: rustls only, no native-tls), the adapter constructs
 //! a `rustls::ClientConfig` from caller-supplied cert paths or in-memory
 //! PEM bytes. Path resolution and env-var reading happen in the
@@ -77,7 +77,7 @@ pub enum MtlsError {
 /// Container for client certificate + private key PEM bytes plus the
 /// CA bundle the server presents. Caller loads these from whatever
 /// secret backend they use (`gcp_secret_manager`, `aws_secrets_manager`,
-/// PKCS#11 — see ARY-1886).
+/// PKCS#11 — see ).
 #[derive(Debug, Clone)]
 pub struct MtlsMaterial {
     /// PEM-encoded client certificate chain.
@@ -243,7 +243,7 @@ mod tests {
         let bad = Path::new("/tmp/qorch-ary1883-nonexistent.pem");
         let result = make_client_config(bad, bad, None);
         match result {
-            Err(MtlsError::ReadFile { .. }) => {}
+            Err(MtlsError::ReadFile {.. }) => {}
             other => panic!("expected ReadFile error, got {other:?}"),
         }
     }
@@ -267,7 +267,7 @@ mod tests {
         let _ = std::fs::remove_file(&cert);
         let _ = std::fs::remove_file(&key);
         match result {
-            Err(MtlsError::EmptyCertificateChain { .. }) => {}
+            Err(MtlsError::EmptyCertificateChain {.. }) => {}
             other => panic!("expected EmptyCertificateChain, got {other:?}"),
         }
     }

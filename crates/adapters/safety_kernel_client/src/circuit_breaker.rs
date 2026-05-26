@@ -9,7 +9,7 @@
 //! operation rather than treat the missing kernel response as
 //! permissive.
 //!
-//! ARY-1883 Phase 2a Step 5 — audit hardening against ADR §6:
+//!   Step 5 — audit hardening against ADR §6:
 //! 1. HalfOpen single-probe gate (exactly ONE probe in flight; contended
 //!    callers receive `Err(Unavailable)` immediately — they do NOT
 //!    queue and they do NOT block).
@@ -24,7 +24,7 @@ use std::sync::Mutex;
 
 use qorch_domain::safety::{CircuitConfig, CircuitState, CircuitTransition, Clock};
 
-// ARY-1883 Phase 2a Step 2 — KernelError replaced by KernelClientError;
+//   Step 2 — KernelError replaced by KernelClientError;
 // the Unavailable signal is now nested under KernelDecisionError per
 // Addendum 2a §4.
 use super::types::{KernelClientError, KernelDecisionError};
@@ -319,8 +319,8 @@ mod tests {
 
     #[test]
     fn open_breaker_returns_unavailable_within_cooldown_window() {
-        // ARY-1883 AC2 (R): FAIL-CLOSED. Open breaker MUST return
-        // Unavailable, never auto-approve. After Phase 2a Step 2 the
+        //  AC2 (R): FAIL-CLOSED. Open breaker MUST return
+        // Unavailable, never auto-approve. After Step 2 the
         // Unavailable signal is nested under KernelDecisionError,
         // wrapped by KernelClientError::Decision.
         let (b, _c) = fixture(1_000.0);
@@ -385,7 +385,7 @@ mod tests {
         assert_eq!(b.state(), CircuitState::Closed);
     }
 
-    // ARY-1883 Phase 2a Step 5 — ADR §6 audit tests.
+    //   Step 5 — ADR §6 audit tests.
 
     /// ADR §6 failure classifier: HTTP 5xx counts as a failure. The
     /// breaker itself doesn't see HTTP codes — `client.rs` translates
@@ -451,7 +451,7 @@ mod tests {
         c.advance_by(29.9);
         assert!(matches!(
             b.before_call(),
-            Err(KernelClientError::Decision(KernelDecisionError::Unavailable { .. }))
+            Err(KernelClientError::Decision(KernelDecisionError::Unavailable {.. }))
         ));
         assert_eq!(b.state(), CircuitState::Open);
         // Post-cooldown: next call transitions to HalfOpen and is allowed.
@@ -466,7 +466,7 @@ mod tests {
     /// immediately — no queue, no block.
     ///
     /// The reason string is `"circuit half-open probe in flight"` (spec
-    /// literal — see the ADR-014 Slice 1 Addendum 2a §6).
+    /// literal — see the Addendum 2a §6).
     #[test]
     fn contended_half_open_second_caller_receives_unavailable() {
         let (b, c) = fixture(1_000.0);
