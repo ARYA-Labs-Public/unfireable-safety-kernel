@@ -5,7 +5,7 @@
 //! stub (the `MockSafetyKernelClient` from the middleware crate) so
 //! no real kernel is needed.
 //!
-//! Per ADR-014 Phase 2c §9 AC13 (R): "reference app runs against
+//! Per AC13 (R): "reference app runs against
 //! real kernel; tests pass in CI". This file ships the in-process
 //! variant; the live-kernel variant lives behind `--ignored` and is
 //! exercised by the `/test` wave's docker-compose harness.

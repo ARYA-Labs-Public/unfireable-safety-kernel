@@ -1,4 +1,4 @@
-"""Example three-tier policy + DSL for Safety Kernel middleware (internal-ref 2c-python)."""
+"""Example three-tier policy + DSL for Safety Kernel middleware."""
 
 from examples.policy.default_policy import (
     DEFAULT_POLICY,
