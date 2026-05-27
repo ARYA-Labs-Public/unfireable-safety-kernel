@@ -69,6 +69,76 @@ impl Default for CircuitConfig {
     }
 }
 
+/// Outcome of the pre-call circuit-breaker gate, expressed without any
+/// I/O, clock, or lock. This is the *decision core* of the adapter's
+/// `CircuitBreaker::before_call`: the adapter computes the two boolean
+/// inputs (`cooldown_elapsed` from its injected `Clock`, `probe_in_flight`
+/// from its locked state) and then delegates the decision to
+/// [`gate_decision`]. Keeping the decision pure is what makes it
+/// formally verifiable — see the `#[cfg(kani)]` proof harness below,
+/// which discharges the FAIL-CLOSED theorem exhaustively over every
+/// `(state, cooldown_elapsed, probe_in_flight)` input.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GateDecision {
+    /// The outbound call may proceed. (`Closed`, or `HalfOpen` with no
+    /// probe already in flight.)
+    Permit,
+    /// The call MUST be refused fail-closed; the adapter maps this to
+    /// `KernelDecisionError::Unavailable`. Never an ALLOW.
+    RefuseUnavailable,
+    /// `Open` and the cooldown has elapsed: the adapter transitions the
+    /// breaker `Open -> HalfOpen` and permits exactly one probe.
+    PermitProbeAfterCooldown,
+}
+
+/// Pure FAIL-CLOSED gate decision for the circuit breaker.
+///
+/// This function is the decision core that
+/// `crates/adapters/src/safety_kernel_client/circuit_breaker.rs`'s
+/// `before_call` delegates to. Binding the production call path to this
+/// exact function (rather than a re-implementation) is what makes the
+/// formal proof meaningful: the verified function *is* the one the
+/// shipped code calls.
+///
+/// The FAIL-CLOSED theorem (proved exhaustively by the `#[cfg(kani)]`
+/// harness, and mirroring a model-level SMT proof of the same
+/// invariant):
+///
+/// > A permit decision (`Permit` or `PermitProbeAfterCooldown`) is
+/// > reachable *only* from `Closed`, from `HalfOpen` with no probe in
+/// > flight, or from `Open` after the cooldown has elapsed. In `Open`
+/// > with the cooldown not yet elapsed, the gate always refuses.
+///
+/// There is no `(state, cooldown_elapsed, probe_in_flight)` assignment
+/// that yields a permit from an `Open` breaker whose cooldown has not
+/// elapsed. The kernel being unreachable (which is what drives the
+/// breaker `Open`) therefore cannot be silently converted into an
+/// allow.
+#[must_use]
+pub const fn gate_decision(
+    state: CircuitState,
+    cooldown_elapsed: bool,
+    probe_in_flight: bool,
+) -> GateDecision {
+    match state {
+        CircuitState::Closed => GateDecision::Permit,
+        CircuitState::HalfOpen => {
+            if probe_in_flight {
+                GateDecision::RefuseUnavailable
+            } else {
+                GateDecision::Permit
+            }
+        }
+        CircuitState::Open => {
+            if cooldown_elapsed {
+                GateDecision::PermitProbeAfterCooldown
+            } else {
+                GateDecision::RefuseUnavailable
+            }
+        }
+    }
+}
+
 /// A summary the adapter records each time the breaker transitions —
 /// used by audit logging and by `tests/adversarial/` fixtures that
 /// assert FAIL-CLOSED behaviour.
@@ -122,6 +192,115 @@ mod tests {
             let j = serde_json::to_string(&s).unwrap();
             let back: CircuitState = serde_json::from_str(&j).unwrap();
             assert_eq!(s, back);
+        }
+    }
+
+    /// Exhaustive (12-case) check of the FAIL-CLOSED gate decision —
+    /// the concrete-enumeration counterpart of the `#[cfg(kani)]`
+    /// symbolic proof. Runs in ordinary CI without a verifier installed.
+    #[test]
+    fn gate_decision_fail_closed_exhaustive() {
+        for state in [
+            CircuitState::Closed,
+            CircuitState::Open,
+            CircuitState::HalfOpen,
+        ] {
+            for cooldown_elapsed in [false, true] {
+                for probe_in_flight in [false, true] {
+                    let d = gate_decision(state, cooldown_elapsed, probe_in_flight);
+                    let permits = matches!(
+                        d,
+                        GateDecision::Permit | GateDecision::PermitProbeAfterCooldown
+                    );
+                    // FAIL-CLOSED: a permit is reachable only from the
+                    // three benign assignments. Anything else must refuse.
+                    let permit_is_legitimate = matches!(state, CircuitState::Closed)
+                        || (matches!(state, CircuitState::HalfOpen) && !probe_in_flight)
+                        || (matches!(state, CircuitState::Open) && cooldown_elapsed);
+                    assert_eq!(
+                        permits, permit_is_legitimate,
+                        "fail-closed violated at state={state:?} cooldown_elapsed={cooldown_elapsed} probe={probe_in_flight}"
+                    );
+                    // Open within cooldown ALWAYS refuses.
+                    if matches!(state, CircuitState::Open) && !cooldown_elapsed {
+                        assert_eq!(d, GateDecision::RefuseUnavailable);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Symbolic formal-verification harness for the FAIL-CLOSED gate
+/// decision. Compiled only under `cargo kani`; excluded from ordinary
+/// builds and tests (no `kani` dependency is pulled in normal mode).
+///
+/// These proofs discharge — at the level of the *actual shipped Rust
+/// function* `gate_decision`, not a separate model — the same
+/// fail-closed invariant the SMT harness proves over a symbolic model of
+/// the gate. Together they close the model-fidelity gap: SMT proves the
+/// invariant's logical structure; Kani proves the Rust implementation
+/// realizes it for every input.
+#[cfg(kani)]
+mod kani_proofs {
+    use super::{gate_decision, CircuitState, GateDecision};
+
+    /// Build a symbolic `CircuitState` covering all three variants.
+    fn any_state() -> CircuitState {
+        match kani::any::<u8>() % 3 {
+            0 => CircuitState::Closed,
+            1 => CircuitState::Open,
+            _ => CircuitState::HalfOpen,
+        }
+    }
+
+    /// FAIL-CLOSED, Arm A (mirrors the model-level SMT proof
+    /// Arm A): in `Open` with the cooldown NOT elapsed, the gate
+    /// refuses — for every `probe_in_flight` value. Never a permit.
+    #[kani::proof]
+    fn open_within_cooldown_always_refuses() {
+        let probe_in_flight: bool = kani::any();
+        let d = gate_decision(CircuitState::Open, false, probe_in_flight);
+        assert!(matches!(d, GateDecision::RefuseUnavailable));
+    }
+
+    /// No permit from `Open` unless the cooldown has elapsed.
+    #[kani::proof]
+    fn open_permits_only_after_cooldown() {
+        let cooldown_elapsed: bool = kani::any();
+        let probe_in_flight: bool = kani::any();
+        let d = gate_decision(CircuitState::Open, cooldown_elapsed, probe_in_flight);
+        if matches!(d, GateDecision::Permit | GateDecision::PermitProbeAfterCooldown) {
+            assert!(cooldown_elapsed);
+        }
+    }
+
+    /// HalfOpen single-probe gate: with a probe already in flight, the
+    /// gate refuses regardless of cooldown.
+    #[kani::proof]
+    fn half_open_with_probe_in_flight_refuses() {
+        let cooldown_elapsed: bool = kani::any();
+        let d = gate_decision(CircuitState::HalfOpen, cooldown_elapsed, true);
+        assert!(matches!(d, GateDecision::RefuseUnavailable));
+    }
+
+    /// Full characterization over the entire symbolic input domain: a
+    /// permit decision is reachable ONLY from `Closed`, `HalfOpen`
+    /// without a probe in flight, or `Open` after cooldown. This is the
+    /// exhaustive FAIL-CLOSED theorem.
+    #[kani::proof]
+    fn permit_characterization_is_exhaustive() {
+        let state = any_state();
+        let cooldown_elapsed: bool = kani::any();
+        let probe_in_flight: bool = kani::any();
+        let d = gate_decision(state, cooldown_elapsed, probe_in_flight);
+        let permits =
+            matches!(d, GateDecision::Permit | GateDecision::PermitProbeAfterCooldown);
+        if permits {
+            let legitimate = matches!(state, CircuitState::Closed)
+                || (matches!(state, CircuitState::HalfOpen) && !probe_in_flight)
+                || (matches!(state, CircuitState::Open) && cooldown_elapsed);
+            assert!(legitimate);
         }
     }
 }

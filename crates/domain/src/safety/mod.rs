@@ -39,7 +39,9 @@ pub use claims::{
     ApprovalClaims, AuthorizeClaims, ConstraintKind, CoreConstraint, CoreConstraintSet,
     ToClaimsMap, APPROVAL_AUD, KERNEL_AUTHORIZE_AUD,
 };
-pub use client_state::{CircuitConfig, CircuitState, CircuitTransition};
+pub use client_state::{
+    gate_decision, CircuitConfig, CircuitState, CircuitTransition, GateDecision,
+};
 pub use decision::{KernelDecision, KernelDecisionError};
 //  — Episodic chain audit types re-exported for cross-layer
 // audit-chain integrity verification at the Safety Kernel boundary.

@@ -70,6 +70,27 @@ jobs:
         run: cargo publish --dry-run -p qorch-domain --allow-dirty
 
   # ============================================================
+  # Kani: formal verification of the fail-closed gate decision
+  # ============================================================
+  kani:
+    name: Kani (fail-closed proof)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Run Kani on the gate_decision proof harnesses
+        uses: model-checking/kani-github-action@f838096619a707b0f6b2118cf435eaccfa33e51f # v1.1
+        with:
+          working-directory: '.'
+          args: >-
+            -p qorch-domain
+            --harness safety::client_state::kani_proofs::open_within_cooldown_always_refuses
+            --harness safety::client_state::kani_proofs::open_permits_only_after_cooldown
+            --harness safety::client_state::kani_proofs::half_open_with_probe_in_flight_refuses
+            --harness safety::client_state::kani_proofs::permit_characterization_is_exhaustive
+
+  # ============================================================
   # Python: py-defense — lint + test the audit-hook library
   # ============================================================
   python:

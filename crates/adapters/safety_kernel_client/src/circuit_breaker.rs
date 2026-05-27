@@ -22,7 +22,9 @@
 
 use std::sync::Mutex;
 
-use qorch_domain::safety::{CircuitConfig, CircuitState, CircuitTransition, Clock};
+use qorch_domain::safety::{
+    gate_decision, CircuitConfig, CircuitState, CircuitTransition, Clock, GateDecision,
+};
 
 //   Step 2 — KernelError replaced by KernelClientError;
 // the Unavailable signal is now nested under KernelDecisionError per
@@ -110,55 +112,62 @@ impl CircuitBreaker {
     pub fn before_call(&self) -> Result<(), KernelClientError> {
         let now = self.clock.now();
         let mut st = self.state.lock().expect("breaker mutex poisoned");
-        match st.current {
-            CircuitState::Closed => Ok(()),
-            CircuitState::HalfOpen => {
-                // ADR §6 HalfOpen single-probe gate: exactly ONE probe
-                // may be in flight at a time. Concurrent callers receive
-                // `Err(Unavailable)` immediately — they do NOT queue
-                // and they do NOT block.
-                if st.probe_in_flight {
-                    Err(KernelClientError::Decision(
-                        KernelDecisionError::Unavailable {
-                            reason: "circuit half-open probe in flight".to_string(),
-                        },
-                    ))
-                } else {
+
+        // Compute the two boolean inputs to the pure decision exactly as
+        // the original inline logic did (`opened_at.unwrap_or(now)` makes
+        // a freshly-`Open` breaker with no recorded open-time treat the
+        // cooldown as NOT elapsed — fail-closed).
+        let opened = st.opened_at_epoch_seconds.unwrap_or(now);
+        let cooldown_elapsed = now - opened >= self.config.cooldown_seconds;
+
+        // Delegate the FAIL-CLOSED decision to the pure, formally-verified
+        // `gate_decision` in the domain crate (proved exhaustively by the
+        // `#[cfg(kani)]` harness in `qorch_domain::safety::client_state`).
+        // The side effects (probe-gate flip, Open->HalfOpen transition,
+        // audit-log append, tracing) stay here; the *decision* is the
+        // verified function's.
+        match gate_decision(st.current, cooldown_elapsed, st.probe_in_flight) {
+            GateDecision::Permit => {
+                // HalfOpen permit claims the single probe slot.
+                if st.current == CircuitState::HalfOpen {
                     st.probe_in_flight = true;
-                    Ok(())
                 }
+                Ok(())
             }
-            CircuitState::Open => {
-                let opened = st.opened_at_epoch_seconds.unwrap_or(now);
-                if now - opened >= self.config.cooldown_seconds {
-                    // Transition Open -> HalfOpen, allow probe.
-                    let prev = st.current;
-                    let failure_count = st.consecutive_failures;
-                    st.current = CircuitState::HalfOpen;
-                    st.probe_in_flight = true;
-                    st.transitions.push(CircuitTransition {
-                        from: prev,
-                        to: CircuitState::HalfOpen,
-                        at_epoch_seconds: now,
-                        failure_count,
-                    });
-                    tracing::info!(
-                        "circuit breaker {} -> {} (consecutive_failures={})",
-                        state_label(prev),
-                        state_label(CircuitState::HalfOpen),
-                        failure_count,
-                    );
-                    Ok(())
+            GateDecision::PermitProbeAfterCooldown => {
+                // Open -> HalfOpen transition, allow the probe.
+                let prev = st.current;
+                let failure_count = st.consecutive_failures;
+                st.current = CircuitState::HalfOpen;
+                st.probe_in_flight = true;
+                st.transitions.push(CircuitTransition {
+                    from: prev,
+                    to: CircuitState::HalfOpen,
+                    at_epoch_seconds: now,
+                    failure_count,
+                });
+                tracing::info!(
+                    "circuit breaker {} -> {} (consecutive_failures={})",
+                    state_label(prev),
+                    state_label(CircuitState::HalfOpen),
+                    failure_count,
+                );
+                Ok(())
+            }
+            GateDecision::RefuseUnavailable => {
+                // The reason string is state-specific, matching the
+                // original byte-for-byte so existing assertions hold.
+                let reason = if st.current == CircuitState::HalfOpen {
+                    "circuit half-open probe in flight".to_string()
                 } else {
-                    Err(KernelClientError::Decision(
-                        KernelDecisionError::Unavailable {
-                            reason: format!(
-                                "circuit breaker open ({:.1}s remaining in cooldown)",
-                                self.config.cooldown_seconds - (now - opened)
-                            ),
-                        },
-                    ))
-                }
+                    format!(
+                        "circuit breaker open ({:.1}s remaining in cooldown)",
+                        self.config.cooldown_seconds - (now - opened)
+                    )
+                };
+                Err(KernelClientError::Decision(
+                    KernelDecisionError::Unavailable { reason },
+                ))
             }
         }
     }
@@ -435,7 +444,7 @@ mod tests {
         //      untouched. We model that as the absence of any call.
         for _ in 0..50 {
             b.record_success(); // 403 path
-                                // other 4xx path: no call at all
+            // other 4xx path: no call at all
         }
         assert_eq!(b.state(), CircuitState::Closed);
     }
@@ -455,15 +464,12 @@ mod tests {
         c.advance_by(29.9);
         assert!(matches!(
             b.before_call(),
-            Err(KernelClientError::Decision(
-                KernelDecisionError::Unavailable { .. }
-            ))
+            Err(KernelClientError::Decision(KernelDecisionError::Unavailable {.. }))
         ));
         assert_eq!(b.state(), CircuitState::Open);
         // Post-cooldown: next call transitions to HalfOpen and is allowed.
         c.advance_by(0.2); // total 30.1 s elapsed since open
-        b.before_call()
-            .expect("post-cooldown probe must be allowed");
+        b.before_call().expect("post-cooldown probe must be allowed");
         assert_eq!(b.state(), CircuitState::HalfOpen);
     }
 
@@ -473,7 +479,7 @@ mod tests {
     /// immediately — no queue, no block.
     ///
     /// The reason string is `"circuit half-open probe in flight"` (spec
-    /// literal — see the Addendum 2a §6).
+    /// literal — see the ).
     #[test]
     fn contended_half_open_second_caller_receives_unavailable() {
         let (b, c) = fixture(1_000.0);
@@ -517,8 +523,7 @@ mod tests {
         assert_eq!(b.state(), CircuitState::Open);
         // Cooldown again -> new probe slot must be claimable.
         c.advance_by(31.0);
-        b.before_call()
-            .expect("second cooldown probe must be allowed");
+        b.before_call().expect("second cooldown probe must be allowed");
         assert_eq!(b.state(), CircuitState::HalfOpen);
     }
 
