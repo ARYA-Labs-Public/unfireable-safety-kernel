@@ -32,19 +32,45 @@ Then open <http://localhost:8000/index.html> in a browser. First load takes a fe
 
 ## The nine figures and where they land in the paper
 
-| Fig | Title | Paper § |
-|---|---|---|
-| 1 | In-process vs out-of-process controls | §1–§3 |
-| 2 | The four-seam architecture (with binary-attestation panel) | §3 (P1–P4) · §4 (seams) |
-| 3 | Three alignment layers (training / inference / execution) | §8.1 |
-| 4 | Chain of trust | §4–§5 |
-| 5 | Related systems comparison matrix (P1–P4 + machine-checked invariant) | §7 |
-| 6 | Escapable AI systems taxonomy | §8.2 |
-| 7 | Two-level fail-closed verification (Z3 + Kani) | §6.4 |
-| 8 | Transparency log | §4–§5 |
-| 9 | Static vs dynamic route registration | §4 |
+Static PNG renders below (one per artboard) for browsing on GitHub. The live source — interactive canvas with focus mode, drag-reorder, and per-figure download — is the JSX in `src/` served via `index.html`.
 
-Figure numbers are intentionally omitted from both the visual eyebrow and the footer. LaTeX `\caption{}` will inject "Figure N:" when the paper is typeset; the figures themselves carry only their thematic eyebrow ("THE ARCHITECTURAL MISTAKE, AND THE FIX", "WHERE DOES THE DECISION LIVE?", etc.) and a short footer descriptor. The mapping table above is for editorial reference and not embedded in the rendered figures.
+### Fig 1 — In-process vs out-of-process controls · §1–§3
+
+![Fig 1 — In-process vs out-of-process controls](figures/fig1.png)
+
+### Fig 2 — The four-seam architecture (with binary-attestation panel) · §3 (P1–P4) · §4 (seams)
+
+![Fig 2 — Four-seam architecture](figures/fig2.png)
+
+### Fig 3 — Three alignment layers (training / inference / execution) · §8.1
+
+![Fig 3 — Three alignment layers](figures/fig3.png)
+
+### Fig 4 — Chain of trust · §4–§5
+
+![Fig 4 — Chain of trust](figures/fig4.png)
+
+### Fig 5 — Related systems comparison matrix (P1–P4 + machine-checked invariant) · §7
+
+![Fig 5 — Related systems matrix](figures/fig5.png)
+
+### Fig 6 — Escapable AI systems taxonomy · §8.2
+
+![Fig 6 — Escapable AI systems taxonomy](figures/fig6.png)
+
+### Fig 7 — Two-level fail-closed verification (Z3 + Kani) · §6.4
+
+![Fig 7 — Two-level fail-closed verification](figures/fig7.png)
+
+### Fig 8 — Transparency log · §4–§5
+
+![Fig 8 — Transparency log](figures/fig8.png)
+
+### Fig 9 — Static vs dynamic route registration · §4
+
+![Fig 9 — Static vs dynamic routes](figures/fig9.png)
+
+Figure numbers are intentionally omitted from both the visual eyebrow and the footer of the live JSX renders. LaTeX `\caption{}` will inject "Figure N:" when the paper is typeset; the figures themselves carry only their thematic eyebrow ("THE ARCHITECTURAL MISTAKE, AND THE FIX", "WHERE DOES THE DECISION LIVE?", etc.) and a short footer descriptor. The headings above are for editorial reference and not embedded in the rendered figures.
 
 ## Exporting figures for the paper
 
