@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 485 449" width="485" height="449">
+  <title>ARYA mark (approximate vector)</title>
+  
+  <g fill="#e13b70">
+    
+    <path d="M260 15 L270 15 L430 345 L410 345 L370 260 L200 260 L190 240 L360 240 L290 90 Z"></path>
+    
+    <path d="M48 218 L380 218 L380 236 L48 236 Z"></path>
+    
+    <path d="M48 262 L195 262 L240 310 L260 310 L222 258 L400 258 L400 282 L55 282 Z"></path>
+    
+    <g stroke="#e13b70" stroke-width="2.2" fill="none">
+      
+      <path d="M55 430 L85 380 L115 430 M68 415 L102 415"></path>
+      
+      <path d="M145 430 L145 378 L180 378 Q196 378 196 393 Q196 408 180 408 L160 408 M175 408 L200 430"></path>
+      
+      <path d="M230 378 L255 405 L280 378 M255 405 L255 430"></path>
+      
+      <path d="M310 430 L340 378 L370 430 M323 415 L357 415"></path>
+    </g>
+  </g>
+</svg>

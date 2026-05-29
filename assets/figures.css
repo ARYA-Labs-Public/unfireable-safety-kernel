@@ -1,0 +1,144 @@
+/* =============================================================
+   SAFETY KERNEL — Paper Figures (shared utilities)
+   Built on ARYA tokens. Tuned for paper + web reproduction:
+   strong contrast, mono labels, no decorative gradients.
+   ============================================================= */
+
+/* --- figure frame ------------------------------------------------- */
+.fig {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--navy-900);
+  color: var(--fg-primary);
+  font-family: var(--font-sans);
+  font-weight: var(--w-regular);
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 56px 64px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+.fig *, .fig *::before, .fig *::after { box-sizing: border-box; }
+
+/* --- figure header (eyebrow + title) ------------------------------ */
+.fig-header { display: flex; flex-direction: column; gap: 10px; }
+
+.fig-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: var(--w-bold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.fig-title {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: var(--w-bold);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--white);
+  margin: 0;
+  text-wrap: balance;
+}
+
+.fig-sub {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  max-width: 880px;
+  margin: 0;
+}
+
+/* --- figure body grows --- */
+.fig-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/* --- common label styles ----------------------------------------- */
+.f-mono   { font-family: var(--font-mono); letter-spacing: 0; }
+.f-eyebrow{
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: var(--w-bold);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.f-eyebrow--accent { color: var(--accent); }
+.f-eyebrow--brand  { color: var(--brand); }
+.f-eyebrow--danger { color: var(--danger); }
+
+.f-cap   { font-size: 13px; color: var(--fg-muted); line-height: 1.5; }
+.f-body  { font-size: 14px; color: var(--fg-secondary); line-height: 1.5; }
+.f-tag   {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 8px;
+  font-family: var(--font-mono);
+  font-size: 10px; font-weight: var(--w-bold);
+  letter-spacing: 0.14em; text-transform: uppercase;
+  border: 1px solid var(--border-default);
+  border-radius: 2px;
+  color: var(--fg-secondary);
+  background: rgba(255,255,255,0.02);
+  line-height: 1;
+  white-space: nowrap;
+}
+.f-tag--accent { color: var(--accent); border-color: rgba(0,200,83,0.4); background: rgba(0,200,83,0.06); }
+.f-tag--brand  { color: var(--brand);  border-color: rgba(225,59,112,0.4); background: rgba(225,59,112,0.06); }
+.f-tag--danger { color: var(--danger); border-color: rgba(239,68,68,0.45);  background: rgba(239,68,68,0.07); }
+.f-tag--ghost  { color: var(--fg-muted); }
+
+/* --- card primitives --------------------------------------------- */
+.f-card {
+  background: var(--navy-800);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow-inset-top);
+}
+.f-card--inset    { background: var(--navy-950); }
+.f-card--danger   { border-color: rgba(239,68,68,0.35); }
+.f-card--accent   { border-color: rgba(0,200,83,0.45);  }
+.f-card--brand    { border-color: rgba(225,59,112,0.5); }
+.f-card--dashed   { border-style: dashed; border-color: var(--border-strong); background: rgba(255,255,255,0.015); }
+
+/* --- arrows + connectors (used a lot) ---------------------------- */
+.f-arrow-svg { display: block; overflow: visible; }
+.f-arrow-svg path,
+.f-arrow-svg line { fill: none; stroke: var(--fg-muted); stroke-width: 1.5; }
+.f-arrow-svg .head { fill: var(--fg-muted); stroke: none; }
+
+/* --- footnote / source bar --------------------------------------- */
+.fig-footer {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+.fig-footer .fig-num { color: var(--accent); font-weight: var(--w-bold); }
+.fig-footer .fig-src { color: var(--fg-subtle); }
+
+/* --- generic helpers --------------------------------------------- */
+.f-h-rule { height: 1px; background: var(--border-default); }
+.f-v-rule { width: 1px; background: var(--border-default); align-self: stretch; }
+.f-cross  { color: var(--danger); font-weight: var(--w-bold); }
+.f-check  { color: var(--accent); font-weight: var(--w-bold); }
+
+/* tiny watermark mark */
+.fig-mark {
+  position: absolute; top: 18px; right: 22px;
+  width: 22px; height: 22px;
+  opacity: 0.85;
+}
