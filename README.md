@@ -1,105 +1,161 @@
-# Unfireable Safety Kernel — Paper Figures
+# Safety Kernel
 
-Nine figures for *The Unfireable Safety Kernel: Execution-Time AI Alignment for AI Agents and Other Escapable AI Systems* (Dobrin, 2026), laid out on a design canvas for review.
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Status: early](https://img.shields.io/badge/status-early%20extraction-yellow)](#status)
 
-## How to view
+A fail-closed authorization service for AI systems.
 
-The figures use `<script type="text/babel">` to load the React/JSX files, which requires HTTP (browsers refuse `fetch()` over `file://`). Open the bundle with any local HTTP server:
+The Safety Kernel is the small, hardened gate that sits between every AI agent
+and every consequential action the agent can take. If the kernel is unreachable,
+calls are denied. If the kernel says DENY, calls are denied. If the kernel says
+ALLOW, the call proceeds *and* an entry is appended to a tamper-evident
+transparency log signed by an operator key the kernel itself does not hold.
 
-```bash
-# Python (any platform):
-python3 -m http.server 8000
+It is designed to be:
 
-# Or Node:
-npx serve -p 8000 .
+- **Unfireable.** The kernel is a separate process. The agent cannot kill it,
+  re-deploy it, or write to it. It can only call it.
+- **Fail-closed.** Every seam — nginx, middleware, dispatch hook, client
+  circuit breaker — denies on error.
+- **Auditable.** Every allowed action is signed and logged. The operator key
+  is generated and held outside the kernel; the kernel only verifies.
+- **Language-neutral.** A single OpenAPI contract, one Rust reference
+  binary, and a Python defense library for shops that aren't on Rust yet.
+
+## Status
+
+This repository is the **public extraction** of the safety-kernel architecture.
+
+**What works today:**
+
+- `contracts/openapi/safety_kernel.yaml` — the API contract (single source of truth)
+- `crates/services/safety-kernel/` — the kernel binary (axum + tokio)
+- `crates/services/transparency-log/` — append-only Ed25519-signed audit log
+- `crates/services/safety-kernel-reconciler/` — background reconciliation worker
+- `crates/domain/src/safety/` — pure types and traits (no I/O)
+- `crates/adapters/safety_kernel_client/` — Rust client SDK with fail-closed circuit breaker
+- `crates/adapters/transparency_store/` — Postgres-backed transparency log storage
+- `py-defense/` — Python `safety_kernel_defense` library (audit hook + subprocess propagation, stdlib-only)
+- `examples/` — reference integrations (FastAPI middleware, axum tower::Layer, nginx auth_request, mock kernel + adversarial fixtures, reference Python + Rust apps)
+- `docs/` — architecture, integration guides, deployment, OpenAPI pointer
+
+**What's not here yet:**
+
+- Crate is **not** on [crates.io](https://crates.io) yet. Build from source (instructions below).
+- Python package is **not** on PyPI yet. Install from this repo's `py-defense/` directory.
+- The workspace's `crates/domain/Cargo.toml` manifest is not present in this initial extraction; the source is, but you may need to author the manifest for an end-to-end `cargo build --workspace`. This is being tracked for the v1.0 cut.
+- No prebuilt Docker images on Docker Hub yet — see [`docs/deployment/docker.md`](docs/deployment/docker.md) for the Dockerfile pattern.
+
+## Why a separate service?
+
+Authorization checks inside the agent's own process can be removed by the
+agent — accidentally, through a refactor, or deliberately, through prompt
+injection. Authorization checks in a separate process that the agent cannot
+write to cannot be removed by the agent. That is the property the kernel
+exists to deliver.
+
+## Architecture
+
+```
+   Agent / API client
+        │
+        ▼
+   nginx auth_request   ← coarse network-layer gate
+        │
+        ▼
+   App middleware       ← app-layer gate (FastAPI / axum)
+        │
+        ▼
+   Dispatch hook        ← per-tool gate (defense-in-depth)
+        │
+        ▼
+   Client SDK           ← circuit breaker, fail-closed on Unavailable
+        │
+        ▼
+   Safety Kernel  ←→  Transparency log (Ed25519, append-only)
 ```
 
-Then open <http://localhost:8000/index.html> in a browser. First load takes a few seconds while Babel compiles the JSX in the browser; subsequent navigations are instant.
+Four defense seams, each independently denying on error. See
+[`docs/architecture.md`](docs/architecture.md) for the full design.
 
-## What's here
+## Quickstart (build from source)
 
-| File | Purpose |
+```bash
+# 1. Clone
+git clone https://github.com/ARYA-Labs-PBC/safety-kernel.git
+cd safety-kernel
+
+# 2. Generate an operator Ed25519 keypair (one-time)
+openssl genpkey -algorithm Ed25519 -out operator.key
+openssl pkey -in operator.key -pubout -outform DER \
+  | tail -c 32 | xxd -p -c 64 > operator.pub.hex
+
+# 3. Build the kernel (per-crate; the workspace manifest is partial in this cut)
+cargo build --release -p qorch-safety-kernel
+
+# 4. Run
+./target/release/qorch-safety-kernel \
+  --operator-pubkey "$(cat operator.pub.hex)" \
+  --bind 127.0.0.1:9000
+
+# 5. Smoke test
+curl -fsS http://localhost:9000/health
+```
+
+For a working integration in ~10 minutes, see
+[`docs/integration/getting-started.md`](docs/integration/getting-started.md).
+
+For Python adopters, install the audit-hook library directly from this repo:
+
+```bash
+pip install ./py-defense
+```
+
+See [`docs/integration/python-fastapi.md`](docs/integration/python-fastapi.md)
+for the FastAPI middleware integration.
+
+## What's in this repo
+
+| Path | Purpose |
 |---|---|
-| `index.html` | Entry point. Loads React, Babel, then the figure JSX modules. |
-| `assets/arya-tokens.css` | ARYA design tokens — colors, typography, spacing. The full brand foundation. |
-| `assets/figures.css` | Figure-specific utilities built on top of the tokens. |
-| `assets/arya-mark.svg` | ARYA mark for watermarking. |
-| `design-canvas.jsx` | Canvas wrapper with sections, artboards, and a fullscreen focus mode (`←` / `→` / `Esc`). |
-| `src/figures-conceptual.jsx` | Fig 1 (in-process vs out-of-process), Fig 3 (alignment layers), Fig 6 (escapable AI systems). |
-| `src/figures-architecture.jsx` | Fig 2 (four seams), Fig 4 (chain of trust), Fig 9 (static vs dynamic routes). |
-| `src/figures-verification.jsx` | Fig 5 (related-systems matrix), Fig 7 (Z3 + Kani), Fig 8 (transparency log). |
-| `src/app.jsx` | Composition: arranges the nine figures into three sections on the canvas. |
+| `crates/services/safety-kernel/` | The kernel binary (axum + tokio) |
+| `crates/services/transparency-log/` | Append-only signed audit log service |
+| `crates/services/safety-kernel-reconciler/` | Reconciliation worker |
+| `crates/domain/src/safety/` | Pure types & traits (no I/O) |
+| `crates/adapters/safety_kernel_client/` | Rust client SDK + circuit breaker |
+| `crates/adapters/transparency_store/` | Postgres-backed log storage |
+| `contracts/openapi/safety_kernel.yaml` | API contract (source of truth) |
+| `py-defense/` | Python defense library (FastAPI middleware + audit hook) |
+| `examples/middleware/` | FastAPI, gRPC, nginx, dispatch-hook examples |
+| `examples/observability/` | Prometheus metrics + Grafana dashboard |
+| `examples/policy/` | Three-tier policy DSL example |
+| `examples/reference_app/` + `examples/reference_app_rs/` | End-to-end reference apps (Python + Rust) |
+| `examples/testing/` | Mock kernel + adversarial test fixtures |
+| `docs/` | Architecture, integration guides, deployment, API |
 
-## The nine figures and where they land in the paper
+## Documentation
 
-Static PNG renders below (one per artboard) for browsing on GitHub. The live source — interactive canvas with focus mode, drag-reorder, and per-figure download — is the JSX in `src/` served via `index.html`.
+- [`docs/architecture.md`](docs/architecture.md) — design overview, defense seams, transparency log, threat model
+- [`docs/integration/getting-started.md`](docs/integration/getting-started.md) — 10-minute walkthrough
+- [`docs/integration/python-fastapi.md`](docs/integration/python-fastapi.md) — FastAPI middleware
+- [`docs/integration/rust-axum.md`](docs/integration/rust-axum.md) — axum `tower::Layer`
+- [`docs/integration/nginx.md`](docs/integration/nginx.md) — nginx `auth_request` gate
+- [`docs/integration/circuit-breaker.md`](docs/integration/circuit-breaker.md) — fail-closed client pattern
+- [`docs/deployment/docker.md`](docs/deployment/docker.md) — Dockerfile + compose
+- [`docs/api/openapi.md`](docs/api/openapi.md) — API spec navigation
 
-### Fig 1 — In-process vs out-of-process controls · §1–§3
+## License
 
-![Fig 1 — In-process vs out-of-process controls](figures/fig1.png)
+Apache-2.0 — see [LICENSE](LICENSE).
 
-### Fig 2 — The four-seam architecture (with binary-attestation panel) · §3 (P1–P4) · §4 (seams)
+## Security
 
-![Fig 2 — Four-seam architecture](figures/fig2.png)
+Report security issues privately to **security@aryalabs.io**. Please do not
+open public issues for vulnerabilities. See [SECURITY.md](SECURITY.md) for
+the full policy.
 
-### Fig 3 — Three alignment layers (training / inference / execution) · §8.1
+## Contributing
 
-![Fig 3 — Three alignment layers](figures/fig3.png)
-
-### Fig 4 — Chain of trust · §4–§5
-
-![Fig 4 — Chain of trust](figures/fig4.png)
-
-### Fig 5 — Related systems comparison matrix (P1–P4 + machine-checked invariant) · §7
-
-![Fig 5 — Related systems matrix](figures/fig5.png)
-
-### Fig 6 — Escapable AI systems taxonomy · §8.2
-
-![Fig 6 — Escapable AI systems taxonomy](figures/fig6.png)
-
-### Fig 7 — Two-level fail-closed verification (Z3 + Kani) · §6.4
-
-![Fig 7 — Two-level fail-closed verification](figures/fig7.png)
-
-### Fig 8 — Transparency log · §4–§5
-
-![Fig 8 — Transparency log](figures/fig8.png)
-
-### Fig 9 — Static vs dynamic route registration · §4
-
-![Fig 9 — Static vs dynamic routes](figures/fig9.png)
-
-Figure numbers are intentionally omitted from both the visual eyebrow and the footer of the live JSX renders. LaTeX `\caption{}` will inject "Figure N:" when the paper is typeset; the figures themselves carry only their thematic eyebrow ("THE ARCHITECTURAL MISTAKE, AND THE FIX", "WHERE DOES THE DECISION LIVE?", etc.) and a short footer descriptor. The headings above are for editorial reference and not embedded in the rendered figures.
-
-## Exporting figures for the paper
-
-For the arXiv PDF, you'll want each figure as a separate static asset. Two recommended paths:
-
-**Quick path (screenshots).** Open the canvas, click any artboard to open fullscreen focus mode, take a screenshot at the artboard's native resolution (1100–1500px wide). Good enough for arXiv at single-column width.
-
-**Print-quality path (Playwright/headless Chrome).** Use a headless browser to render each artboard to PDF or PNG at higher DPI. Sketch:
-
-```bash
-npm install playwright
-npx playwright install chromium
-```
-
-Then a small Node script that visits each artboard's focus URL and calls `page.screenshot({path, fullPage: false, clip: {...}})` per figure.
-
-## Editing
-
-All figures are static React markup. Text content is in the JSX files (`src/figures-*.jsx`), so editing is direct: open the relevant file, find the figure component, change the strings, refresh the browser.
-
-Style tokens live in `assets/arya-tokens.css` — colors, type, spacing. Figure-specific styles in `assets/figures.css`.
-
-## Design system notes
-
-- **Palette.** Navy backgrounds, green for proof/kernel/operator, pink for the ARYA identity mark, red reserved for the untrusted-agent side of any comparison.
-- **Type.** Montserrat for display, JetBrains Mono for labels, data, and code references.
-- **Radii.** Small (4–8px). ARYA leans engineering, not consumer-rounded.
-- **Footers.** Every figure carries a `Fig N · §X` footer so paper captions can cross-reference cleanly.
-
-## Provenance
-
-Figures originally drafted in Claude Design and exported via the design handoff bundle on 2026-05-28. See the design conversation for the full iteration history; the user-facing structure (three sections, nine artboards) has not been altered from the export.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, sign-off
+requirements, and contribution scope. See
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for the community standards.
