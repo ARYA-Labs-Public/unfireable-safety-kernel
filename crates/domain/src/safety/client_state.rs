@@ -270,7 +270,10 @@ mod kani_proofs {
         let cooldown_elapsed: bool = kani::any();
         let probe_in_flight: bool = kani::any();
         let d = gate_decision(CircuitState::Open, cooldown_elapsed, probe_in_flight);
-        if matches!(d, GateDecision::Permit | GateDecision::PermitProbeAfterCooldown) {
+        if matches!(
+            d,
+            GateDecision::Permit | GateDecision::PermitProbeAfterCooldown
+        ) {
             assert!(cooldown_elapsed);
         }
     }
@@ -294,8 +297,10 @@ mod kani_proofs {
         let cooldown_elapsed: bool = kani::any();
         let probe_in_flight: bool = kani::any();
         let d = gate_decision(state, cooldown_elapsed, probe_in_flight);
-        let permits =
-            matches!(d, GateDecision::Permit | GateDecision::PermitProbeAfterCooldown);
+        let permits = matches!(
+            d,
+            GateDecision::Permit | GateDecision::PermitProbeAfterCooldown
+        );
         if permits {
             let legitimate = matches!(state, CircuitState::Closed)
                 || (matches!(state, CircuitState::HalfOpen) && !probe_in_flight)
