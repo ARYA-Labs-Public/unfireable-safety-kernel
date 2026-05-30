@@ -7,11 +7,14 @@
 # applied in docs/deployment/docker.md.
 #
 # Quickstart:
-#   # 1. Generate the operator keypair and export the public key
-#   openssl genpkey -algorithm Ed25519 -out operator.key
-#   openssl pkey -in operator.key -pubout -outform DER \
-#     | tail -c 32 | xxd -p -c 64 > operator.pub.hex
-#   export OPERATOR_PUBKEY="$(cat operator.pub.hex)"
+#   # 1. Generate boot secrets — base64url-encoded 32-byte values.
+#   #    NOT standard base64 — the kernel rejects '/' and '+'.
+#   export QORCH_KERNEL_SIGNING_KEY_B64=$(python3 -c \
+#     "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).rstrip(b'=').decode())")
+#   export QORCH_KERNEL_AUDIT_PEPPER_B64=$(python3 -c \
+#     "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).rstrip(b'=').decode())")
+#   export QORCH_KERNEL_API_KEY_WORKER=$(openssl rand -hex 16)
+#   export QORCH_KERNEL_API_KEY_API=$(openssl rand -hex 16)
 #
 #   # 2. Pull the kernel image from GHCR (no login needed for public pulls).
 #   docker pull ghcr.io/arya-labs-pbc/unfireable-safety-kernel:edge
@@ -21,7 +24,7 @@
 #   # 3. Bring up the stack
 #   docker compose -f deployment/docker-compose.prod.yml up -d
 #
-#   # 4. Smoke test
+#   # 4. Smoke test (see docs/deployment/smoke-test.md for the full procedure)
 #   curl -fsS http://localhost:9000/health
 
 services:
@@ -36,25 +39,43 @@ services:
     security_opt:
       - no-new-privileges
     environment:
-      KERNEL_BIND: "0.0.0.0:9000"
-      KERNEL_OPERATOR_PUBKEY: "${OPERATOR_PUBKEY:?must set OPERATOR_PUBKEY in env}"
-      KERNEL_TLOG_URL: "http://transparency-log:9100"
+      QORCH_ENV: "${QORCH_ENV:-dev}"
+      QORCH_KERNEL_LISTEN_ADDR: "0.0.0.0:9000"
+      QORCH_KERNEL_SIGNING_KEY_B64: "${QORCH_KERNEL_SIGNING_KEY_B64:?must set QORCH_KERNEL_SIGNING_KEY_B64 (base64url-encoded 32 bytes)}"
+      QORCH_KERNEL_AUDIT_PEPPER_B64: "${QORCH_KERNEL_AUDIT_PEPPER_B64:?must set QORCH_KERNEL_AUDIT_PEPPER_B64 (base64url-encoded 32 bytes)}"
+      QORCH_KERNEL_API_KEY_WORKER: "${QORCH_KERNEL_API_KEY_WORKER:?must set QORCH_KERNEL_API_KEY_WORKER}"
+      QORCH_KERNEL_API_KEY_API: "${QORCH_KERNEL_API_KEY_API:?must set QORCH_KERNEL_API_KEY_API}"
+      QORCH_KERNEL_TRANSPARENCY_LOG_URL: "http://transparency-log:9100"
     ports:
       - "127.0.0.1:9000:9000"
-    healthcheck:
-      # distroless has no shell or wget — use the busybox-equivalent that
-      # ships in distroless/cc-debian12: the kernel binary itself accepts
-      # `--health-probe` for self-check. Adjust if your build doesn't have
-      # this subcommand; orchestrators that need an external probe should
-      # run a sidecar or use TCP-only liveness.
-      test: ["CMD", "/usr/local/bin/qorch-safety-kernel", "--health-probe"]
-      interval: 10s
-      timeout: 2s
-      retries: 3
-      start_period: 5s
+    # NOTE on healthcheck. The distroless final image carries the
+    # kernel binary and shared libraries — nothing else. No shell,
+    # no wget/curl/nc, no `--health-probe` subcommand on the binary
+    # itself. That's the point of distroless. Docker's in-container
+    # healthcheck mechanism therefore cannot be used directly here.
+    #
+    # Two operator-side patterns are supported instead:
+    #
+    #   (a) compose / docker run — depend on the orchestrator's TCP
+    #       port-listen probe. `ports: - "127.0.0.1:9000:9000"`
+    #       above gives the host a port to curl externally; the
+    #       compose `depends_on: service_started` (default) handles
+    #       startup ordering. We deliberately do NOT set
+    #       `service_healthy` because there is no Docker-internal
+    #       health signal.
+    #
+    #   (b) Kubernetes — use a `tcpSocket: { port: 9000 }` readiness
+    #       probe in the pod spec. The kernel's HTTP `/health`
+    #       endpoint returns 200 once the kernel is up, so an HTTP
+    #       readinessProbe also works if you prefer. See
+    #       deployment/helm/safety-kernel/ (pending ARY-1886 follow-up).
+    #
+    # Adding a `qorch-safety-kernel --health-probe` subcommand to the
+    # binary is tracked as a separate follow-up; it would add a CLI
+    # parser dep and ~30 lines of code. Worth it only if a customer
+    # specifically needs container-internal health signaling.
     depends_on:
-      transparency-log:
-        condition: service_healthy
+      - transparency-log
     networks:
       - kernel-net
 
@@ -75,12 +96,8 @@ services:
       # The log MUST persist across restarts. Snapshot the same way you
       # snapshot any append-only audit store.
       - tlog-data:/var/lib/tlog
-    healthcheck:
-      test: ["CMD", "/usr/local/bin/qorch-transparency-log", "--health-probe"]
-      interval: 10s
-      timeout: 2s
-      retries: 3
-      start_period: 5s
+    # Same distroless-no-self-probe constraint as the kernel — see the
+    # NOTE on healthcheck above. Use orchestrator-external TCP probes.
     networks:
       - kernel-net
 
@@ -96,8 +113,11 @@ services:
   #     SAFETY_KERNEL_URL: "http://safety-kernel:9000"
   #     SAFETY_KERNEL_PUBKEY: "${KERNEL_PUBKEY}"
   #   depends_on:
-  #     safety-kernel:
-  #       condition: service_healthy
+  #     # No Docker-internal healthcheck on the kernel (distroless can
+  #     # not self-probe; see NOTE above). The sample app is responsible
+  #     # for its own fail-closed retry loop against the kernel —
+  #     # see docs/integration/circuit-breaker.md.
+  #     - safety-kernel
   #   networks:
   #     - kernel-net
 

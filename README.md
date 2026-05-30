@@ -105,10 +105,11 @@ This repository is the **public extraction** of the Unfireable Safety Kernel arc
 Multi-arch (amd64 + arm64) images publish to GHCR on every push to `main` and every release tag. The image is distroless, runs as non-root uid 65532, and weighs in under 60 MB.
 
 ```bash
-# 1. Generate an operator Ed25519 keypair (one-time, store the private key offline)
-openssl genpkey -algorithm Ed25519 -out operator.key
-openssl pkey -in operator.key -pubout -outform DER \
-  | tail -c 32 | xxd -p -c 64 > operator.pub.hex
+# 1. Generate kernel boot secrets — base64url-encoded 32 bytes each.
+#    NOT standard base64 (the kernel rejects `/` and `+`). These are
+#    dev-only smoke values; for production use a secret manager.
+SIGNING_KEY=$(python3 -c "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).rstrip(b'=').decode())")
+AUDIT_PEPPER=$(python3 -c "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).rstrip(b'=').decode())")
 
 # 2. Pull the kernel image (no GHCR login needed for public pulls)
 docker pull ghcr.io/arya-labs-pbc/unfireable-safety-kernel:edge
@@ -118,18 +119,27 @@ docker run --rm \
   --name safety-kernel \
   --read-only --cap-drop=ALL --security-opt=no-new-privileges \
   --user 65532:65532 -p 9000:9000 \
-  -e KERNEL_OPERATOR_PUBKEY="$(cat operator.pub.hex)" \
-  -e KERNEL_BIND="0.0.0.0:9000" \
+  -e QORCH_ENV=dev \
+  -e QORCH_KERNEL_LISTEN_ADDR=0.0.0.0:9000 \
+  -e QORCH_KERNEL_SIGNING_KEY_B64="$SIGNING_KEY" \
+  -e QORCH_KERNEL_AUDIT_PEPPER_B64="$AUDIT_PEPPER" \
+  -e QORCH_KERNEL_API_KEY_WORKER=dev-worker-key \
+  -e QORCH_KERNEL_API_KEY_API=dev-api-key \
   ghcr.io/arya-labs-pbc/unfireable-safety-kernel:edge
 
-# 4. Smoke test
+# 4. Smoke test (see docs/deployment/smoke-test.md for the full procedure)
 curl -fsS http://localhost:9000/health
 ```
 
-For a complete deployment stack (kernel + transparency log + persistent volume + healthchecks), use [`deployment/docker-compose.prod.yml`](deployment/docker-compose.prod.yml):
+For a complete deployment stack (kernel + transparency log + persistent volume), use [`deployment/docker-compose.prod.yml`](deployment/docker-compose.prod.yml):
 
 ```bash
-export OPERATOR_PUBKEY="$(cat operator.pub.hex)"
+export QORCH_KERNEL_SIGNING_KEY_B64=$(python3 -c \
+  "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).rstrip(b'=').decode())")
+export QORCH_KERNEL_AUDIT_PEPPER_B64=$(python3 -c \
+  "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).rstrip(b'=').decode())")
+export QORCH_KERNEL_API_KEY_WORKER=$(openssl rand -hex 16)
+export QORCH_KERNEL_API_KEY_API=$(openssl rand -hex 16)
 docker compose -f deployment/docker-compose.prod.yml up -d
 ```
 
@@ -138,7 +148,7 @@ Image tags:
 - `:vX.Y.Z` — release tags (`:latest` points at the most recent semver tag)
 - Pin to a digest in production: `ghcr.io/arya-labs-pbc/unfireable-safety-kernel@sha256:<digest>`
 
-See [`docs/deployment/docker.md`](docs/deployment/docker.md) for the complete hardening checklist (read-only FS, distroless rationale, egress allowlist, image-signature verification).
+See [`docs/deployment/docker.md`](docs/deployment/docker.md) for the complete env-var reference + hardening checklist, and [`docs/deployment/smoke-test.md`](docs/deployment/smoke-test.md) for the canonical post-pull verification procedure.
 
 ## Quickstart (build from source)
 
@@ -149,18 +159,21 @@ If you prefer to build from source — e.g. running on an architecture other tha
 git clone https://github.com/ARYA-Labs-PBC/unfireable-safety-kernel.git
 cd unfireable-safety-kernel
 
-# 2. Generate an operator Ed25519 keypair (one-time, store the private key offline)
-openssl genpkey -algorithm Ed25519 -out operator.key
-openssl pkey -in operator.key -pubout -outform DER \
-  | tail -c 32 | xxd -p -c 64 > operator.pub.hex
-
-# 3. Build the kernel
+# 2. Build the kernel
 cargo build --release -p qorch-safety-kernel
 
+# 3. Generate boot secrets (same shape as the Docker Quickstart above).
+SIGNING_KEY=$(python3 -c "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).rstrip(b'=').decode())")
+AUDIT_PEPPER=$(python3 -c "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).rstrip(b'=').decode())")
+
 # 4. Run
-./target/release/qorch-safety-kernel \
-  --operator-pubkey "$(cat operator.pub.hex)" \
-  --bind 127.0.0.1:9000
+QORCH_ENV=dev \
+QORCH_KERNEL_LISTEN_ADDR=127.0.0.1:9000 \
+QORCH_KERNEL_SIGNING_KEY_B64="$SIGNING_KEY" \
+QORCH_KERNEL_AUDIT_PEPPER_B64="$AUDIT_PEPPER" \
+QORCH_KERNEL_API_KEY_WORKER=dev-worker-key \
+QORCH_KERNEL_API_KEY_API=dev-api-key \
+./target/release/qorch-safety-kernel
 
 # 5. Smoke test
 curl -fsS http://localhost:9000/health
