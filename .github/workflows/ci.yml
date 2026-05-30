@@ -40,6 +40,7 @@ jobs:
       - name: Install Rust toolchain (stable, matches rust-toolchain.toml)
         uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # stable
         with:
+          toolchain: stable
           components: rustfmt, clippy
 
       - name: Cache cargo registry + target
