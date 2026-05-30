@@ -97,7 +97,7 @@ This repository is the **public extraction** of the Unfireable Safety Kernel arc
 - Crates are not on crates.io yet. Build from source (instructions below).
 - The Python defense library is not on PyPI yet. Install from `py-defense/`.
 - The workspace's `crates/domain/Cargo.toml` manifest is not present in this initial extraction. Source is, but you may need to author the manifest for `cargo build --workspace`. Tracked for v1.0.
-- No prebuilt Docker images on Docker Hub yet. See [`docs/deployment/docker.md`](docs/deployment/docker.md) for the Dockerfile pattern.
+- A production `Dockerfile.prod` and reference [`deployment/docker-compose.prod.yml`](deployment/docker-compose.prod.yml) ship in the repo (build locally; ARY-1886). Prebuilt multi-arch images on Docker Hub (`aryalabs/safety-kernel`) land in Phase 4 of the OSS-extraction epic. See [`docs/deployment/docker.md`](docs/deployment/docker.md) for the full hardening checklist.
 - External red-team evaluation against a live deployment. Adversarial fixtures pass in CI; a live evaluation by an unaffiliated party is the right next step and we are actively seeking partners. Contact `security@aryalabs.io`.
 
 ## Quickstart (build from source)

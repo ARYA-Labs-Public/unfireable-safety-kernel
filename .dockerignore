@@ -1,0 +1,41 @@
+# Keep the build context small. The builder stage only needs source +
+# Cargo.toml/Cargo.lock; everything else is noise.
+
+target/
+**/target/
+**/*.rs.bk
+*.profraw
+
+# Editor / OS noise
+.idea/
+.vscode/
+.DS_Store
+
+# Git internals (Cargo doesn't need them at build time)
+.git/
+.gitignore
+.github/
+
+# Docs and figures — the runtime image doesn't ship them
+docs/
+README.md
+CHANGELOG.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+LICENSE
+
+# Tests, examples, and reference apps don't go in the kernel image
+examples/
+tests/
+benches/
+
+# Python defense library is shipped separately
+py-defense/
+
+# Local secrets — never include in any image
+.env
+.env.*
+*.pub
+*.key
+operator.*
