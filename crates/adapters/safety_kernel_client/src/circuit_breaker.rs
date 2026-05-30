@@ -444,7 +444,7 @@ mod tests {
         //      untouched. We model that as the absence of any call.
         for _ in 0..50 {
             b.record_success(); // 403 path
-            // other 4xx path: no call at all
+                                // other 4xx path: no call at all
         }
         assert_eq!(b.state(), CircuitState::Closed);
     }
@@ -464,12 +464,15 @@ mod tests {
         c.advance_by(29.9);
         assert!(matches!(
             b.before_call(),
-            Err(KernelClientError::Decision(KernelDecisionError::Unavailable {.. }))
+            Err(KernelClientError::Decision(
+                KernelDecisionError::Unavailable { .. }
+            ))
         ));
         assert_eq!(b.state(), CircuitState::Open);
         // Post-cooldown: next call transitions to HalfOpen and is allowed.
         c.advance_by(0.2); // total 30.1 s elapsed since open
-        b.before_call().expect("post-cooldown probe must be allowed");
+        b.before_call()
+            .expect("post-cooldown probe must be allowed");
         assert_eq!(b.state(), CircuitState::HalfOpen);
     }
 
@@ -523,7 +526,8 @@ mod tests {
         assert_eq!(b.state(), CircuitState::Open);
         // Cooldown again -> new probe slot must be claimable.
         c.advance_by(31.0);
-        b.before_call().expect("second cooldown probe must be allowed");
+        b.before_call()
+            .expect("second cooldown probe must be allowed");
         assert_eq!(b.state(), CircuitState::HalfOpen);
     }
 
