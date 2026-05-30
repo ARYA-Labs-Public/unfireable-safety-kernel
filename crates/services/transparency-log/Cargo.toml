@@ -72,7 +72,7 @@ hex = { workspace = true }
 #  — kernel HMAC over canonical-bytes(WaveSessionRecord).
 # HMAC-SHA256 with a shared symmetric secret. The constant-time
 # `verify_slice` from the `Mac` trait guards the kernel pin.
-hmac = "0.12"
+hmac = "0.13"
 
 #   Step 3 pattern — server-side rustls termination via
 # `axum-server` with `tls-rustls-no-provider`. We install
