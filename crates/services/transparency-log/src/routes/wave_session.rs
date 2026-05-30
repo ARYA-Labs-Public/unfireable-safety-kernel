@@ -40,7 +40,7 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
 
 use qorch_domain::wave::context::WaveId;
@@ -125,7 +125,7 @@ fn verify_kernel_hmac(
             "kernel HMAC key not configured".into(),
         ));
     }
-    let mut mac = <HmacSha256 as Mac>::new_from_slice(key)
+    let mut mac = <HmacSha256 as KeyInit>::new_from_slice(key)
         .map_err(|e| ServiceError::Backend(format!("invalid HMAC key length: {e}")))?;
     mac.update(record_bytes);
     mac.verify_slice(supplied_hmac)
@@ -392,7 +392,7 @@ mod tests {
 
     fn hmac_over(key: &[u8], record: &WaveSessionRecord) -> [u8; 32] {
         let bytes = record.canonical_bytes().unwrap();
-        let mut mac = <HmacSha256 as Mac>::new_from_slice(key).unwrap();
+        let mut mac = <HmacSha256 as KeyInit>::new_from_slice(key).unwrap();
         mac.update(&bytes);
         let out = mac.finalize().into_bytes();
         let mut a = [0u8; 32];

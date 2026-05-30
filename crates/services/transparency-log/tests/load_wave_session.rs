@@ -14,7 +14,7 @@ use std::time::Instant;
 use axum::body::Body;
 use axum::http::Request;
 use ed25519_dalek::SigningKey;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use http_body_util::BodyExt;
 use qorch_adapters::clock::SystemClock;
 use qorch_domain::safety::Clock;
@@ -80,7 +80,7 @@ async fn p99_under_200ms_for_100_concurrent_appends() {
                 1_716_400_000 + i as u64,
             );
             let bytes = r.canonical_bytes().unwrap();
-            let mut mac = <HmacSha256 as Mac>::new_from_slice(&key).unwrap();
+            let mut mac = <HmacSha256 as KeyInit>::new_from_slice(&key).unwrap();
             mac.update(&bytes);
             let h_bytes = mac.finalize().into_bytes();
             let mut hmac = [0u8; 32];

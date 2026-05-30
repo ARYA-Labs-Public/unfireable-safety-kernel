@@ -39,7 +39,7 @@ use std::sync::Arc;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use ed25519_dalek::SigningKey;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use http_body_util::BodyExt;
 use qorch_adapters::clock::SystemClock;
 use qorch_domain::safety::Clock;
@@ -85,7 +85,7 @@ fn fixture_state(hmac_key: &[u8]) -> AppState {
 
 fn hmac_of(key: &[u8], r: &WaveSessionRecord) -> [u8; 32] {
     let bytes = r.canonical_bytes().unwrap();
-    let mut mac = <HmacSha256 as Mac>::new_from_slice(key).unwrap();
+    let mut mac = <HmacSha256 as KeyInit>::new_from_slice(key).unwrap();
     mac.update(&bytes);
     let out = mac.finalize().into_bytes();
     let mut a = [0u8; 32];
