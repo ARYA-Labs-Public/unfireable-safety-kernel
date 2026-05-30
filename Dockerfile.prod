@@ -1,0 +1,62 @@
+# Dockerfile.prod — production image for the Unfireable Safety Kernel.
+#
+# Two-stage build. The runtime image is distroless cc-debian12: no shell,
+# no package manager, no writable filesystem outside what the orchestrator
+# mounts. The only thing in the final image is the kernel binary and the
+# system shared libraries it links against.
+#
+# Build:
+#   docker build -f Dockerfile.prod -t aryalabs/safety-kernel:dev .
+#
+# Run (minimal):
+#   docker run --rm \
+#     --read-only --cap-drop=ALL --security-opt=no-new-privileges \
+#     --user 65532:65532 -p 9000:9000 \
+#     -e KERNEL_OPERATOR_PUBKEY="$(cat operator.pub.hex)" \
+#     -e KERNEL_BIND="0.0.0.0:9000" \
+#     aryalabs/safety-kernel:dev
+#
+# See docs/deployment/docker.md for the complete hardening checklist and
+# the compose example with the transparency log.
+
+# ─────────────────────────────────────────────────────────────
+# Stage 1 — build
+# ─────────────────────────────────────────────────────────────
+FROM rust:1.85-slim AS builder
+
+# Build deps for the crates that link C (sqlx-native-tls is forbidden via
+# deny.toml; we link against rustls, so only minimal cc tooling is needed).
+RUN apt-get update \
+ && apt-get install --no-install-recommends -y \
+      pkg-config \
+      ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+COPY . .
+
+# --locked refuses to update Cargo.lock during the build, so the image is
+# reproducible against the lockfile in the repo. --release strips debug
+# assertions. The strip step shaves another ~5 MB off the binary.
+RUN cargo build --release --locked -p qorch-safety-kernel \
+ && strip target/release/qorch-safety-kernel
+
+# ─────────────────────────────────────────────────────────────
+# Stage 2 — runtime
+# ─────────────────────────────────────────────────────────────
+# distroless/cc-debian12 carries glibc + libssl + a CA bundle and nothing
+# else. No shell. `docker exec ... sh` fails — by design.
+FROM gcr.io/distroless/cc-debian12
+
+COPY --from=builder /build/target/release/qorch-safety-kernel \
+     /usr/local/bin/qorch-safety-kernel
+
+# distroless `nonroot` user is uid/gid 65532. Run as non-root by default;
+# the orchestrator can override to a more specific uid if it must.
+USER 65532:65532
+
+EXPOSE 9000
+
+# No CMD — runtime config comes from env vars (KERNEL_BIND,
+# KERNEL_OPERATOR_PUBKEY, KERNEL_TLOG_URL, …). See docs/integration/.
+ENTRYPOINT ["/usr/local/bin/qorch-safety-kernel"]

@@ -1,0 +1,112 @@
+# deployment/docker-compose.prod.yml
+#
+# Reference production-shape compose stack for the Unfireable Safety
+# Kernel. Three services: the kernel, the transparency log (with its own
+# persistent volume), and a sample app slot. Every service runs read-only,
+# non-root, with all Linux capabilities dropped — the same hardening
+# applied in docs/deployment/docker.md.
+#
+# Quickstart:
+#   # 1. Generate the operator keypair and export the public key
+#   openssl genpkey -algorithm Ed25519 -out operator.key
+#   openssl pkey -in operator.key -pubout -outform DER \
+#     | tail -c 32 | xxd -p -c 64 > operator.pub.hex
+#   export OPERATOR_PUBKEY="$(cat operator.pub.hex)"
+#
+#   # 2. Pull the kernel image from GHCR (no login needed for public pulls).
+#   docker pull ghcr.io/arya-labs-pbc/unfireable-safety-kernel:edge
+#   # Or, to build from source:
+#   docker build -f Dockerfile.prod -t ghcr.io/arya-labs-pbc/unfireable-safety-kernel:dev .
+#
+#   # 3. Bring up the stack
+#   docker compose -f deployment/docker-compose.prod.yml up -d
+#
+#   # 4. Smoke test
+#   curl -fsS http://localhost:9000/health
+
+services:
+  safety-kernel:
+    image: ghcr.io/arya-labs-pbc/unfireable-safety-kernel:edge
+    # Pin to a digest in real production:
+    #   image: ghcr.io/arya-labs-pbc/unfireable-safety-kernel@sha256:<digest>
+    container_name: safety-kernel
+    read_only: true
+    user: "65532:65532"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges
+    environment:
+      KERNEL_BIND: "0.0.0.0:9000"
+      KERNEL_OPERATOR_PUBKEY: "${OPERATOR_PUBKEY:?must set OPERATOR_PUBKEY in env}"
+      KERNEL_TLOG_URL: "http://transparency-log:9100"
+    ports:
+      - "127.0.0.1:9000:9000"
+    healthcheck:
+      # distroless has no shell or wget — use the busybox-equivalent that
+      # ships in distroless/cc-debian12: the kernel binary itself accepts
+      # `--health-probe` for self-check. Adjust if your build doesn't have
+      # this subcommand; orchestrators that need an external probe should
+      # run a sidecar or use TCP-only liveness.
+      test: ["CMD", "/usr/local/bin/qorch-safety-kernel", "--health-probe"]
+      interval: 10s
+      timeout: 2s
+      retries: 3
+      start_period: 5s
+    depends_on:
+      transparency-log:
+        condition: service_healthy
+    networks:
+      - kernel-net
+
+  transparency-log:
+    # Published from the same workflow as the kernel; same multi-arch
+    # images, same registry.
+    image: ghcr.io/arya-labs-pbc/unfireable-safety-kernel-transparency-log:edge
+    container_name: transparency-log
+    read_only: true
+    user: "65532:65532"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges
+    environment:
+      TLOG_BIND: "0.0.0.0:9100"
+      TLOG_DATA_DIR: "/var/lib/tlog"
+    volumes:
+      # The log MUST persist across restarts. Snapshot the same way you
+      # snapshot any append-only audit store.
+      - tlog-data:/var/lib/tlog
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/qorch-transparency-log", "--health-probe"]
+      interval: 10s
+      timeout: 2s
+      retries: 3
+      start_period: 5s
+    networks:
+      - kernel-net
+
+  # Drop your application here. It MUST talk to the kernel over
+  # safety-kernel:9000 (internal docker DNS) and MUST verify responses
+  # against the kernel's signing public key. Failing closed on
+  # unreachability is the consumer's responsibility — see
+  # docs/integration/circuit-breaker.md.
+  #
+  # sample-app:
+  #   image: my-app:latest
+  #   environment:
+  #     SAFETY_KERNEL_URL: "http://safety-kernel:9000"
+  #     SAFETY_KERNEL_PUBKEY: "${KERNEL_PUBKEY}"
+  #   depends_on:
+  #     safety-kernel:
+  #       condition: service_healthy
+  #   networks:
+  #     - kernel-net
+
+networks:
+  kernel-net:
+    driver: bridge
+    # The kernel and the log talk to each other on this network. The host
+    # only exposes the kernel's port (and only on 127.0.0.1, above).
+
+volumes:
+  tlog-data:
+    # The only piece of mutable state in the stack.
