@@ -68,7 +68,8 @@ fn fresh_seed_b64() -> String {
     URL_SAFE_NO_PAD.encode(buf)
 }
 
-#[allow(clippy::too_many_lines)] // Single end-to-end smoke; splitting hurts readability.
+#[allow(clippy::too_many_lines)]
+// Single end-to-end smoke; splitting hurts readability.
 //
 // Marked `#[ignore]`: this end-to-end smoke spawns the Python policy
 // sidecar (`apps/safety_kernel/policy_sidecar.py`), which is not
