@@ -41,9 +41,37 @@ Target image size is ≤ 60 MB. There is no `sh`, no package manager, and
 no writable filesystem in the final image — `docker exec ... sh` will
 fail, which is the point.
 
+## Required environment
+
+The kernel reads its configuration from env vars (no CLI flags, no
+config file). Four are required at boot; the kernel exits with
+`Error: missing <VAR>` if any are absent:
+
+| Env var | Value shape | Purpose |
+|---|---|---|
+| `QORCH_KERNEL_SIGNING_KEY_B64` | base64url-encoded 32 bytes | Kernel's Ed25519 signing key. Generate with `python3 -c "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).rstrip(b'=').decode())"`. **base64url, not base64** — the kernel rejects `/` and `+`. |
+| `QORCH_KERNEL_AUDIT_PEPPER_B64` | base64url-encoded 32 bytes | HMAC pepper for audit log entries. Same encoding rule. |
+| `QORCH_KERNEL_API_KEY_WORKER` | opaque string | API key for worker-role callers. |
+| `QORCH_KERNEL_API_KEY_API` | opaque string | API key for API-role callers. |
+
+Optional, with sensible defaults:
+
+| Env var | Default | Purpose |
+|---|---|---|
+| `QORCH_ENV` | `dev` | Set to `prod` to refuse any startup without all secrets present and TLS configured. |
+| `QORCH_KERNEL_LISTEN_ADDR` | `127.0.0.1:9000` | Bind address; set to `0.0.0.0:9000` inside containers. |
+| `QORCH_KERNEL_TRANSPARENCY_LOG_URL` | unset | URL of the transparency-log sidecar; if unset, transparency entries are not emitted (dev only). |
+| `QORCH_KERNEL_API_KEY_OPERATOR` | required in `prod` | Operator-role API key. Production refuses to start without this. |
+
+See [`crates/services/safety-kernel/src/settings.rs`](../../crates/services/safety-kernel/src/settings.rs) for the complete env-var contract.
+
 ## Standalone `docker run`
 
 ```bash
+# Generate boot secrets (dev-only — do NOT reuse for real workloads).
+SIGNING_KEY=$(python3 -c "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).rstrip(b'=').decode())")
+AUDIT_PEPPER=$(python3 -c "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).rstrip(b'=').decode())")
+
 docker run --rm \
   --name qorch-safety-kernel \
   --read-only \
@@ -51,85 +79,38 @@ docker run --rm \
   --security-opt=no-new-privileges \
   --user 65532:65532 \
   -p 9000:9000 \
-  -e KERNEL_OPERATOR_PUBKEY="$(cat operator.pub)" \
-  -e KERNEL_BIND="0.0.0.0:9000" \
-  --health-cmd='wget -qO- http://127.0.0.1:9000/health || exit 1' \
-  --health-interval=10s \
-  --health-timeout=2s \
-  --health-retries=3 \
-  qorch-safety-kernel:1.0.0
+  -e QORCH_ENV=dev \
+  -e QORCH_KERNEL_LISTEN_ADDR=0.0.0.0:9000 \
+  -e QORCH_KERNEL_SIGNING_KEY_B64="$SIGNING_KEY" \
+  -e QORCH_KERNEL_AUDIT_PEPPER_B64="$AUDIT_PEPPER" \
+  -e QORCH_KERNEL_API_KEY_WORKER=dev-worker-key \
+  -e QORCH_KERNEL_API_KEY_API=dev-api-key \
+  ghcr.io/arya-labs-pbc/unfireable-safety-kernel:edge
 ```
 
 Notes:
 
-- `--read-only` is safe — the kernel does not write to its own filesystem.
-  The transparency log lives in a separate service with its own volume.
-- The operator public key is the only secret the kernel needs at boot.
-  It is a public key; the matching private key is held outside the
-  container (HSM, KMS, or air-gapped media).
+- `--read-only` is safe — the kernel does not write to its own filesystem. The transparency log lives in a separate service with its own volume.
+- No container-internal `--health-cmd`. The final image is distroless: no shell, no `wget`, no `curl`. Use the orchestrator's TCP probe (`tcpSocket: { port: 9000 }` in Kubernetes; compose `depends_on: service_started` without health gating; ECS task definition's `healthCheck` with a container-internal binary the operator embeds themselves). See the smoke-test guide at [`smoke-test.md`](./smoke-test.md) for the canonical post-pull verification.
+- The four required `QORCH_KERNEL_*` env vars above must be set. The kernel exits early with `Error: missing <VAR>` if any are missing.
 
 ## Compose: kernel + transparency log + sample app
 
-```yaml
-# docker-compose.yml
-services:
-  safety-kernel:
-    image: qorch-safety-kernel:1.0.0
-    read_only: true
-    user: "65532:65532"
-    cap_drop: [ALL]
-    security_opt:
-      - no-new-privileges
-    environment:
-      KERNEL_BIND: "0.0.0.0:9000"
-      KERNEL_OPERATOR_PUBKEY: "${OPERATOR_PUBKEY}"
-      KERNEL_TLOG_URL: "http://transparency-log:9100"
-    ports:
-      - "9000:9000"
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9000/health"]
-      interval: 10s
-      timeout: 2s
-      retries: 3
-    depends_on:
-      transparency-log:
-        condition: service_healthy
+A complete reference compose file ships at [`deployment/docker-compose.prod.yml`](../../deployment/docker-compose.prod.yml). Use it directly:
 
-  transparency-log:
-    image: qorch-transparency-log:1.0.0
-    read_only: true
-    user: "65532:65532"
-    cap_drop: [ALL]
-    security_opt:
-      - no-new-privileges
-    environment:
-      TLOG_BIND: "0.0.0.0:9100"
-      TLOG_DATA_DIR: "/var/lib/tlog"
-    volumes:
-      # The log MUST persist across restarts. The kernel binary need not.
-      - tlog-data:/var/lib/tlog
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9100/health"]
-      interval: 10s
-      timeout: 2s
-      retries: 3
+```bash
+# Generate boot secrets, export, then bring up the stack.
+export QORCH_KERNEL_SIGNING_KEY_B64=$(python3 -c \
+  "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).rstrip(b'=').decode())")
+export QORCH_KERNEL_AUDIT_PEPPER_B64=$(python3 -c \
+  "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).rstrip(b'=').decode())")
+export QORCH_KERNEL_API_KEY_WORKER=$(openssl rand -hex 16)
+export QORCH_KERNEL_API_KEY_API=$(openssl rand -hex 16)
 
-  sample-app:
-    image: my-app:latest
-    environment:
-      SAFETY_KERNEL_URL: "http://safety-kernel:9000"
-      SAFETY_KERNEL_PUBKEY: "${KERNEL_PUBKEY}"
-    depends_on:
-      safety-kernel:
-        condition: service_healthy
-
-volumes:
-  tlog-data:
+docker compose -f deployment/docker-compose.prod.yml up -d
 ```
 
-The `tlog-data` named volume is the only piece of mutable state in the
-stack. Snapshot it the same way you snapshot any append-only audit
-store.
+The `tlog-data` named volume in the compose file is the only piece of mutable state in the stack. Snapshot it the same way you snapshot any append-only audit store.
 
 ## Health probes
 
