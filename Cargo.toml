@@ -83,7 +83,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json",
 # the adapter boundary if/when prod needs it. Explicitly no
 # `aws-lc-rs` feature anywhere ( ban). `default-features = false`
 # so we don't accidentally pull in the older v0.7 macro engine.
-sqlx = { version = "0.8", default-features = false, features = ["postgres",
+sqlx = { version = "0.9", default-features = false, features = ["postgres",
  "runtime-tokio",
  "macros",
  "chrono"] }
