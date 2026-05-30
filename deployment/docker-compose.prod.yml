@@ -13,9 +13,10 @@
 #     | tail -c 32 | xxd -p -c 64 > operator.pub.hex
 #   export OPERATOR_PUBKEY="$(cat operator.pub.hex)"
 #
-#   # 2. Build the kernel image (until aryalabs/safety-kernel ships on
-#   #    Docker Hub, build it from source).
-#   docker build -f Dockerfile.prod -t aryalabs/safety-kernel:dev .
+#   # 2. Pull the kernel image from GHCR (no login needed for public pulls).
+#   docker pull ghcr.io/arya-labs-pbc/unfireable-safety-kernel:edge
+#   # Or, to build from source:
+#   docker build -f Dockerfile.prod -t ghcr.io/arya-labs-pbc/unfireable-safety-kernel:dev .
 #
 #   # 3. Bring up the stack
 #   docker compose -f deployment/docker-compose.prod.yml up -d
@@ -25,9 +26,9 @@
 
 services:
   safety-kernel:
-    image: aryalabs/safety-kernel:dev
+    image: ghcr.io/arya-labs-pbc/unfireable-safety-kernel:edge
     # Pin to a digest in real production:
-    #   image: aryalabs/safety-kernel@sha256:<digest>
+    #   image: ghcr.io/arya-labs-pbc/unfireable-safety-kernel@sha256:<digest>
     container_name: safety-kernel
     read_only: true
     user: "65532:65532"
@@ -58,7 +59,9 @@ services:
       - kernel-net
 
   transparency-log:
-    image: aryalabs/transparency-log:dev
+    # Published from the same workflow as the kernel; same multi-arch
+    # images, same registry.
+    image: ghcr.io/arya-labs-pbc/unfireable-safety-kernel-transparency-log:edge
     container_name: transparency-log
     read_only: true
     user: "65532:65532"

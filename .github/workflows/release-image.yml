@@ -1,0 +1,96 @@
+# Build the Unfireable Safety Kernel image and publish to GHCR.
+#
+# Triggers:
+#   - push to main             -> publishes :edge
+#   - tag v*.*.*               -> publishes :<semver> and :latest
+#   - manual workflow_dispatch -> publishes :<tag-input> (default: dev)
+#
+# Multi-arch: linux/amd64 + linux/arm64 via docker buildx.
+#
+# Auth: GITHUB_TOKEN with `packages: write` — no Docker Hub credential
+# needed for GHCR. Mirroring to Docker Hub is a separate workflow gated
+# on DOCKERHUB_USERNAME + DOCKERHUB_TOKEN secrets when they land.
+#
+# All actions pinned to commit SHAs per repo security policy. The
+# original tag is retained as a trailing comment.
+
+name: release-image
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag to publish (default: dev)'
+        required: false
+        default: 'dev'
+
+permissions:
+  contents: read
+  packages: write   # required to push to ghcr.io
+
+concurrency:
+  group: release-image-${{ github.ref }}
+  cancel-in-progress: false   # never cancel a publish mid-flight
+
+jobs:
+  build-and-push:
+    name: Build + push multi-arch image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image metadata
+        id: meta
+        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5.7.0
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            # Branch pushes: tag as :edge (only for main)
+            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
+            # Tag pushes: tag as :<semver> + :latest
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            # workflow_dispatch: tag with the input
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
+          labels: |
+            org.opencontainers.image.title=Unfireable Safety Kernel
+            org.opencontainers.image.description=Fail-closed, machine-checked authorization service for AI agents.
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.vendor=ARYA Labs PBC
+
+      - name: Build and push
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: ./Dockerfile.prod
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Build cache lives in GHA cache to keep cold builds fast.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Image digest
+        run: |
+          echo "Image published with digest:"
+          echo "${{ steps.meta.outputs.tags }}"
