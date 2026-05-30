@@ -25,10 +25,18 @@ CODE_OF_CONDUCT.md
 SECURITY.md
 LICENSE
 
-# Tests, examples, and reference apps don't go in the kernel image
-examples/
+# Tests + benches don't go in the kernel image. examples/ is partially
+# kept — examples/reference_app_rs is a workspace member referenced by
+# the root Cargo.toml, so excluding it breaks `cargo build --locked`.
+# The non-Rust examples (Python reference app, observability dashboards,
+# policy DSL) are pulled out so the build context doesn't bloat.
 tests/
 benches/
+examples/reference_app/
+examples/middleware/
+examples/observability/
+examples/policy/
+examples/testing/
 
 # Python defense library is shipped separately
 py-defense/
