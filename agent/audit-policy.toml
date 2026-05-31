@@ -1,0 +1,27 @@
+# Jankurai audit policy for the Unfireable Safety Kernel.
+# Consumed by `just audit` (jankurai audit . --policy agent/audit-policy.toml).
+
+minimum_score = 85
+fail_on = ["critical", "high"]
+advisory_on = ["medium", "low"]
+
+[history]
+max_rows = 500
+max_bytes = 1048576
+dedupe = "consecutive-equivalent"
+
+[scan]
+# Generated/vendored artifacts and the figures bundle are not authored
+# product code; exclude from quality scoring.
+excluded_paths = ["docs/figures/", "target/"]
+
+# HLT-001 dead-marker calibration (per ARYA-Labs-PBC/Jankurai PR #15).
+# Real "unfinished code" markers stay ENFORCED. Code-archaeology words
+# that fire as false positives in doc comments and kept-for-compat APIs
+# (e.g. "legacy, kept for compat" in a doc comment describing a stable
+# constructor) are demoted to advisory. This makes the finding list
+# honest; it does NOT inflate the score (the cap only lifts when ALL
+# terms are advisory, and we deliberately keep the real ones enforced).
+[hlt_001]
+enforced_terms = ["placeholder", "stub", "todo", "fixme", "deprecated"]
+advisory_terms = ["legacy", "compat", "old", "stale", "fallback", "shim", "temp"]

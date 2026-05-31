@@ -1,0 +1,94 @@
+# Security lane — secret scanning + dependency policy.
+#
+# The Unfireable Safety Kernel is a high-risk repo (it gates AI-agent
+# actions and holds signing logic), so secret + supply-chain scanning
+# run on every PR and on a weekly schedule.
+#
+#   - gitleaks: secret scanning. Installed as a binary (the gitleaks
+#     GitHub Action wrapper requires a paid license; the binary does
+#     not). PR runs scan the diff; push/schedule scan full history so a
+#     credential committed and "removed" without rotation is still caught.
+#   - cargo-deny: dependency advisories + license/source bans, driven by
+#     the repo's deny.toml.
+#
+# Actions pinned to commit SHAs per SECURITY.md (tag retained as comment).
+
+name: Security Lane
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '17 7 * * 1'   # Mondays 07:17 UTC — catch newly-disclosed advisories
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ===========================================================
+  # Secret scanning — gitleaks binary (no license required)
+  # ===========================================================
+  gitleaks:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # Full history on push/schedule/dispatch; shallow on PRs (diff scan).
+          fetch-depth: ${{ github.event_name == 'pull_request' && 1 || 0 }}
+
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          GITLEAKS_VERSION="8.21.2"
+          curl -sSL -o /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      - name: Run gitleaks (PR — diff)
+        if: github.event_name == 'pull_request'
+        run: gitleaks detect --source . --redact --no-banner --log-opts="--no-merges origin/${{ github.base_ref }}..HEAD"
+
+      - name: Run gitleaks (push/schedule — full history)
+        if: github.event_name != 'pull_request'
+        run: gitleaks detect --source . --redact --no-banner
+
+  # ===========================================================
+  # Dependency policy — cargo-deny over deny.toml
+  # ===========================================================
+  cargo-deny:
+    name: Dependency policy (cargo-deny)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # stable
+        with:
+          toolchain: stable
+
+      - name: Install cargo-deny
+        # Use the latest cargo-deny: older releases (0.16) bundle a rustsec
+        # that cannot parse CVSS 4.0 vectors now present in the advisory DB
+        # and fail to even load it. Latest is also the right posture for a
+        # security-advisory lane (current advisory parsing).
+        run: cargo install cargo-deny --locked
+
+      - name: cargo deny check
+        # advisories + bans + licenses + sources, all driven by deny.toml.
+        run: cargo deny check
