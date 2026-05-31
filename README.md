@@ -97,7 +97,7 @@ This repository is the **public extraction** of the Unfireable Safety Kernel arc
 - Crates are not on crates.io yet. Build from source (instructions below).
 - The Python defense library is not on PyPI yet. Install from `py-defense/`.
 - The workspace's `crates/domain/Cargo.toml` manifest is not present in this initial extraction. Source is, but you may need to author the manifest for `cargo build --workspace`. Tracked for v1.0.
-- Docker Hub mirror (`aryalabs/safety-kernel`) lands when the `DOCKERHUB_TOKEN` secret is provisioned. GHCR is the canonical public registry until then (see Quickstart below).
+- A Docker Hub mirror (`aryaailabs/unfireable-safety-kernel`) is published alongside GHCR. GHCR remains the canonical registry (GHCR has higher anonymous-pull rate limits); Docker Hub is a convenience mirror.
 - External red-team evaluation against a live deployment. Adversarial fixtures pass in CI; a live evaluation by an unaffiliated party is the right next step and we are actively seeking partners. Contact `security@aryalabs.io`.
 
 ## Quickstart (Docker)
@@ -143,10 +143,14 @@ export QORCH_KERNEL_API_KEY_API=$(openssl rand -hex 16)
 docker compose -f deployment/docker-compose.prod.yml up -d
 ```
 
-Image tags:
+Registries (identical multi-arch manifests):
+- **GHCR (canonical)**: `ghcr.io/arya-labs-pbc/unfireable-safety-kernel`
+- **Docker Hub (mirror)**: `aryaailabs/unfireable-safety-kernel` — `docker pull aryaailabs/unfireable-safety-kernel`
+
+Image tags (same on both registries):
 - `:edge` — latest `main`
 - `:vX.Y.Z` — release tags (`:latest` points at the most recent semver tag)
-- Pin to a digest in production: `ghcr.io/arya-labs-pbc/unfireable-safety-kernel@sha256:<digest>`
+- Pin to a digest in production: `ghcr.io/arya-labs-pbc/unfireable-safety-kernel@sha256:<digest>` (or the matching Docker Hub digest — they are bit-identical)
 
 See [`docs/deployment/docker.md`](docs/deployment/docker.md) for the complete env-var reference + hardening checklist, and [`docs/deployment/smoke-test.md`](docs/deployment/smoke-test.md) for the canonical post-pull verification procedure.
 
