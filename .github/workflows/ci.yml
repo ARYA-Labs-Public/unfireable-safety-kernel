@@ -154,13 +154,18 @@ jobs:
       - name: Run scripts/audit_adversarial_coverage.sh
         run: bash scripts/audit_adversarial_coverage.sh
 
+      - name: Negative-gate tests (coverage script rejects bypass attacks)
+        # ARY-2361 AC4: assert the coverage script REJECTS a no-op fixture
+        # substitution (F2) and a forbidden deferral marker (F3). This is
+        # the Rule 8 adversarial fixture for the gate itself.
+        run: bash tests/adversarial/test_coverage_gate.sh
+
       - name: Run Python AF seed fixtures (pure stdlib)
-        # Override pytest's default `test_*.py` pattern to match the
-        # `af_<class>_seed.py` naming the coverage script enforces.
+        # `python_files` discovery is configured in pytest.ini (ARY-2362),
+        # so no -o override is needed here.
         run: |
           python -m pip install --quiet pytest
-          python -m pytest tests/adversarial/python/ \
-            -o python_files='af_*_seed.py' -v
+          python -m pytest tests/adversarial/python/ -v
 
   # ============================================================
   # OpenAPI: spec validity + schema-against-implementation drift smoke

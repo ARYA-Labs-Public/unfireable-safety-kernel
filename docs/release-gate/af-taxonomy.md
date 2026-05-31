@@ -57,13 +57,26 @@ Per the **coverage matrix** above, the AF-seed wave adds:
 `scripts/audit_adversarial_coverage.sh` MUST:
 
 1. Define the 7 AF class identifiers as `AF_CLASSES=(AF-contracts AF-sdk AF-image AF-reconciler AF-tlog AF-tee AF-key)`.
-2. For each class, count Rust fixtures (files matching `tests/adversarial/seed/${class//-/_}_*.rs` plus `tests/adversarial/seed/${class//-/_}_*.{rs,py}` paths AND any pre-existing files documented in this taxonomy doc as covering the class).
-3. For each class, count Python fixtures (same logic).
-4. If `count_rust == 0 && count_py == 0 && class != AF-tee`: exit 1 with `MISSING: $class`.
-5. If `class == AF-tee && no deferral stub present`: exit 1 with `DEFERRAL STUB MISSING: AF-tee`.
-6. If all 7 classes pass, exit 0.
+2. For each class, count Rust fixtures (files matching `tests/adversarial/seed/${class//-/_}_*.rs` plus `crates/*/tests/seed_${class//-/_}*.rs` paths AND any pre-existing files documented in this taxonomy doc as covering the class).
+3. For each class, count Python fixtures (same logic, `tests/adversarial/python/${class//-/_}_*.py`).
+4. **A discovered file counts ONLY IF it actually asserts** (ARY-2361 F2 fix). Python: an indented `assert`/`raise` statement. Rust: an `assert!`/`assert_eq!`/`assert_ne!`/`panic!` macro. A file with the right name but no assertion (e.g. `def test_noop(): pass`) is reported as `found but NOT counted (no assertion)` and does NOT satisfy the class. This prevents a no-op fixture from masquerading as coverage.
+5. If `count_rust == 0 || count_py == 0` and the class is not satisfied by an allowed deferral: exit 1 with `MISSING: $class`.
+6. **Deferral markers are honored ONLY for classes in `DEFERRABLE_CLASSES`** (ARY-2361 F3 fix). In v1.0 that allowlist is exactly `("AF-tee")`. A `tests/adversarial/seed/<class>_DEFERRED.md` for any class NOT in the allowlist is a hard error (exit 2, `FORBIDDEN`), not a silent pass. Adding a class to the allowlist requires a reviewed edit to BOTH the script's `DEFERRABLE_CLASSES` array AND this section.
+7. The per-class `[ok]` line reports a **prod-exercised vs seed-model** tag per language (ARY-2361 F1/F4 fix), derived by grepping each fixture for a production-crate import (`use qorch_` in Rust; `from packages.`/`safety_kernel_defense` in Python). This makes the "does this fixture exercise production code, or only its own test-local model?" distinction visible at a glance, so a reader is not misled by a green coverage line.
+8. If all 7 classes pass, exit 0.
 
-Wired into `.github/workflows/ci.yml` as a separate job (it's a `bash` script, doesn't need Rust or Python toolchain).
+### Deferrable-class allowlist
+
+| Class | Deferrable in v1.0? | Reason |
+|---|:---:|---|
+| AF-tee | **Yes** | TEE / TDX / SEV-SNP attestation is out of scope for the v1.0 commodity-hardware target (ARY-1886). The deployment surface AF-tee attacks does not exist in v1.0. |
+| all others | No | A deferral marker for any other class is rejected with exit 2. |
+
+### Negative-gate test
+
+`tests/adversarial/test_coverage_gate.sh` is the Rule 8 adversarial fixture **for the gate itself**: it substitutes a no-op fixture (F2) and plants a forbidden deferral marker (F3), and asserts the coverage script REJECTS each. Wired into the `af-coverage` CI job. A regression that re-opens either bypass turns this test red.
+
+Wired into `.github/workflows/ci.yml` as a separate `af-coverage` job (bash + find + grep only; no Rust or Python toolchain needed for the coverage check itself; pytest is installed only for the Python-seed run).
 
 ## Out-of-scope (not in this seed wave)
 
@@ -81,3 +94,16 @@ This doc IS the A1 deliverable. The /test wave (A4) verifies:
 - Existing adversarial test suites still green (the seed wave does not break the AC16/ARY-1883/transparency-log campaigns).
 
 The /purple-team wave (A5) attacks the seed itself: are the new AF-image and AF-key fixtures actually testing the production code path, or false-positives?
+
+## Post-/purple-team hardening (ARY-2361, ARY-2362)
+
+The A5 /purple-team assessment (`docs/release-gate/qa/purple-team-report-ary-1887-ac1.md`, session `a04a7ec80da3995274ba0d2a`) reproduced two HIGH gate-bypass attacks against the coverage script and three lower findings. All were fixed in the same wave before release:
+
+| Finding | Severity | Fix |
+|---|---|---|
+| F2 — script counts files, not assertion shape | HIGH | Coverage script now requires each fixture to contain an assertion (contract item 4 above) + `test_coverage_gate.sh` negative-gate test. |
+| F3 — deferral marker has no allowlist | HIGH | `DEFERRABLE_CLASSES` allowlist (contract item 6 above); forbidden markers hard-fail with exit 2. |
+| F1/F4 — no prod-exercised metadata | MED | Per-language `prod-exercised`/`seed-model` tag in the `[ok]` line (contract item 7 above). |
+| F5 — pytest auto-discovery skipped the dir | LOW | Removed `tests/adversarial/python/__init__.py` + added repo-root `pytest.ini` with `python_files` including `af_*_seed.py`. `pytest tests/adversarial/python/` now collects all 12 with no flags. |
+
+The "seed-model vs prod-exercised" distinction the script now surfaces matches this doc's coverage matrix: AF-image is seed-model on both languages (structural-lint only; full sigstore + SLSA attestation is downstream), AF-key is prod-exercised on the Rust side (real `PinnedKeyVerifier` + Ed25519) and seed-model on the Python side (stdlib-only HMAC proxy until the Python defense lib adds a `cryptography` dep).
