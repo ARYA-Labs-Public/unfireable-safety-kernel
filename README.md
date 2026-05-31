@@ -97,12 +97,11 @@ This repository is the **public extraction** of the Unfireable Safety Kernel arc
 - Crates are not on crates.io yet. Build from source (instructions below).
 - The Python defense library is not on PyPI yet. Install from `py-defense/`.
 - The workspace's `crates/domain/Cargo.toml` manifest is not present in this initial extraction. Source is, but you may need to author the manifest for `cargo build --workspace`. Tracked for v1.0.
-- A Docker Hub mirror (`aryaailabs/unfireable-safety-kernel`) is published alongside GHCR. GHCR remains the canonical registry (GHCR has higher anonymous-pull rate limits); Docker Hub is a convenience mirror.
 - External red-team evaluation against a live deployment. Adversarial fixtures pass in CI; a live evaluation by an unaffiliated party is the right next step and we are actively seeking partners. Contact `security@aryalabs.io`.
 
 ## Quickstart (Docker)
 
-Multi-arch (amd64 + arm64) images publish to GHCR on every push to `main` and every release tag. The image is distroless, runs as non-root uid 65532, and weighs in under 60 MB.
+Multi-arch (amd64 + arm64) images publish to GHCR on every push to `main` and every release tag, and are mirrored to Docker Hub automatically. Both registries are public — no login needed to pull. The image is distroless, runs as non-root uid 65532, and weighs in under 60 MB.
 
 ```bash
 # 1. Generate kernel boot secrets — base64url-encoded 32 bytes each.
@@ -144,8 +143,8 @@ docker compose -f deployment/docker-compose.prod.yml up -d
 ```
 
 Registries (identical multi-arch manifests):
-- **GHCR (canonical)**: `ghcr.io/arya-labs-pbc/unfireable-safety-kernel`
-- **Docker Hub (mirror)**: `aryaailabs/unfireable-safety-kernel` — `docker pull aryaailabs/unfireable-safety-kernel`
+- **GHCR (canonical)**: `ghcr.io/arya-labs-pbc/unfireable-safety-kernel` — public, anonymous pull
+- **Docker Hub (mirror)**: `aryaailabs/unfireable-safety-kernel` — public, anonymous pull (`docker pull aryaailabs/unfireable-safety-kernel`)
 
 Image tags (same on both registries):
 - `:edge` — latest `main`
