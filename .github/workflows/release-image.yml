@@ -1,4 +1,5 @@
-# Build the Unfireable Safety Kernel image and publish to GHCR.
+# Build the Unfireable Safety Kernel image and publish to GHCR, then
+# mirror the published multi-arch manifest to Docker Hub.
 #
 # Triggers:
 #   - push to main             -> publishes :edge
@@ -7,9 +8,14 @@
 #
 # Multi-arch: linux/amd64 + linux/arm64 via docker buildx.
 #
-# Auth: GITHUB_TOKEN with `packages: write` — no Docker Hub credential
-# needed for GHCR. Mirroring to Docker Hub is a separate workflow gated
-# on DOCKERHUB_USERNAME + DOCKERHUB_TOKEN secrets when they land.
+# Registries:
+#   - GHCR (canonical): ghcr.io/<repo>. Auth via GITHUB_TOKEN —
+#     always available, no setup required.
+#   - Docker Hub (mirror): docker.io/aryaailabs/unfireable-safety-kernel.
+#     Auth via DOCKERHUB_USERNAME + DOCKERHUB_TOKEN repo secrets. The
+#     mirror job SOFT-SKIPS when those secrets are absent, so the GHCR
+#     publish is never blocked on Docker Hub credentials. The mirror
+#     copies the already-built GHCR manifest by digest (no rebuild).
 #
 # All actions pinned to commit SHAs per repo security policy. The
 # original tag is retained as a trailing comment.
@@ -49,6 +55,11 @@ jobs:
   build-and-push:
     name: Build + push multi-arch image
     runs-on: ubuntu-latest
+    outputs:
+      # The multi-arch index digest of the published image. The
+      # dockerhub-mirror job copies exactly this digest so the mirror is
+      # bit-identical to GHCR. Empty on pull_request (push=false).
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -93,6 +104,7 @@ jobs:
             org.opencontainers.image.vendor=ARYA Labs PBC
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: .
@@ -109,5 +121,88 @@ jobs:
 
       - name: Image digest
         run: |
-          echo "Image published with digest:"
+          echo "Image published with digest: ${{ steps.build.outputs.digest }}"
+          echo "Tags:"
           echo "${{ steps.meta.outputs.tags }}"
+
+  # ============================================================
+  # Docker Hub mirror — copies the GHCR multi-arch manifest by digest.
+  # Soft-skips when DOCKERHUB_* secrets are absent so the GHCR publish
+  # is never gated on Docker Hub credentials. Never runs on PRs (the
+  # PR build does not publish, so there is nothing to mirror).
+  # ============================================================
+  dockerhub-mirror:
+    name: Mirror to Docker Hub
+    needs: build-and-push
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      # Mapped to env so the presence check does not interpolate the
+      # secret directly into a shell command.
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      DOCKERHUB_IMAGE: docker.io/aryaailabs/unfireable-safety-kernel
+      GHCR_DIGEST_REF: ghcr.io/${{ github.repository }}@${{ needs.build-and-push.outputs.digest }}
+    steps:
+      - name: Check Docker Hub credentials present
+        id: check
+        run: |
+          if [ -n "${DOCKERHUB_TOKEN}" ] && [ -n "${DOCKERHUB_USERNAME}" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Docker Hub mirror skipped::DOCKERHUB_USERNAME / DOCKERHUB_TOKEN not set; GHCR remains the only published registry for this run."
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.check.outputs.available == 'true'
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Log in to Docker Hub
+        if: steps.check.outputs.available == 'true'
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Recompute the SAME tag set, but for the Docker Hub image name.
+      # Same trigger logic -> same tags as the GHCR publish.
+      - name: Compute Docker Hub tags
+        id: meta-dh
+        if: steps.check.outputs.available == 'true'
+        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5.7.0
+        with:
+          images: ${{ env.DOCKERHUB_IMAGE }}
+          tags: |
+            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
+
+      - name: Mirror GHCR manifest to Docker Hub
+        if: steps.check.outputs.available == 'true'
+        env:
+          DH_TAGS: ${{ steps.meta-dh.outputs.tags }}
+        run: |
+          set -euo pipefail
+          # Build a --tag flag per computed Docker Hub tag, then copy the
+          # multi-arch index from GHCR (by digest) to all of them in one
+          # imagetools call. No rebuild; this is a manifest copy.
+          tag_flags=()
+          while IFS= read -r t; do
+            [ -n "$t" ] && tag_flags+=(--tag "$t")
+          done <<< "${DH_TAGS}"
+          if [ "${#tag_flags[@]}" -eq 0 ]; then
+            echo "::notice::No Docker Hub tags computed for this ref; nothing to mirror."
+            exit 0
+          fi
+          echo "Mirroring ${GHCR_DIGEST_REF} -> ${DOCKERHUB_IMAGE} with tags:"
+          printf '  %s\n' "${DH_TAGS}"
+          docker buildx imagetools create "${tag_flags[@]}" "${GHCR_DIGEST_REF}"
+
+      - name: Confirm Docker Hub manifest
+        if: steps.check.outputs.available == 'true'
+        run: |
+          docker buildx imagetools inspect "${DOCKERHUB_IMAGE}:edge" || true

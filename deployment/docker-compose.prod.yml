@@ -30,6 +30,9 @@
 services:
   safety-kernel:
     image: ghcr.io/arya-labs-pbc/unfireable-safety-kernel:edge
+    # Canonical registry is GHCR (above). Docker Hub mirror (identical
+    # multi-arch manifest) is also available:
+    #   image: aryaailabs/unfireable-safety-kernel:edge
     # Pin to a digest in real production:
     #   image: ghcr.io/arya-labs-pbc/unfireable-safety-kernel@sha256:<digest>
     container_name: safety-kernel
