@@ -162,6 +162,19 @@ jobs:
         if: steps.check.outputs.available == 'true'
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
+      # imagetools must READ the source manifest from GHCR. The GHCR
+      # package is not anonymously pullable, so authenticate with the
+      # job's GITHUB_TOKEN (the workflow grants packages: write, which
+      # includes read) before the copy. Without this the copy fails with
+      # "failed to fetch anonymous token: 401 Unauthorized".
+      - name: Log in to GHCR (read source manifest)
+        if: steps.check.outputs.available == 'true'
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Log in to Docker Hub
         if: steps.check.outputs.available == 'true'
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
