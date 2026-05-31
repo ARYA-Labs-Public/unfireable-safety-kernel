@@ -142,7 +142,11 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
       DOCKERHUB_IMAGE: docker.io/aryaailabs/unfireable-safety-kernel
-      GHCR_DIGEST_REF: ghcr.io/${{ github.repository }}@${{ needs.build-and-push.outputs.digest }}
+      # The published index digest. The GHCR ref is assembled in-script
+      # with a lowercased ${GITHUB_REPOSITORY} — OCI/Docker repository
+      # names must be lowercase, and github.repository preserves the
+      # org's case (ARYA-Labs-PBC), which imagetools rejects.
+      IMAGE_DIGEST: ${{ needs.build-and-push.outputs.digest }}
     steps:
       - name: Check Docker Hub credentials present
         id: check
@@ -198,6 +202,9 @@ jobs:
             echo "::notice::No Docker Hub tags computed for this ref; nothing to mirror."
             exit 0
           fi
+          # OCI repository names must be lowercase; ${GITHUB_REPOSITORY}
+          # carries the org's case (ARYA-Labs-PBC), so lowercase it here.
+          GHCR_DIGEST_REF="ghcr.io/${GITHUB_REPOSITORY,,}@${IMAGE_DIGEST}"
           echo "Mirroring ${GHCR_DIGEST_REF} -> ${DOCKERHUB_IMAGE} with tags:"
           printf '  %s\n' "${DH_TAGS}"
           docker buildx imagetools create "${tag_flags[@]}" "${GHCR_DIGEST_REF}"
