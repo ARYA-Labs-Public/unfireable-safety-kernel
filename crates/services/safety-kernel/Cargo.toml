@@ -17,6 +17,13 @@ description = "Rust port of the safety-kernel HTTP service."
 name = "qorch-safety-kernel"
 path = "src/main.rs"
 
+# Step-14R / ARY-1886: operator tool that generates a fresh Ed25519
+# signing seed for first-boot key init (prints the base64url seed to
+# stdout; public key + fingerprint to stderr).
+[[bin]]
+name = "safety-kernel-keygen"
+path = "src/bin/keygen.rs"
+
 [features]
 # `test-seams`: enable header-based clock/nonce overrides so the
 # equivalence harness can pin both impls to identical wall-clock and
@@ -47,6 +54,8 @@ bytes = { workspace = true }
 
 #  /  additions for W2:
 ed25519-dalek = { workspace = true }
+# Step-14R / ARY-1886: CSPRNG for the keygen binary (getrandom-backed).
+rand_core = { workspace = true }
 base64 = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }

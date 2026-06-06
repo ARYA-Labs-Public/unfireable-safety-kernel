@@ -59,8 +59,26 @@ pub struct Settings {
     pub api_key_operator: Option<String>,
 
     /// Ed25519 signing key (32-byte seed, base64url; padded or
-    /// unpadded both accepted at decode time).
+    /// unpadded both accepted at decode time). For managed key backends
+    /// (`key_backend != Env`) this is empty until
+    /// `key_backend::resolve_signing_key_b64` fills it at boot.
     pub signing_key_b64: String,
+
+    /// Signing-key backend selector (`KERNEL_KEY_BACKEND`, default
+    /// `env`). Step-14R / ARY-1886: lets prod fetch the seed from a
+    /// managed secret store instead of the process environment.
+    pub key_backend: crate::key_backend::KeyBackendKind,
+
+    /// GCP project id for the `gcp` backend (`KERNEL_KEY_GCP_PROJECT`).
+    pub key_gcp_project: Option<String>,
+
+    /// GCP Secret Manager secret name for the `gcp` backend
+    /// (`KERNEL_KEY_GCP_SECRET`).
+    pub key_gcp_secret: Option<String>,
+
+    /// GCP Secret Manager version for the `gcp` backend
+    /// (`KERNEL_KEY_GCP_SECRET_VERSION`, default `latest`).
+    pub key_gcp_secret_version: String,
 
     /// HMAC-SHA256 audit pepper (base64url; padded or unpadded).
     pub audit_pepper_b64: String,
@@ -160,8 +178,13 @@ impl Settings {
     /// `middleware.py:48-58`).
     #[allow(clippy::too_many_lines)]
     pub fn from_env() -> Result<Self> {
+        // Trim before lowercasing: a stray-whitespace `QORCH_ENV=" prod"`
+        // must NOT read as non-prod, or it would silently relax every
+        // fail-closed check keyed on `is_prod` (the env-backend key
+        // guard, the operator-key requirement, the TLS + transparency
+        // prod gates). Hardening for purple-team finding PT-1 (ARY-1886).
         let env_v = env::var("QORCH_ENV").unwrap_or_else(|_| "dev".to_string());
-        let env_lower = env_v.to_ascii_lowercase();
+        let env_lower = env_v.trim().to_ascii_lowercase();
 
         let db_backend = env::var("QORCH_KERNEL_DB_BACKEND")
             .or_else(|_| env::var("QORCH_DB_BACKEND"))
@@ -180,14 +203,75 @@ impl Settings {
             .unwrap_or_else(|_| "api_key".to_string())
             .to_ascii_lowercase();
 
-        // Fail-closed required secrets (all envs).
-        let signing_key_b64 = env::var("QORCH_KERNEL_SIGNING_KEY_B64")
-            .map_err(|_| anyhow!("missing QORCH_KERNEL_SIGNING_KEY_B64"))?
-            .trim()
-            .to_string();
-        if signing_key_b64.is_empty() {
-            return Err(anyhow!("missing QORCH_KERNEL_SIGNING_KEY_B64"));
-        }
+        // ── Signing-key backend (Step-14R / ARY-1886 Phase-4) ──────
+        // `KERNEL_KEY_BACKEND` selects where the Ed25519 seed comes
+        // from. `env` (default) keeps zero-config dev/staging; managed
+        // backends fetch the seed at boot (network — done post-runtime
+        // in `key_backend::resolve_signing_key_b64`). Config validation
+        // is done here (sync, no network) so a misconfig fails fast.
+        let key_backend = crate::key_backend::KeyBackendKind::parse(
+            &env::var("KERNEL_KEY_BACKEND").unwrap_or_default(),
+        )?;
+        let is_prod_env = matches!(env_lower.as_str(), "prod" | "production");
+
+        let key_gcp_project = env::var("KERNEL_KEY_GCP_PROJECT")
+            .ok()
+            .filter(|v| !v.trim().is_empty());
+        let key_gcp_secret = env::var("KERNEL_KEY_GCP_SECRET")
+            .ok()
+            .filter(|v| !v.trim().is_empty());
+        let key_gcp_secret_version = env::var("KERNEL_KEY_GCP_SECRET_VERSION")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .unwrap_or_else(|| "latest".to_string());
+
+        // Fail-closed required secret: the `env` backend reads (and
+        // requires) `QORCH_KERNEL_SIGNING_KEY_B64` in non-prod envs.
+        let signing_key_b64 = match key_backend {
+            crate::key_backend::KeyBackendKind::Env => {
+                // env-backend is FORBIDDEN in prod: a raw seed in the
+                // process environment is exactly what Step-14R removes.
+                if is_prod_env {
+                    return Err(anyhow!(
+                        "fail-closed: KERNEL_KEY_BACKEND=env is forbidden when \
+                         QORCH_ENV=prod. Set KERNEL_KEY_BACKEND to a managed \
+                         backend (gcp|aws|azure|pkcs11|tpm) so the Ed25519 seed \
+                         is not held in the process environment. See \
+                         docs/deployment/key-management.md."
+                    ));
+                }
+                let v = env::var("QORCH_KERNEL_SIGNING_KEY_B64")
+                    .map_err(|_| anyhow!("missing QORCH_KERNEL_SIGNING_KEY_B64"))?
+                    .trim()
+                    .to_string();
+                if v.is_empty() {
+                    return Err(anyhow!("missing QORCH_KERNEL_SIGNING_KEY_B64"));
+                }
+                v
+            }
+            crate::key_backend::KeyBackendKind::Gcp => {
+                // Validate required config now (sync); the live fetch
+                // happens after the tokio runtime is up.
+                if key_gcp_project.is_none() {
+                    return Err(anyhow!(
+                        "KERNEL_KEY_BACKEND=gcp requires KERNEL_KEY_GCP_PROJECT"
+                    ));
+                }
+                if key_gcp_secret.is_none() {
+                    return Err(anyhow!(
+                        "KERNEL_KEY_BACKEND=gcp requires KERNEL_KEY_GCP_SECRET"
+                    ));
+                }
+                String::new() // resolved at boot by the backend
+            }
+            other => {
+                return Err(anyhow!(
+                    "KERNEL_KEY_BACKEND={} is not implemented in this build; \
+                     see docs/deployment/key-management.md for the tracking issue",
+                    other.as_str()
+                ));
+            }
+        };
 
         let audit_pepper_b64 = env::var("QORCH_KERNEL_AUDIT_PEPPER_B64")
             .map_err(|_| anyhow!("missing QORCH_KERNEL_AUDIT_PEPPER_B64"))?
@@ -341,6 +425,10 @@ impl Settings {
             api_key_api,
             api_key_operator,
             signing_key_b64,
+            key_backend,
+            key_gcp_project,
+            key_gcp_secret,
+            key_gcp_secret_version,
             audit_pepper_b64,
             default_token_ttl_s,
             max_token_ttl_s,
