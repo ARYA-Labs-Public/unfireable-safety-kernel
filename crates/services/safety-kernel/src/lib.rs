@@ -32,6 +32,8 @@
 // boundary.
 pub mod auth;
 pub mod dto;
+/// Step-14R / internal-ref: pluggable signing-key backend (env|gcp|…).
+pub mod key_backend;
 pub mod routes;
 pub mod settings;
 pub mod state;
