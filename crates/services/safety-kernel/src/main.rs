@@ -36,6 +36,7 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 mod auth;
 mod dto;
+mod key_backend;
 mod routes;
 mod settings;
 mod state;
@@ -84,8 +85,19 @@ async fn main() -> Result<()> {
         "qorch-safety-kernel starting"
     );
 
+    // Resolve the signing seed via the configured key backend
+    // (env|gcp). For managed backends this performs the live secret
+    // fetch now that the tokio runtime is up (Step-14R / ARY-1886).
+    let signing_key_b64 = key_backend::resolve_signing_key_b64(&settings)
+        .await
+        .context("resolving Ed25519 signing seed from key backend")?;
+    info!(
+        backend = %settings.key_backend.as_str(),
+        "signing-key backend resolved"
+    );
+
     // Decode signing key (32-byte seed).
-    let signing_seed_bytes = b64url_decode_padded_or_unpadded(&settings.signing_key_b64)?;
+    let signing_seed_bytes = b64url_decode_padded_or_unpadded(&signing_key_b64)?;
     if signing_seed_bytes.len() != 32 {
         return Err(anyhow!(
             "signing key seed must be 32 bytes, got {}",
