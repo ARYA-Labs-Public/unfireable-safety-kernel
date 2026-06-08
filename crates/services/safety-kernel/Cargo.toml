@@ -105,7 +105,7 @@ sha2 = { workspace = true }
 #   /test wave — also used by `tests/test_transparency_mtls_smoke.rs`
 # to drive a real mTLS handshake between the kernel client and an
 # axum-server bound to a self-signed CA.
-rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
+rcgen = { version = "0.14", default-features = false, features = ["ring", "pem"] }
 #   /test wave — `tests/test_transparency_http_wiremock.rs`
 # drives ReqwestTransparencyClient against a real HTTP mock so the
 # status-code -> TransparencyError mapping is exercised end-to-end.
