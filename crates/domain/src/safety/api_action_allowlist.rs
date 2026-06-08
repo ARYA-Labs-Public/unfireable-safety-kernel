@@ -45,8 +45,7 @@ pub const API_ALLOWED_PREFIXES: &[&str] = &[
     "/api/v1/inference/",
     "/api/v1/queue/",
     "/api/v1/stream/",
-    "/api/v1/ingest/",
-    "/api/v1/ingest", // exact-path variant — POST /api/v1/ingest (no trailing slash)
+    "/api/v1/ingest/", // bare collection-root POST /api/v1/ingest is covered by prefix_match
     // Governance, compliance, safety
     "/api/v1/governance/",
     "/api/v1/compliance/",
@@ -121,7 +120,22 @@ pub const API_ALLOWED_PREFIXES: &[&str] = &[
 pub fn is_api_action_allowed(action: &str) -> bool {
     let path = action.split_once(':').map_or(action, |(_, rest)| rest);
     let path = path.trim();
-    API_ALLOWED_PREFIXES.iter().any(|p| path.starts_with(p))
+    API_ALLOWED_PREFIXES.iter().any(|p| prefix_match(path, p))
+}
+
+/// Match `path` against an allowlist `prefix`.
+///
+/// In addition to a normal prefix match, the EXACT collection root is admitted:
+/// a slash-terminated entry like `/api/v1/runs/` also authorizes the bare
+/// collection-root action `POST /api/v1/runs`. This admits ONLY the exact root
+/// of an already-listed prefix — it never matches a sibling (`/api/v1/runsX`),
+/// a shorter path (`/api/v1/run`), or any prefix not in the list, so the
+/// allowlist's deny-by-default posture is unchanged. It also removes the need
+/// for per-route "exact-path variant" duplicate entries (a no-slash twin next
+/// to the slash-terminated prefix) that were previously hand-added.
+#[must_use]
+pub fn prefix_match(path: &str, prefix: &str) -> bool {
+    path == prefix.trim_end_matches('/') || path.starts_with(prefix)
 }
 
 #[cfg(test)]
@@ -158,5 +172,34 @@ mod tests {
     fn handles_action_without_colon() {
         // Treats the whole string as the path; "/health" matches.
         assert!(is_api_action_allowed("/health"));
+    }
+
+    // Collection-root matching: a slash-terminated prefix also authorizes its
+    // exact bare root (e.g. /api/v1/runs/ admits POST /api/v1/runs), so the
+    // create-collection POST is no longer rejected and no per-route no-slash
+    // twin is needed.
+    #[test]
+    fn admits_collection_root_of_listed_prefix() {
+        assert!(is_api_action_allowed("POST:/api/v1/runs")); // root of /api/v1/runs/
+                                                             // Previously needed a dedicated no-slash entry; now covered generically.
+        assert!(is_api_action_allowed("POST:/api/v1/ingest"));
+        // Deeper paths under a listed prefix are unaffected.
+        assert!(is_api_action_allowed("POST:/api/v1/runs/123/cancel"));
+    }
+
+    #[test]
+    fn collection_root_does_not_widen_to_siblings_or_unlisted() {
+        assert!(!is_api_action_allowed("POST:/api/v1/runsX")); // sibling
+        assert!(!is_api_action_allowed("POST:/api/v1/run")); // shorter
+        assert!(!is_api_action_allowed("POST:/api/v1/admin/dangerous")); // unlisted
+        assert!(!is_api_action_allowed("POST:/api/v2/runs")); // wrong version
+    }
+
+    #[test]
+    fn prefix_match_admits_only_exact_root() {
+        assert!(prefix_match("/api/v1/runs", "/api/v1/runs/"));
+        assert!(prefix_match("/api/v1/runs/9", "/api/v1/runs/"));
+        assert!(!prefix_match("/api/v1/runsX", "/api/v1/runs/"));
+        assert!(!prefix_match("/api/v1/run", "/api/v1/runs/"));
     }
 }
