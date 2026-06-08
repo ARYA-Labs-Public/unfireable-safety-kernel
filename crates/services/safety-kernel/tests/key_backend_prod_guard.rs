@@ -63,7 +63,9 @@ fn key_backend_config_gates() {
     let ws_err =
         Settings::from_env().expect_err("whitespace-padded prod must still reject env backend");
     assert!(
-        ws_err.to_string().contains("KERNEL_KEY_BACKEND=env is forbidden"),
+        ws_err
+            .to_string()
+            .contains("KERNEL_KEY_BACKEND=env is forbidden"),
         "whitespace prod must not bypass the guard, got: {ws_err}"
     );
 
@@ -81,8 +83,8 @@ fn key_backend_config_gates() {
     std::env::set_var("QORCH_ENV", "prod"); // gcp is allowed in prod
     std::env::set_var("KERNEL_KEY_BACKEND", "gcp");
     std::env::set_var("QORCH_KERNEL_API_KEY_OPERATOR", "op"); // required in prod
-    // Transparency-log prod requirement is orthogonal to the key
-    // backend; disable it so this case isolates backend behavior.
+                                                              // Transparency-log prod requirement is orthogonal to the key
+                                                              // backend; disable it so this case isolates backend behavior.
     std::env::set_var("QORCH_KERNEL_TRANSPARENCY_ENABLED", "false");
     // no QORCH_KERNEL_SIGNING_KEY_B64 set on purpose
     let missing = Settings::from_env().expect_err("gcp backend requires project+secret");
@@ -123,4 +125,3 @@ fn key_backend_config_gates() {
 
     clear_kernel_env();
 }
-
