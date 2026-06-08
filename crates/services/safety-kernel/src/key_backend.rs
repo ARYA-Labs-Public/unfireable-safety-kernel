@@ -267,4 +267,3 @@ mod tests {
         assert_eq!(KeyBackendKind::Tpm.as_str(), "tpm");
     }
 }
-
