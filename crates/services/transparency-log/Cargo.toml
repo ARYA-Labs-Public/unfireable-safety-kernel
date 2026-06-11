@@ -95,7 +95,7 @@ rand_core = { workspace = true }
 # tls::build_server_config across both branches (TLS-only and mTLS)
 # with a self-signed CA. Matches the kernel's rcgen pin so the build
 # graph dedups.
-rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
+rcgen = { version = "0.14", default-features = false, features = ["ring", "pem"] }
 # Dev-test consumers of the route handlers want a deterministic Clock.
 # The production binary already brings these in via the runtime deps;
 # they're listed again here so the route-level unit tests don't have
