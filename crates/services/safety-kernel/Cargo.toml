@@ -122,7 +122,7 @@ http-body-util = "0.1"
 # e2e harness at `tests/perf/policy_authorize_e2e.py`. `harness = false`
 # on the `[[bench]]` entry below tells cargo to defer to criterion's
 # `criterion_main!` macro instead of the default libtest harness.
-criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
 
 #  slice 5 §3.2: criterion bench for `POST /policy/module/authorize`.
 # `harness = false` -> criterion provides its own `main()`. Run via:
