@@ -74,7 +74,7 @@ tokio = { workspace = true, features = ["full"] }
 # axum-server (rustls feature) for the server, axum + reqwest for the
 # request side. serde_json is used by adversarial.rs / traceparent.rs
 # to build kernel response bodies.
-rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
+rcgen = { version = "0.14", default-features = false, features = ["ring", "pem"] }
 tempfile = "3"
 axum = { workspace = true }
 axum-server = { version = "0.8", default-features = false, features = ["tls-rustls-no-provider"] }
