@@ -2,7 +2,7 @@
 
 - **Wave**: `ary1886-gcp-key-backend`
 - **Originating issue**: ARY-1886 (Phase-4 self-hosted deployment / Step-14R key management)
-- **Repo**: `ARYA-Labs-PBC/unfireable-safety-kernel`, branch `seth/ary-1886-gcp-key-backend`
+- **Repo**: `ARYA-Labs-Public/unfireable-safety-kernel`, branch `seth/ary-1886-gcp-key-backend`
 - **Release-gating**: this is a slice; ARY-1886 stays **In Progress** (does NOT close Done).
 - **Closeout verdict**: PASS (slice scope) — ship the slice; remaining ACs tracked.
 

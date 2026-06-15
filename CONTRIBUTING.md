@@ -22,7 +22,7 @@ You will need:
 Clone and verify the build:
 
 ```bash
-git clone https://github.com/ARYA-Labs-PBC/safety-kernel.git
+git clone https://github.com/ARYA-Labs-Public/unfireable-safety-kernel.git
 cd safety-kernel
 cargo build --workspace
 cargo test --workspace
@@ -137,7 +137,7 @@ many of these — we just want to do it deliberately.
 ## Asking Questions
 
 Open a Discussion at
-[https://github.com/ARYA-Labs-PBC/safety-kernel/discussions](https://github.com/ARYA-Labs-PBC/safety-kernel/discussions).
+[https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/discussions](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/discussions).
 "How do I integrate this with X?" is exactly the kind of question we
 want to answer in public so the next person can find it.
 

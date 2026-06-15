@@ -1,10 +1,10 @@
 # safety-kernel-defense
 
 Python audit-hook + FastAPI middleware reference for the
-[safety-kernel](https://github.com/ARYA-Labs-PBC/safety-kernel)
+[safety-kernel](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel)
 authorization service.
 
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/ARYA-Labs-PBC/safety-kernel/blob/main/LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/blob/main/LICENSE)
 [![Python: 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
 
 The Layer-1 in-process defender for Python applications calling the
@@ -76,12 +76,12 @@ only for emergency operational scenarios.
 For HTTP-request-level enforcement (rather than per-import), see
 the FastAPI middleware reference in the safety-kernel repo's
 `examples/middleware/fastapi_safety_middleware.py` and the
-[python-fastapi integration guide](https://github.com/ARYA-Labs-PBC/safety-kernel/blob/main/docs/integration/python-fastapi.md).
+[python-fastapi integration guide](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/blob/main/docs/integration/python-fastapi.md).
 
 ## Architecture
 
 The audit hook is one of four defense seams. See
-[`docs/architecture.md`](https://github.com/ARYA-Labs-PBC/safety-kernel/blob/main/docs/architecture.md)
+[`docs/architecture.md`](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/blob/main/docs/architecture.md)
 in the upstream repo for the full design.
 
 ```
@@ -120,11 +120,11 @@ pytest safety_kernel_defense/tests/
 
 Report security issues privately to
 **security@aryalabs.io**. See the upstream
-[SECURITY.md](https://github.com/ARYA-Labs-PBC/safety-kernel/blob/main/SECURITY.md)
+[SECURITY.md](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/blob/main/SECURITY.md)
 for the full policy.
 
 ## License
 
 Apache-2.0 — see
-[LICENSE](https://github.com/ARYA-Labs-PBC/safety-kernel/blob/main/LICENSE)
+[LICENSE](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/blob/main/LICENSE)
 in the upstream repo.

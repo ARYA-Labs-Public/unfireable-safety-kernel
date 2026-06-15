@@ -11,7 +11,7 @@ Hi Trail of Bits team,
 
 ARYA Labs PBC is preparing the v1.0 release of the **Unfireable Safety Kernel**, a fail-closed authorization service for AI agents and other escapable AI systems. The kernel is a separate Rust process that sits between the agent and every consequential action; the agent runtime is treated as untrusted by construction. We are open-sourcing the implementation under Apache-2.0 and would like to engage Trail of Bits for the independent security audit that gates our v1.0 signed release.
 
-Public repo: <https://github.com/ARYA-Labs-PBC/unfireable-safety-kernel>
+Public repo: <https://github.com/ARYA-Labs-Public/unfireable-safety-kernel>
 
 **Why Trail of Bits.** The kernel is Rust + Ed25519-signed transparency log + fail-closed circuit breaker. Trail of Bits' work on `osquery`, `cosign`, `slither`, the Solana audit, and the Coinbase Bitcoin core review lines up with the shape of this engagement more cleanly than any other firm we've evaluated. We would prefer to engage you as the primary auditor; we are quoting two other firms as a hedge against scheduling.
 

@@ -11,7 +11,7 @@ Hi NCC Group team,
 
 ARYA Labs PBC is preparing the v1.0 release of the **Unfireable Safety Kernel**, an open-source (Apache-2.0) Rust authorization service that gates AI-agent actions through a process-separated kernel. We are sending RFQs to a short list of audit firms for the independent security review that gates our v1.0 signed release; NCC Group is on that list because of your track record on the protocol-and-transport surface this kernel relies on.
 
-Public repo: <https://github.com/ARYA-Labs-PBC/unfireable-safety-kernel>
+Public repo: <https://github.com/ARYA-Labs-Public/unfireable-safety-kernel>
 
 **Why NCC.** The kernel composes four defense-in-depth seams (nginx `auth_request`, axum middleware, dispatch hook, client SDK circuit breaker). Each seam is a potential transport / protocol failure mode. NCC's work on TLS implementations, OAuth flows, and SDN/cloud-network protocols maps cleanly onto the kind of cross-seam bypass-by-construction analysis we need. NCC's published threat-modeling methodology is also closer to the four-seam decomposition than the more code-centric ToB style.
 

@@ -41,7 +41,7 @@ killed.
 The crate is not on crates.io yet. Build from this repo:
 
 ```bash
-git clone https://github.com/ARYA-Labs-PBC/safety-kernel.git
+git clone https://github.com/ARYA-Labs-Public/unfireable-safety-kernel.git
 cd safety-kernel
 cargo build --release -p qorch-safety-kernel
 ./target/release/qorch-safety-kernel --version

@@ -159,7 +159,7 @@ If you prefer to build from source — e.g. running on an architecture other tha
 
 ```bash
 # 1. Clone
-git clone https://github.com/ARYA-Labs-PBC/unfireable-safety-kernel.git
+git clone https://github.com/ARYA-Labs-Public/unfireable-safety-kernel.git
 cd unfireable-safety-kernel
 
 # 2. Build the kernel
@@ -273,7 +273,7 @@ If you use the Unfireable Safety Kernel in research, please cite the accompanyin
   eprint = {arxiv-id-pending},
   archivePrefix = {arXiv},
   primaryClass  = {cs.AI},
-  howpublished  = {\url{https://github.com/ARYA-Labs-PBC/unfireable-safety-kernel}}
+  howpublished  = {\url{https://github.com/ARYA-Labs-Public/unfireable-safety-kernel}}
 }
 ```
 

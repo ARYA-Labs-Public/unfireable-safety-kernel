@@ -18,7 +18,7 @@ Hi Cure53 team,
 
 ARYA Labs PBC is preparing the v1.0 release of the **Unfireable Safety Kernel**, an open-source (Apache-2.0) Rust authorization service that gates AI-agent actions through a process-separated kernel. We are evaluating an independent security audit as the release gate for v1.0, and we'd like to include Cure53 in our three-firm quote process.
 
-Public repo: <https://github.com/ARYA-Labs-PBC/unfireable-safety-kernel>
+Public repo: <https://github.com/ARYA-Labs-Public/unfireable-safety-kernel>
 
 **Why Cure53.** Your published reports on PyPI, Tornado, NextDNS, and several Rust cryptographic crates show the exact kind of code-review-first methodology this kernel needs. We are also a US Public Benefit Corporation with EU AI Act and German federal adoption on our roadmap, so an audit by a Berlin-based firm with a paper trail in the German-federal procurement ecosystem materially helps that path.
 

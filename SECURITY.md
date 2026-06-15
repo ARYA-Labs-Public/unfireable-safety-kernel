@@ -14,7 +14,7 @@ Report privately by one of the following channels:
 1. **Email** — send to **security@aryalabs.io**. Encrypt with PGP if you
    prefer; the public key fingerprint is published below.
 2. **GitHub Security Advisory** — file a private advisory at
-   [https://github.com/ARYA-Labs-PBC/safety-kernel/security/advisories/new](https://github.com/ARYA-Labs-PBC/safety-kernel/security/advisories/new).
+   [https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/security/advisories/new](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/security/advisories/new).
 
 A good report includes:
 
@@ -83,6 +83,6 @@ report and we will respect that.
 
 If you are deploying the kernel and want a second pair of eyes on your
 wiring, you can request a hardening review by opening a Discussion at
-[https://github.com/ARYA-Labs-PBC/safety-kernel/discussions](https://github.com/ARYA-Labs-PBC/safety-kernel/discussions).
+[https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/discussions](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/discussions).
 These are not vulnerability reports and do not trigger this policy; they
 are best-effort community help.
