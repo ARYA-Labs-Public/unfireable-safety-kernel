@@ -59,9 +59,9 @@ function Figure11ContainmentLadder() {
   return (
     <div className="fig">
       <div className="fig-header">
-        <div className="fig-eyebrow">DOES IT HOLD WHEN A REAL SELF-MODIFIER RUNS AGAINST IT?</div>
-        <h2 className="fig-title">Four tiers of rising fidelity, up to a live, fully autonomous self-modifier inside the full application, and not one authorized bypass in 6,240 attempts.</h2>
-        <p className="fig-sub">Every tier re-derives its own verdicts in process: real Ed25519 tokens minted, the decision function or the live Unfireable Safety Kernel re-invoked, never a log string matched.</p>
+        <div className="fig-eyebrow">FROM AN ADVERSARIAL HARNESS TO A LIVE SELF-MODIFIER</div>
+        <h2 className="fig-title">6,240 adversarial authorization attempts, zero bypasses; and a live, fully autonomous self-modifier whose nine self-modifications were each mediated before a write.</h2>
+        <p className="fig-sub">Tiers one to three drive the gate with an adversarial harness in the agent's role (6,240 attempts, all re-derived in process). Tier four runs the real self-improvement loop, whose nine self-modifications each routed to the live Unfireable Safety Kernel before any write.</p>
       </div>
 
       <div className="fig-body" style={{ flexDirection: 'column', justifyContent: 'center', gap: 14 }}>
