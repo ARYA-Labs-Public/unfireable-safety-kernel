@@ -15,6 +15,12 @@ const {
   Figure7TwoLevelVerification,
   Figure8TransparencyLog,
 } = window;
+const {
+  Figure11ContainmentLadder,
+  Figure12KillSwitch,
+  Figure13TaxonomyBreadth,
+  Figure14TwoDenials,
+} = window;
 
 function App() {
   return (
@@ -52,6 +58,21 @@ function App() {
         </DCArtboard>
         <DCArtboard id="fig8" label="Fig 8 · Transparency log" width={1100} height={800}>
           <Figure8TransparencyLog />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="evaluation" title="Evaluation &amp; Containment" subtitle="The §6 data — a live escapable AI system mediated, and halted, by a control it could not reach">
+        <DCArtboard id="fig11" label="Fig 11 · Containment ladder" width={1320} height={900}>
+          <Figure11ContainmentLadder />
+        </DCArtboard>
+        <DCArtboard id="fig12" label="Fig 12 · The kill switch" width={1320} height={860}>
+          <Figure12KillSwitch />
+        </DCArtboard>
+        <DCArtboard id="fig13" label="Fig 13 · Attack taxonomy breadth" width={1200} height={900}>
+          <Figure13TaxonomyBreadth />
+        </DCArtboard>
+        <DCArtboard id="fig14" label="Fig 14 · Two independent denials" width={1440} height={820}>
+          <Figure14TwoDenials />
         </DCArtboard>
       </DCSection>
     </DesignCanvas>
