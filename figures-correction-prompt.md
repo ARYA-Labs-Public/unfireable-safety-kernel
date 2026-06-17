@@ -8,7 +8,7 @@ Paste the section below into Claude Design when requesting corrections to the fi
 
 I'm iterating on the figure set for *The Unfireable Safety Kernel: Execution-Time AI Alignment for AI Agents and Other Escapable AI Systems* (Dobrin, ARYA Labs PBC, 2026). The bundle has been exported and is in active use. I need targeted corrections, not a rebuild.
 
-### The nine figures (current state)
+### The thirteen figures (current state)
 
 | ID | Eyebrow | Footer descriptor | Paper § | File |
 |---|---|---|---|---|
@@ -21,6 +21,10 @@ I'm iterating on the figure set for *The Unfireable Safety Kernel: Execution-Tim
 | Fig 7 | TWO-LEVEL PROOF OF THE FAIL-CLOSED INVARIANT | Two-level fail-closed proof, Z3 over model, Kani over Rust | §6.4 | `src/figures-verification.jsx` |
 | Fig 8 | TRANSPARENCY LOG | Append-only, operator-signed, externally verifiable | §4–§5 | `src/figures-verification.jsx` |
 | Fig 9 | THE CONFUSED DEPUTY, FORECLOSED BY CONSTRUCTION | Static routes, the agent cannot grow its own authority | §4 | `src/figures-architecture.jsx` |
+| Fig 11 | DOES IT HOLD WHEN A REAL SELF-MODIFIER RUNS AGAINST IT? | Containment ladder, 0 bypasses in 6,240 round-trips | §6 | `src/figures-evaluation.jsx` |
+| Fig 12 | WHAT HAPPENS WHEN THE OPERATOR PULLS THE PLUG | The kill switch, ceiling 4 versus ceiling 0 | §6 | `src/figures-evaluation.jsx` |
+| Fig 13 | WHAT WAS ACTUALLY TRIED | Attack taxonomy breadth, tier one, 0 bypasses | §6 | `src/figures-evaluation.jsx` |
+| Fig 14 | WHERE THE REFUSAL ACTUALLY HAPPENS | Two independent denials, transport seam then ladder | §6 | `src/figures-evaluation.jsx` |
 
 ### WHAT TO CHANGE
 
@@ -43,7 +47,7 @@ I'm iterating on the figure set for *The Unfireable Safety Kernel: Execution-Tim
 5. **Typography.** Montserrat for display, JetBrains Mono for labels, mono-tracked codes (P1, P2, etc.), data references, and code identifiers. Do not introduce serif.
 6. **Section refs.** The paper has been restructured. If a section ref appears anywhere it must be one of: §1, §2, §3, §4, §5, §6, §6.4, §7, §8, §8.1, §8.2, §9. Old refs (§5.1, §6.1, §7.4, §7.5) are stale and should be replaced if encountered.
 7. **Competitor names.** Galileo Agent Control (Apache-2.0), Microsoft Agent Governance Toolkit, Microsoft Authorization Fabric, Saviynt Identity Security for AI, IETF draft-klrc-aiagent-auth. Do not paraphrase these to other names.
-8. **Numerical claims.** 1000/1000 byte-equal fixtures, 17/17 cross-language adversarial parity, 80+ adversarial robustness tests, 4/4 Kani harnesses verified, ratio of capability investment to safety investment ~1000:1. These appear in Fig 5, Fig 7, and the README; do not alter them without verification against the paper.
+8. **Numerical claims.** 1000/1000 byte-equal fixtures, 17/17 cross-language adversarial parity, 80+ adversarial robustness tests, 4/4 Kani harnesses verified, ratio of capability investment to safety investment ~1000:1. These appear in Fig 5, Fig 7, and the README; do not alter them without verification against the paper. **Containment (Fig 11 to Fig 14, §6):** 6,240 authorization round-trips with 0 bypasses across the first three tiers (100 + 102 + 6,038); 9 self-modifications, every one kernel-mediated, in the full-application tier; 3,015 forgeries refused per live run; tier-one attack-taxonomy counts 30 / 24 (+3 ambiguous-by-design) / 11 / 11 / 8 / 6 / 4 / 3. Reason codes: directed_override, directed_blocked_by_kill_switch, policy.allowed, autonomy_human_only, api_action_forbidden. Do not alter without verification against the committed artifact JSON.
 
 ### How to deliver
 
