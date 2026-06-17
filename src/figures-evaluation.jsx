@@ -53,15 +53,15 @@ function Figure11ContainmentLadder() {
   { id: 'T1', name: 'In-process', detail: 'Decision function, a single process', metric: '100', unit: 'attempts', verdict: '0 bypasses' },
   { id: 'T2', name: 'Clean-VM decision core', detail: 'Decision core on a fresh, isolated VM', metric: '102', unit: 'attempts', verdict: '0 bypasses' },
   { id: 'T3', name: 'Full-stack live', detail: 'Compiled Rust kernel plus policy sidecar, real HTTP', metric: '6,038', unit: 'round-trips', verdict: '0 bypasses' },
-  { id: 'T4', name: 'Full-application live loop', detail: 'Whole app, the live self-improvement loop at full autonomy', metric: '9', unit: 'self-mods, every one kernel-mediated', verdict: 'kill switch holds' }];
+  { id: 'T4', name: 'Self-improver, escape objective', detail: 'An agent driving the real seam to rewrite the kernel core', metric: '1,000', unit: 'self-mods: 704 escape attempts, 296 benign allowed', verdict: '0 escapes' }];
 
 
   return (
     <div className="fig">
       <div className="fig-header">
-        <div className="fig-eyebrow">FROM AN ADVERSARIAL HARNESS TO A LIVE SELF-MODIFIER</div>
-        <h2 className="fig-title">6,240 adversarial authorization attempts, zero bypasses; and a live, fully autonomous self-modifier whose nine self-modifications were each mediated before a write.</h2>
-        <p className="fig-sub">Tiers one to three drive the gate with an adversarial harness in the agent's role (6,240 attempts, all re-derived in process). Tier four runs the real self-improvement loop, whose nine self-modifications each routed to the live Unfireable Safety Kernel before any write.</p>
+        <div className="fig-eyebrow">FROM AN ADVERSARIAL HARNESS TO A SELF-IMPROVER TRYING TO ESCAPE</div>
+        <h2 className="fig-title">6,240 adversarial authorization attempts and 1,000 self-modifications by an agent trying to escape the kernel: zero bypasses, zero escapes.</h2>
+        <p className="fig-sub">Tiers one to three drive the gate with an adversarial harness in the agent's role (6,240 attempts, all re-derived in process). Tier four runs a self-improving agent through the live Unfireable Safety Kernel with the objective of escaping: it authorized 296 benign self-modifications and refused every one of the 704 attempts to rewrite the safety-critical core.</p>
       </div>
 
       <div className="fig-body" style={{ flexDirection: 'column', justifyContent: 'center', gap: 14 }}>
@@ -90,7 +90,7 @@ function Figure11ContainmentLadder() {
         )}
       </div>
 
-      <EvFooter desc="Containment ladder, 0 bypasses in 6,240 round-trips" />
+      <EvFooter desc="Containment ladder: 0 bypasses in 6,240 attempts, 0 escapes in 1,000" />
     </div>);
 
 }
@@ -115,9 +115,15 @@ function Figure12KillSwitch() {
     c0: { ok: false, label: 'REFUSED', reason: 'directed_blocked_by_kill_switch' }
   },
   {
-    label: 'Live-loop self-modification',
-    note: 'the autonomous loop, at full autonomy',
+    label: 'Benign self-modification',
+    note: 'legitimate self-improvement, non-core module',
     c4: { ok: true, label: 'ALLOWED', reason: 'policy.allowed' },
+    c0: { ok: false, label: 'REFUSED', reason: 'autonomy_human_only' }
+  },
+  {
+    label: 'Escape attempt: rewrite the kernel core',
+    note: "the rogue self-improver's objective",
+    c4: { ok: false, label: 'REFUSED', reason: 'safety_critical_core_requires_attestation' },
     c0: { ok: false, label: 'REFUSED', reason: 'autonomy_human_only' }
   }];
 
@@ -133,8 +139,8 @@ function Figure12KillSwitch() {
     <div className="fig">
       <div className="fig-header">
         <div className="fig-eyebrow">WHAT HAPPENS WHEN THE OPERATOR PULLS THE PLUG</div>
-        <h2 className="fig-title">At ceiling 0 the kill switch refuses the one action it would otherwise allow, a genuine, authorized self-modification, while every forgery stays refused throughout.</h2>
-        <p className="fig-sub">Every decision here is served by the Unfireable Safety Kernel over real HTTP. The kill switch dominates even a cryptographically valid operator directive, so no credential overrides a pulled plug.</p>
+        <h2 className="fig-title">At full autonomy the kernel allows benign self-improvement and a genuine operator directive, and refuses every forgery and every escape; at ceiling 0 the kill switch refuses all of them.</h2>
+        <p className="fig-sub">Every decision here is served by the Unfireable Safety Kernel over real HTTP. Self-improvement is permitted at full autonomy, rewriting the safety-critical core is not, and the kill switch dominates even a cryptographically valid operator directive, so no credential and no self-mod survives a pulled plug.</p>
       </div>
 
       <div className="fig-body" style={{ flexDirection: 'column', justifyContent: 'center' }}>

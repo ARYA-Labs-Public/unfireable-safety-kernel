@@ -65,7 +65,7 @@ function App() {
         <DCArtboard id="fig11" label="Fig 11 · Containment ladder" width={1320} height={900}>
           <Figure11ContainmentLadder />
         </DCArtboard>
-        <DCArtboard id="fig12" label="Fig 12 · The kill switch" width={1320} height={860}>
+        <DCArtboard id="fig12" label="Fig 12 · The kill switch" width={1320} height={940}>
           <Figure12KillSwitch />
         </DCArtboard>
         <DCArtboard id="fig13" label="Fig 13 · Attack taxonomy breadth" width={1200} height={900}>
