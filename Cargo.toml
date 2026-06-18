@@ -49,7 +49,7 @@ tokio = { version = "1", features = ["rt-multi-thread",
  "fs",
  "sync"] }
 tower = { version = "0.5", features = ["util"] }
-tower-http = { version = "0.6", features = ["trace",
+tower-http = { version = "0.7", features = ["trace",
  "timeout",
  "limit"] }
 serde = { version = "1", features = ["derive"] }
