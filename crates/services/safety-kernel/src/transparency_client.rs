@@ -580,7 +580,7 @@ mod tests {
         let cert_path = dir.path().join("client.crt");
         let key_path = dir.path().join("client.key");
         std::fs::write(&cert_path, cert.cert.pem()).expect("write cert");
-        std::fs::write(&key_path, cert.key_pair.serialize_pem()).expect("write key");
+        std::fs::write(&key_path, cert.signing_key.serialize_pem()).expect("write key");
         (dir, cert_path, key_path)
     }
 
