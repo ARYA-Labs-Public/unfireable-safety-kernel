@@ -61,6 +61,9 @@ struct CaMaterial {
     ca_pem: String,
     ca_cert: rcgen::Certificate,
     ca_key: KeyPair,
+    // rcgen 0.14 signs a leaf via `Issuer::from_params(&ca_params, &ca_key)`, so the
+    // issuing CA's params must be retained (the leaf helpers run in separate fns).
+    ca_params: CertificateParams,
 }
 
 fn make_ca(common_name: &str) -> CaMaterial {
@@ -77,6 +80,7 @@ fn make_ca(common_name: &str) -> CaMaterial {
         ca_pem,
         ca_cert,
         ca_key,
+        ca_params,
     }
 }
 
@@ -94,7 +98,10 @@ fn make_server_leaf(ca: &CaMaterial) -> (String, String) {
     leaf_params.extended_key_usages = vec![rcgen::ExtendedKeyUsagePurpose::ServerAuth];
     let leaf_key = KeyPair::generate().expect("leaf keypair");
     let leaf_cert = leaf_params
-        .signed_by(&leaf_key, &ca.ca_cert, &ca.ca_key)
+        .signed_by(
+            &leaf_key,
+            &rcgen::Issuer::from_params(&ca.ca_params, &ca.ca_key),
+        )
         .expect("sign server leaf");
     (leaf_cert.pem(), leaf_key.serialize_pem())
 }
@@ -109,7 +116,10 @@ fn make_client_leaf(ca: &CaMaterial, common_name: &str) -> (String, String) {
     leaf_params.extended_key_usages = vec![rcgen::ExtendedKeyUsagePurpose::ClientAuth];
     let leaf_key = KeyPair::generate().expect("client keypair");
     let leaf_cert = leaf_params
-        .signed_by(&leaf_key, &ca.ca_cert, &ca.ca_key)
+        .signed_by(
+            &leaf_key,
+            &rcgen::Issuer::from_params(&ca.ca_params, &ca.ca_key),
+        )
         .expect("sign client leaf");
     (leaf_cert.pem(), leaf_key.serialize_pem())
 }
