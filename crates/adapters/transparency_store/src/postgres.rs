@@ -128,14 +128,20 @@ impl TransparencyStore for PgTransparencyStore {
         // the idiomatic way to return the existing row's columns
         // via `RETURNING` even on conflict (`DO NOTHING` skips
         // RETURNING).
-        let row: (i64, Vec<u8>, Vec<u8>) = sqlx::query_as(
+        // `(xmax = 0) AS inserted` is the standard idiom for telling a
+        // fresh INSERT from an `ON CONFLICT DO UPDATE`: on a genuine
+        // insert the row's `xmax` system column is 0; a conflict-driven
+        // update stamps it with the updating xid (non-zero). This makes
+        // the fresh/replay decision atomic with the write itself, so it
+        // cannot be raced by a separate `current_size` snapshot.
+        let row: (i64, Vec<u8>, Vec<u8>, bool) = sqlx::query_as(
             "INSERT INTO transparency_log \
                  (leaf_hash, idempotency_key, payload, \
                   occurred_at_epoch_seconds, inserted_at_epoch_seconds) \
              VALUES ($1, $2, $3, $4, extract(epoch from now())::bigint) \
              ON CONFLICT (idempotency_key) DO UPDATE \
                SET leaf_index = transparency_log.leaf_index \
-             RETURNING leaf_index, leaf_hash, payload",
+             RETURNING leaf_index, leaf_hash, payload, (xmax = 0) AS inserted",
         )
         .bind(hash.as_slice())
         .bind(payload.idempotency_key.as_slice())
@@ -152,8 +158,8 @@ impl TransparencyStore for PgTransparencyStore {
             .await
             .map_err(|e| StoreError::Backend(e.to_string()))?;
 
-        let existing_payload = row.2;
-        if existing_payload != payload.payload {
+        let existing_payload = &row.2;
+        if existing_payload != &payload.payload {
             // Same idempotency key but different bytes: the
             // RETURNING clause gave us the *original* row, so we
             // detect divergence here and report Conflict. The
@@ -171,6 +177,9 @@ impl TransparencyStore for PgTransparencyStore {
         Ok(AppendOutcome {
             leaf_index,
             leaf_hash,
+            // `!inserted`: a conflict-driven update means the key was
+            // already present, i.e. an idempotent replay.
+            idempotent_replay: !row.3,
         })
     }
 
