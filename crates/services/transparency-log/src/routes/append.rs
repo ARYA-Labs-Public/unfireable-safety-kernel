@@ -75,9 +75,12 @@ pub async fn append(
     // Step 3: decode idempotency key.
     let idempotency_key = hex_to_32(&body.idempotency_key_hex)?;
 
-    // Step 4: append. Snapshot `current_size` BEFORE the append so we
-    // can distinguish fresh-insert from idempotent-retry.
-    let size_before = state.store.current_size().await?;
+    // Step 4: append. The store decides fresh-insert vs idempotent
+    // retry atomically (under its lock/transaction) and reports it on
+    // the outcome — see `AppendOutcome::idempotent_replay`. We must NOT
+    // infer it from a separately-sampled `current_size`: that
+    // check-then-act races (two identical concurrent requests can each
+    // snapshot the pre-insert size and both mis-report 201-CREATED).
     let outcome = state
         .store
         .append(AppendInput {
@@ -87,8 +90,8 @@ pub async fn append(
         })
         .await?;
 
-    // Step 5: classify.
-    let idempotent_replay = outcome.leaf_index < size_before;
+    // Step 5: classify from the atomic outcome flag.
+    let idempotent_replay = outcome.idempotent_replay;
     let status = if idempotent_replay {
         StatusCode::OK
     } else {

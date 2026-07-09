@@ -68,6 +68,10 @@ impl TransparencyStore for MemoryTransparencyStore {
             return Ok(AppendOutcome {
                 leaf_index: existing_idx,
                 leaf_hash: existing_leaf.hash,
+                // Key already present: this is an idempotent replay.
+                // Decided under the store mutex, so a concurrent
+                // fresh insert of the same key cannot also see this.
+                idempotent_replay: true,
             });
         }
 
@@ -88,6 +92,8 @@ impl TransparencyStore for MemoryTransparencyStore {
         Ok(AppendOutcome {
             leaf_index,
             leaf_hash: hash,
+            // Fresh insert under the store mutex.
+            idempotent_replay: false,
         })
     }
 
@@ -159,13 +165,21 @@ mod tests {
         let store = MemoryTransparencyStore::new();
         let first = store.append(input(7, b"hello", 100)).await.unwrap();
         let second = store.append(input(7, b"hello", 100)).await.unwrap();
-        assert_eq!(first, second);
+        // Same ledger position + hash on the retry...
+        assert_eq!(first.leaf_index, second.leaf_index);
+        assert_eq!(first.leaf_hash, second.leaf_hash);
+        // ...but the fresh/replay flag distinguishes them: the first
+        // call minted the leaf, the second is an idempotent replay.
+        assert!(!first.idempotent_replay, "first call is a fresh insert");
+        assert!(second.idempotent_replay, "second call is a replay");
         assert_eq!(store.current_size().await.unwrap(), 1);
         // Throwing in a third with different occurred timestamp but
         // same payload + key still returns the existing entry — we
         // de-dup on the idempotency key, not on the payload metadata.
         let third = store.append(input(7, b"hello", 9999)).await.unwrap();
-        assert_eq!(third, first);
+        assert_eq!(third.leaf_index, first.leaf_index);
+        assert_eq!(third.leaf_hash, first.leaf_hash);
+        assert!(third.idempotent_replay, "third call is a replay");
         assert_eq!(store.current_size().await.unwrap(), 1);
     }
 

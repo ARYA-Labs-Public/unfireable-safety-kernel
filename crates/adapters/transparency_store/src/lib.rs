@@ -62,6 +62,16 @@ pub struct AppendOutcome {
     pub leaf_index: u64,
     /// RFC-6962 leaf hash recorded for this entry.
     pub leaf_hash: [u8; 32],
+    /// `true` when this call hit the idempotency path (the key was
+    /// already present and the existing leaf was returned); `false`
+    /// on a fresh insert. Decided ATOMICALLY inside the store under
+    /// the same lock/transaction as the insert, so concurrent callers
+    /// with the same key never both observe a fresh insert. Callers
+    /// MUST classify 201-CREATED vs 200-OK from this flag, never by
+    /// comparing `leaf_index` against a separately-sampled tree size
+    /// (that check-then-act is racy — two identical requests can each
+    /// snapshot the pre-insert size and both mis-report CREATED).
+    pub idempotent_replay: bool,
 }
 
 /// Errors returned by `TransparencyStore` implementations.

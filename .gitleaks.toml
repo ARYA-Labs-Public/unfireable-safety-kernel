@@ -1,0 +1,33 @@
+# gitleaks configuration for unfireable-safety-kernel.
+#
+# Extends the built-in gitleaks ruleset (so all default secret rules
+# stay active) and adds a narrow allowlist for two KNOWN NON-SECRETS
+# that the generic rules flag as false positives. Both are test/example
+# fixtures with no credential value; each entry is scoped to the exact
+# fixture text (matched against the finding), NOT to whole files, so it
+# cannot mask a real secret introduced later in the same file.
+#
+# CI invokes `gitleaks detect --source .` with no `--config`, so gitleaks
+# auto-loads this file from the repo root. PR runs scan the diff;
+# push/schedule runs scan full history — this allowlist applies to both.
+
+title = "unfireable-safety-kernel gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known non-secret test/example fixtures"
+# Match against the full finding text (not just the extracted secret),
+# so these precise fixture patterns are what gets allow-listed.
+regexTarget = "match"
+regexes = [
+  # 1) safety_kernel_client `mtls.rs` unit test builds MtlsMaterial from
+  #    placeholder PEM blocks whose body is literally `fake` (source has
+  #    escaped `\n`). Not a key — just bytes to exercise a length check.
+  '''-----BEGIN (CERTIFICATE|PRIVATE KEY)-----\\n(ca-)?fake\\n-----END (CERTIFICATE|PRIVATE KEY)-----''',
+  # 2) `examples/testing/mock_kernel.py` has a `signing_key: Ed25519PrivateKey`
+  #    function-parameter TYPE ANNOTATION flagged by generic-api-key. It
+  #    is a type name, never a credential.
+  '''signing_key: Ed25519PrivateKey''',
+]

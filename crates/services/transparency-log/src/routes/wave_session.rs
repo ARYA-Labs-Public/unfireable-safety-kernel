@@ -197,7 +197,6 @@ pub async fn append_session(
     let idempotency_key = body.record.record_idempotency_key();
     let leaf_payload = build_leaf_payload(&record_bytes, &supplied_hmac);
 
-    let size_before = state.store.current_size().await?;
     let outcome = state
         .store
         .append(AppendInput {
@@ -216,7 +215,10 @@ pub async fn append_session(
         .record_wave_session_payload(outcome.leaf_index, body.record.clone(), supplied_hmac)
         .await;
 
-    let idempotent_replay = outcome.leaf_index < size_before;
+    // Classify from the store's atomic fresh/replay flag, never from a
+    // separately-sampled tree size (that check-then-act races: two
+    // identical concurrent sessions could each mis-report CREATED).
+    let idempotent_replay = outcome.idempotent_replay;
     let status = if idempotent_replay {
         StatusCode::OK
     } else {
