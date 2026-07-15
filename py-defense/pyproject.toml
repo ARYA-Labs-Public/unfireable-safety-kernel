@@ -5,9 +5,9 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "safety_kernel_defense"
+name = "safety-kernel-defense"
 version = "0.1.0"
-description = "Layer-1 Python audit-hook reference for the safety-kernel"
+description = "Layer-1 stdlib-only Python audit-hook defender for the Unfireable Safety Kernel"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
@@ -36,13 +36,23 @@ test = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ARYA-Labs-PBC/safety-kernel"
-Documentation = "https://github.com/ARYA-Labs-PBC/safety-kernel/blob/main/docs/integration/python-fastapi.md"
-Issues = "https://github.com/ARYA-Labs-PBC/safety-kernel/issues"
+Homepage = "https://github.com/ARYA-Labs-Public/unfireable-safety-kernel"
+Repository = "https://github.com/ARYA-Labs-Public/unfireable-safety-kernel"
+Documentation = "https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/blob/main/py-defense/README.md"
+Issues = "https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/issues"
+Changelog = "https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["safety_kernel_defense*"]
+# Ship the runtime package only; the test suite stays in the source tree
+# (exercised by CI) but is excluded from the built wheel/sdist.
+exclude = ["safety_kernel_defense.tests*"]
+
+[tool.setuptools]
+# LICENSE is vendored next to this pyproject (copied from the repo root) so it
+# is bundled into the wheel/sdist metadata.
+license-files = ["LICENSE"]
 
 [tool.pytest.ini_options]
 testpaths = ["safety_kernel_defense/tests"]
