@@ -116,6 +116,29 @@ pip install safety-kernel-defense[test]
 pytest safety_kernel_defense/tests/
 ```
 
+## Publishing (maintainers)
+
+Releases are published to [PyPI](https://pypi.org/project/safety-kernel-defense/)
+by the `publish-pypi.yml` GitHub Actions workflow using **Trusted Publishing**
+(OIDC) — no API token is stored in the repo.
+
+**One-time PyPI setup** (before the first release): on PyPI, add a *pending
+publisher* for project `safety-kernel-defense` bound to
+owner `ARYA-Labs-Public`, repository `unfireable-safety-kernel`,
+workflow `publish-pypi.yml`, environment `pypi`
+(PyPI → *Your projects* → *Publishing* → *Add a pending publisher*).
+
+**To cut a release:**
+
+1. Bump `version` in `py-defense/pyproject.toml` (and `__version__` in
+   `safety_kernel_defense/__init__.py`).
+2. Publish a GitHub Release with tag `pydefense-v<version>` (e.g.
+   `pydefense-v0.1.0`). The workflow builds, runs `twine check --strict`,
+   asserts the tag matches the package version, and publishes.
+
+A dry run to TestPyPI is available via *Run workflow* → target `testpypi`
+(requires a matching TestPyPI pending publisher + a `testpypi` environment).
+
 ## Security
 
 Report security issues privately to

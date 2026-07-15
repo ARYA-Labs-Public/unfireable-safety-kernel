@@ -1,0 +1,99 @@
+# Publish the `safety-kernel-defense` Python package to PyPI.
+#
+# Trigger: publishing a GitHub Release whose tag starts with `pydefense-v`
+# (e.g. `pydefense-v0.1.0`), or a manual `workflow_dispatch`. The version in
+# `py-defense/pyproject.toml` is the source of truth; the tag is only the
+# release marker.
+#
+# Auth: PyPI Trusted Publishing (OIDC) — NO API token stored in the repo.
+# One-time setup on PyPI is required before the first run (see the PR body /
+# py-defense/README.md "Publishing"): add a *pending publisher* for project
+# `safety-kernel-defense` bound to owner `ARYA-Labs-Public`,
+# repo `unfireable-safety-kernel`, workflow `publish-pypi.yml`,
+# environment `pypi`.
+#
+# All actions are pinned to commit SHAs per repo security policy (SECURITY.md);
+# the original tag is retained as a trailing comment.
+
+name: Publish py-defense to PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Publish target"
+        type: choice
+        options: [pypi, testpypi]
+        default: pypi
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-pypi-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build sdist + wheel
+    runs-on: ubuntu-latest
+    # Only run the release trigger for py-defense tags; workflow_dispatch always runs.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.release.tag_name, 'pydefense-v')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Build + validate
+        working-directory: py-defense
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          python -m twine check --strict dist/*
+
+      - name: Assert tag matches package version (release only)
+        if: github.event_name == 'release'
+        working-directory: py-defense
+        run: |
+          pkg_ver="$(python -c 'import tomllib;print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
+          tag_ver="${GITHUB_REF_NAME#pydefense-v}"
+          echo "package=$pkg_ver tag=$tag_ver"
+          test "$pkg_ver" = "$tag_ver" || { echo "::error::tag pydefense-v$tag_ver != pyproject version $pkg_ver"; exit 1; }
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: py-defense/dist/
+
+  publish:
+    name: Publish to ${{ github.event.inputs.target || 'pypi' }}
+    needs: build
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.target || 'pypi' }}
+    permissions:
+      id-token: write # OIDC token for Trusted Publishing
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        if: (github.event.inputs.target || 'pypi') == 'pypi'
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+
+      - name: Publish to TestPyPI
+        if: github.event.inputs.target == 'testpypi'
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        with:
+          repository-url: https://test.pypi.org/legacy/
