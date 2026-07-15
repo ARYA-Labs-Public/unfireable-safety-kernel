@@ -17,6 +17,7 @@ members = [
  "crates/adapters",
  "crates/adapters/safety_kernel_client",
  "crates/adapters/safety_kernel_middleware",
+ "crates/adapters/safety_kernel_py",
  "crates/adapters/transparency_store",
  "crates/services/safety-kernel",
  "crates/services/safety-kernel-reconciler",
@@ -54,6 +55,12 @@ tower-http = { version = "0.7", features = ["trace",
  "limit"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# PyO3 binding surface (safety_kernel_py). abi3-py310 → one wheel spans 3.10+.
+# `extension-module` is enabled only by the wheel build (crate feature), never
+# by default, so `cargo test`/`cargo check` still link libpython. Matches the
+# arya-core-py pattern.
+pyo3 = { version = "0.22", features = ["abi3-py310"] }
+pythonize = "0.22"
 ed25519-dalek = { version = "2", features = ["pkcs8",
  "rand_core"] }
 rand_core = { version = "0.6", features = ["getrandom"] }
