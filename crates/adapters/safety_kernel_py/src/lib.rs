@@ -93,11 +93,9 @@ impl PyPinnedKeyVerifier {
         token: &str,
         now_epoch_seconds: f64,
         expected_aud: Option<&str>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let claims = match expected_aud {
-            Some(aud) => self
-                .inner
-                .verify_with_aud(token, now_epoch_seconds, aud),
+            Some(aud) => self.inner.verify_with_aud(token, now_epoch_seconds, aud),
             None => self.inner.verify(token, now_epoch_seconds),
         }
         .map_err(to_pyerr)?;
@@ -114,8 +112,10 @@ impl PyPinnedKeyVerifier {
             "signature_b64".to_string(),
             Value::String(claims.signature_b64),
         );
+        // pythonize 0.29 returns `Bound<'py, PyAny>`; `unbind()` yields the
+        // `Py<PyAny>` (formerly `PyObject`) this method returns.
         let out = pythonize::pythonize(py, &Value::Object(obj)).map_err(to_pyerr)?;
-        Ok(out.into())
+        Ok(out.unbind())
     }
 }
 
