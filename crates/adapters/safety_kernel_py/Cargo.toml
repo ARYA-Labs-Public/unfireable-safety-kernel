@@ -1,0 +1,47 @@
+# crates/adapters/safety_kernel_py — PyO3 binding producing the
+# `safety_kernel_client` Python extension module (single abi3-py310 wheel).
+#
+# Mimics the internal arya-core-py pattern: default features EXCLUDE
+# `extension-module` so `cargo test`/`cargo check` link libpython; the wheel
+# build enables `pyo3/extension-module` so the `.so` does NOT link libpython.
+#
+# It exposes the SAME Rust primitives the public kernel client + domain crates
+# already ship — so the Python surface is the real Rust, not a reimplementation:
+#   - `params_fingerprint(dict) -> str`  (qorch_domain::safety::params_fingerprint)
+#   - `PinnedKeyVerifier`                (qorch_safety_kernel_client::token) — the
+#                                         offline Ed25519 receipt verifier.
+[package]
+name = "safety-kernel-py"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "PyO3 binding exposing the Safety Kernel Rust client + token primitives as the `safety_kernel_client` Python module."
+
+[lib]
+name = "safety_kernel_client"
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3 = { workspace = true }
+pythonize = { workspace = true }
+serde_json = { workspace = true }
+# The public Rust surface we re-expose to Python (no new IP — same crates the
+# workspace already builds).
+qorch-domain = { path = "../../domain", version = "0.1.0" }
+qorch-safety-kernel-client = { path = "../safety_kernel_client", version = "0.1.0" }
+
+[features]
+# Enabled only by the maturin wheel build (pyproject `[tool.maturin] features`).
+extension-module = ["pyo3/extension-module"]
+default = []
+
+[lints.rust]
+unused_imports = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }

@@ -1,0 +1,43 @@
+# Maturin packaging for the `safety-kernel-client` Python wheel — a PyO3 binding
+# over the public Safety Kernel Rust crates. abi3-py310 → one wheel spans 3.10+.
+#
+# Publishing is handled by the repo's Trusted-Publishing workflow (see
+# py-defense/README.md "Publishing"); this file only declares the build.
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "safety-kernel-client"
+version = "0.1.0"
+description = "PyO3 binding exposing the Safety Kernel Rust client + Ed25519 receipt verifier as Python"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "ARYA Labs PBC" }]
+keywords = ["safety-kernel", "ed25519", "receipt-verifier", "fail-closed", "pyo3"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Rust",
+    "Topic :: Security",
+]
+# The compiled extension carries the logic; no runtime Python deps.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/ARYA-Labs-Public/unfireable-safety-kernel"
+Repository = "https://github.com/ARYA-Labs-Public/unfireable-safety-kernel"
+Issues = "https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/issues"
+
+[tool.maturin]
+module-name = "safety_kernel_client"
+python-source = "python"
+# The .so must NOT link libpython → single abi3 wheel.
+features = ["pyo3/extension-module"]
+manifest-path = "Cargo.toml"
