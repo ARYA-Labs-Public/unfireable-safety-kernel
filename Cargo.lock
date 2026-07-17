@@ -2372,7 +2372,9 @@ dependencies = [
  "pythonize",
  "qorch-domain",
  "qorch-safety-kernel-client",
+ "reqwest",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]

@@ -29,6 +29,10 @@ crate-type = ["cdylib", "rlib"]
 pyo3 = { workspace = true }
 pythonize = { workspace = true }
 serde_json = { workspace = true }
+# The networked `SafetyKernelClient.authorize()` binding drives the async client
+# on a small owned tokio runtime + builds the reqwest transport.
+tokio = { workspace = true }
+reqwest = { workspace = true }
 # The public Rust surface we re-expose to Python (no new IP — same crates the
 # workspace already builds).
 qorch-domain = { path = "../../domain", version = "0.1.0" }

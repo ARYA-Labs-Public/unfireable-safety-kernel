@@ -239,11 +239,21 @@ jobs:
           p = {"b": 2, "a": "x", "n": {"z": [3, 1], "y": True}}
           exp = hashlib.sha256(json.dumps(p, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()).hexdigest()
           assert skc.params_fingerprint(p) == exp, "fingerprint parity FAILED"
+          # Offline verifier: 16-hex fingerprint + fail-closed on a bad token.
           v = skc.PinnedKeyVerifier(bytes(range(32)))
           assert len(v.fingerprint) == 16
           try:
               v.verify("not.a.token", 1_000_000.0); raise SystemExit("verify did not fail closed")
           except ValueError:
               pass
-          print("safety_kernel_client wheel OK: fingerprint parity + fail-closed verifier")
+          # Client: constructs, and authorize() against an unreachable kernel MUST
+          # raise (fail-closed) — never return an allow.
+          c = skc.SafetyKernelClient("http://127.0.0.1:9/nope", "k", bytes(range(32)), timeout_ms=300)
+          assert len(c.pinned_key_fingerprint) == 16
+          try:
+              c.authorize("deploy", exp, "run-1", "worker")
+              raise SystemExit("authorize did not fail closed against a dead kernel")
+          except ConnectionError:
+              pass
+          print("safety_kernel_client wheel OK: fingerprint parity + fail-closed verifier + fail-closed client")
           PY
