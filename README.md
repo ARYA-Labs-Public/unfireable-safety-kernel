@@ -268,9 +268,9 @@ If you use the Unfireable Safety Kernel in research, please cite the accompanyin
 ```bibtex
 @misc{dobrin2026unfireable,
   title  = {The Unfireable Safety Kernel: Execution-Time AI Alignment for AI Agents and Other Escapable AI Systems},
-  author = {Dobrin, Seth},
+  author = {Dobrin, Seth and Chmiel, Lukasz},
   year   = {2026},
-  eprint = {arxiv-id-pending},
+  eprint = {2606.26057},
   archivePrefix = {arXiv},
   primaryClass  = {cs.AI},
   howpublished  = {\url{https://github.com/ARYA-Labs-Public/unfireable-safety-kernel}}
