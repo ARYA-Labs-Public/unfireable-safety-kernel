@@ -37,4 +37,3 @@ Cargo.lock.bak
 *.swp
 *.swo
 *~
-crates/adapters/safety_kernel_py/dist/
