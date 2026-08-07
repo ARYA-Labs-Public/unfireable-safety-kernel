@@ -201,6 +201,9 @@ async fn main() -> Result<()> {
         )
         //  — `/policy/*` slice-1 scaffold (501s).
         .merge(routes::policy::router())
+        // `/kernel/v1/revoke/*` coercive-shutdown endpoints
+        // (operator-only mint/restore; reaper-only pull/ack).
+        .merge(routes::revoke::router())
         .layer(RequestBodyLimitLayer::new(MAX_BODY_BYTES))
         .layer(TraceLayer::new_for_http())
         .layer(axum::middleware::from_fn_with_state(
