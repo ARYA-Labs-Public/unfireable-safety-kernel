@@ -1,24 +1,25 @@
 # The Unfireable Safety Kernel
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/Rust-1.84%2B-orange)](rust-toolchain.toml)
+[![Rust](https://img.shields.io/badge/Rust-1.85%2B-orange)](rust-toolchain.toml)
 [![Status: extraction](https://img.shields.io/badge/status-public%20extraction-yellow)](#status)
 [![paper](https://img.shields.io/badge/paper-arXiv-b31b1b)](#paper)
 
 A fail-closed, machine-checked authorization service for AI agents and other escapable AI systems.
 
-The Unfireable Safety Kernel is a separate, compiled Rust process that sits between every AI agent and every consequential action the agent can take. The agent cannot reach it, cannot reconfigure it, cannot kill it, and cannot run without it. If the kernel says DENY, the action is denied. If the kernel is unreachable, the action is denied. If the kernel is not configured at boot, the agent itself refuses to start. If the kernel says ALLOW, the action proceeds *and* an entry is appended to an append-only Ed25519-signed transparency log under an operator key the kernel does not hold.
+The Unfireable Safety Kernel is a separate, compiled Rust process that sits between every AI agent and every consequential action the agent can take. The agent cannot reach it, cannot reconfigure it, cannot kill it, and cannot run without it. If the kernel says DENY, the action is denied. If the kernel is unreachable, the action is denied. If the kernel is not configured at boot, the agent itself refuses to start. If the kernel says ALLOW, the action proceeds *and* an entry is appended to an append-only Ed25519-signed transparency log under an operator key the kernel does not hold. And denial is not the only lever: on a signed decision the kernel can reclaim the agent's compute outright, through a separate privileged reaper the agent has no way to disable.
 
 ## Why this exists
 
 Today's AI safety controls (system prompts, output filters, guardrail libraries) execute inside the agent's own runtime. Anything the agent can read, the agent can rewrite; anything the agent invokes, the agent can refuse to invoke. The same architectural failure mode applies to any AI system with sufficient reach into its own runtime to bypass the controls placed on it: tool-using agents, code-generating systems with execution access, self-modifying systems, multi-agent ensembles. We call this category *escapable AI systems*.
 
-We treat the agent's runtime as untrusted by construction. The Unfireable Safety Kernel realizes four properties together that, to the best of our knowledge, no other shipped agent control plane provides:
+We treat the agent's runtime as untrusted by construction. The Unfireable Safety Kernel realizes five properties together that, to the best of our knowledge, no other shipped agent control plane provides:
 
 1. **Process separation.** The kernel runs in a process distinct from the agent. The agent has no write access to the kernel's code, configuration, decision logic, or persistent state.
 2. **Pre-action enforcement on a structurally-only path.** Four defense-in-depth seams (nginx, app middleware, dispatch hook, client SDK) sit on the only path between the agent and consequential action. The agent does not get to choose whether to invoke them; the deployment makes no other path exist.
 3. **Fail-closed at request and system levels.** Unreachable → deny. Errored → deny. Unparseable response → deny. Bad signature → deny. *No kernel → no agent:* the agent process refuses to start if the kernel is not reachable, and halts consequential action if the kernel becomes unreachable.
 4. **Externalized signed evidence.** Every ALLOW appends a signed entry to an append-only transparency log. The chain is signed by an operator key held outside the kernel, even a compromised kernel cannot forge log entries that verify under the operator public key.
+5. **Coercive termination, not just denial.** Denial stops an action; it does not reclaim the compute a misbehaving agent is holding. On a signed `RevokeCompute` decision — carried on the same Ed25519 + transparency-log rails — a separate privileged **reaper**, running outside the agent's privilege domain, reclaims the reservation (signal → kill → stop). It fails closed if the kernel signal path is lost past a configured deadline, and the agent holds no permission to disable it. This is the resource-layer authority that authorization alone cannot provide.
 
 The fail-closed invariant is **machine-checked over the production Rust code path** by Kani bounded model checking (4 `#[kani::proof]` harnesses, 0 failures), in addition to an SMT proof of the same property over a symbolic model.
 
@@ -36,7 +37,7 @@ The paper names the architectural layer this implementation occupies: **executio
 | Property | Result |
 |---|---|
 | License | Apache-2.0 |
-| Implementation language | Rust 1.84+ (`#![forbid(unsafe_code)]`) |
+| Implementation language | Rust 1.85+ (`#![forbid(unsafe_code)]`) |
 | TLS stack | rustls (native-tls and OpenSSL banned via `deny.toml`) |
 | Python-to-Rust migration: byte-equivalent fixtures | 1000 / 1000 |
 | Python-to-Rust migration: adversarial reject parity | 17 / 17 |
@@ -75,6 +76,8 @@ The paper names the architectural layer this implementation occupies: **executio
 
 Four seams, each independently denying on error. An action proceeds only if every seam permits it. See [`docs/architecture.md`](docs/architecture.md) for the full design and [`docs/figures/`](docs/figures/) for the full set of paper figures.
 
+**Reclaiming compute.** The seams above are the forward path — deny an action. The kernel also has a reverse path: a signed `RevokeCompute` decision drives a separate privileged **reaper**, in a different privilege domain from the agent, that reclaims the agent's compute (signal → kill → stop the instance). This is the resource-layer authority denial alone cannot provide; it fails closed if the kernel signal path is lost, and self-protection is config-driven (the reaper refuses to stop its own host and honors an operator denylist) rather than baked in. See [`docs/architecture.md` § coercive shutdown](docs/architecture.md#coercive-shutdown-authorization-is-not-termination).
+
 ## Status
 
 This repository is the **public extraction** of the Unfireable Safety Kernel architecture in active production at ARYA Labs.
@@ -85,8 +88,10 @@ This repository is the **public extraction** of the Unfireable Safety Kernel arc
 - `crates/services/safety-kernel/`, the kernel binary (axum + tokio)
 - `crates/services/transparency-log/`, append-only Ed25519-signed audit log
 - `crates/services/safety-kernel-reconciler/`, background reconciliation worker (binary attestation, drift detection)
+- `crates/services/safety-kernel-reaper/`, control-plane reaper (verifies a signed `RevokeCompute` → reclaims compute; fail-closed on kernel-loss; config-driven self-protection; operator-gated signed restore)
 - `crates/domain/src/safety/`, pure types and traits (no I/O, enforced by `agent/boundaries.toml`)
 - `crates/adapters/safety_kernel_client/`, Rust client SDK with fail-closed circuit breaker
+- `crates/adapters/safety_kernel_middleware/`, ready-made axum/tower middleware (`SafetyLayer`) with three-tier (`Unrestricted`/`Supervised`/`Gated`) policy routing, built on the client SDK
 - `crates/adapters/transparency_store/`, Postgres-backed transparency log storage
 - `py-defense/`, Python `safety_kernel_defense` library (audit hook + subprocess propagation, stdlib-only)
 - `examples/`, reference integrations (FastAPI middleware, axum tower::Layer, nginx auth_request, mock kernel + adversarial fixtures, end-to-end reference apps in Python and Rust)
@@ -96,7 +101,6 @@ This repository is the **public extraction** of the Unfireable Safety Kernel arc
 
 - Crates are not on crates.io yet. Build from source (instructions below).
 - The Python defense library is not on PyPI yet. Install from `py-defense/`.
-- The workspace's `crates/domain/Cargo.toml` manifest is not present in this initial extraction. Source is, but you may need to author the manifest for `cargo build --workspace`. Tracked for v1.0.
 - External red-team evaluation against a live deployment. Adversarial fixtures pass in CI; a live evaluation by an unaffiliated party is the right next step and we are actively seeking partners. Contact `security@aryalabs.io`.
 
 ## Quickstart (Docker)
@@ -236,11 +240,13 @@ In each of these systems, the agent is the party that decides whether to invoke 
 | `crates/services/safety-kernel/` | The kernel binary (axum + tokio) |
 | `crates/services/transparency-log/` | Append-only Ed25519-signed audit log |
 | `crates/services/safety-kernel-reconciler/` | Binary attestation & drift-detection worker |
+| `crates/services/safety-kernel-reaper/` | Control-plane reaper (signed `RevokeCompute` → reclaim compute) |
 | `crates/domain/src/safety/` | Pure types & traits (no I/O) |
 | `crates/adapters/safety_kernel_client/` | Rust client SDK + circuit breaker |
+| `crates/adapters/safety_kernel_middleware/` | axum/tower `SafetyLayer` (three-tier policy gate) |
 | `crates/adapters/transparency_store/` | Postgres-backed transparency-log storage |
 | `contracts/openapi/safety_kernel.yaml` | API contract (source of truth) |
-| `py-defense/` | Python defense library (FastAPI middleware + audit hook) |
+| `py-defense/` | Python defense library (audit hook + subprocess propagation, stdlib-only) |
 | `examples/middleware/` | FastAPI, gRPC, nginx, dispatch-hook integrations |
 | `examples/observability/` | Prometheus metrics + Grafana dashboards |
 | `examples/policy/` | Three-tier policy DSL example |

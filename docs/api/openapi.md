@@ -53,6 +53,10 @@ Re-derive it whenever the YAML changes.
 | POST | `/kernel/v1/authorize` | `postAuthorize` | Authorize a sensitive action (signed token) |
 | POST | `/kernel/v1/approvals/{item_id}/approve` | `postApprove` | Sign an approval decision |
 | POST | `/kernel/v1/approvals/{item_id}/reject` | `postReject` | Sign a rejection decision |
+| POST | `/kernel/v1/revoke/compute` | `postRevokeCompute` | Mint a signed coercive-shutdown (kill) decision |
+| GET  | `/kernel/v1/revoke/pending` | `getRevokePending` | Pull the pending signed decision(s) for an instance |
+| POST | `/kernel/v1/revoke/ack` | `postRevokeAck` | Acknowledge execution of a pending decision |
+| POST | `/kernel/v1/revoke/restore` | `postRevokeRestore` | Mint a signed restore (un-kill) decision |
 | POST | `/policy/module/authorize` | `policyModuleAuthorize` | Authorize a module-load or code-execution event |
 | POST | `/policy/module/register` | `policyModuleRegister` | *(draft)* Register a module path with required-pattern set |
 | POST | `/policy/audit-event` | `policyAuditEvent` | *(draft)* Surface a non-decision policy audit event |

@@ -1,0 +1,94 @@
+# crates/services/safety-kernel-reaper — control-plane Reaper (Phase 1).
+#
+# The privileged supervisor that STOPS the agent VM from OUTSIDE the agent's
+# failure domain, driven by an explicit signed kill minted by the kernel.
+# It holds ONLY:
+#   - the pinned kernel PUBLIC verifying key (never the signing key),
+#   - a `reaper` kernel API key (read from env by name, never hardcoded),
+#   - and — behind the `ComputeExecutor` trait — the authority to stop/start a
+#     compute instance.
+#
+# The wire contract is CONSUMED from qorch-domain (crates/domain/src/safety/revoke.rs);
+# nothing here redefines the RevokeCompute/Restore claim types.
+#
+# Layering (agent/boundaries.toml):
+#   src/config.rs        — env-driven config (pinned key, reaper key name, URLs, deadline).
+#   src/executor.rs      — ComputeExecutor trait + Mock (tests) + Gcp (INERT unless armed).
+#   src/nonce_store.rs   — persistent seen-nonce store (the replay defeat the kernel can't do).
+#   src/kernel_client.rs — pull/ack HTTP client trait + reqwest impl + mock.
+#   src/tlog.rs          — kill-record transparency-log append trait + reqwest impl + mock.
+#   src/reaper.rs        — the verify -> execute -> record-kill state machine.
+#   src/main.rs          — bin entry: wire config -> poll loop with liveness deadline.
+#
+# SAFETY: default construction is MOCK / DISARMED. The Gcp executor refuses to
+# act unless REAPER_ARMED=true AND a scratch target is configured, and never
+# defaults to the live agent VM. Live arming is operator-gated.
+[package]
+name = "qorch-safety-kernel-reaper"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Control-plane Reaper: verifies signed RevokeCompute kills and stops the agent VM out-of-band (Phase 1)."
+
+[[bin]]
+name = "qorch-safety-kernel-reaper"
+path = "src/main.rs"
+
+[lib]
+name = "qorch_safety_kernel_reaper"
+path = "src/lib.rs"
+
+[dependencies]
+# The SHARED wire contract (RevokeComputeClaims / RestoreClaims / audiences /
+# fingerprint recipes / DTOs) + verify_kernel_token. Consumed, never redefined.
+qorch-domain = { path = "../../domain", version = "0.1.0" }
+# PinnedKeyVerifier — pinned-key Ed25519 verification wrapper (verify_with_aud).
+qorch-safety-kernel-client = { path = "../../adapters/safety_kernel_client", version = "0.1.0" }
+
+tokio = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+async-trait = "0.1"
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+base64 = { workspace = true }
+
+[dev-dependencies]
+# Tests mint REAL signed decisions with a fixed test key (in-process),
+# never a live stop.
+ed25519-dalek = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tempfile = "3"
+# examples/fire_scratch.rs (fire harness): fresh Ed25519 keygen +
+# realistic run_id/nonce minting for the one-shot coercive-stop demo.
+rand_core = { workspace = true }
+uuid = { workspace = true }
+
+# The one-shot "fire" harness: mints a REAL operator-signed RevokeCompute /
+# Restore against a configured SCRATCH target and drives the Reaper's genuine
+# verify -> execute path. Run explicitly by a human; NOT the service.
+[[example]]
+name = "fire_scratch"
+path = "examples/fire_scratch.rs"
+
+# Fail-closed liveness timing harness: MOCK executor only (no live compute
+# calls), real wall-clock timing of the on_kernel_pull_failure fire decision
+# across candidate liveness_deadline_s values. Never touches a live VM.
+[[example]]
+name = "liveness_timing"
+path = "examples/liveness_timing.rs"
+
+[lints.rust]
+unused_imports = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "allow", priority = -1 }

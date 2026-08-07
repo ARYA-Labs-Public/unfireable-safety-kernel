@@ -52,6 +52,7 @@ In scope for this policy:
 - The kernel binary (`crates/services/safety-kernel/`).
 - The transparency log service (`crates/services/transparency-log/`).
 - The reconciler worker (`crates/services/safety-kernel-reconciler/`).
+- The control-plane reaper (`crates/services/safety-kernel-reaper/`).
 - The Rust client SDK (`crates/adapters/safety_kernel_client/`).
 - The Python defense crate (`py-defense/`).
 - The OpenAPI contract (`contracts/openapi/safety_kernel.yaml`).
