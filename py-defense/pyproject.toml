@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "safety_kernel_defense"
-version = "0.1.0"
+version = "0.2.0"
 description = "Layer-1 Python audit-hook reference for the safety-kernel"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -30,6 +30,15 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
+# FastAPI request-gate middleware + revoke-client SDK. The CORE package
+# stays stdlib-only; these deps are only pulled when a caller wants the
+# middleware / revoke client: `pip install safety-kernel-defense[fastapi]`.
+fastapi = [
+    "fastapi",
+    "starlette",
+    "httpx",
+    "cryptography",
+]
 test = [
     "pytest>=7.0",
     "coverage[toml]>=7.0",

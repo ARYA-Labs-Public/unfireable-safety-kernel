@@ -1,7 +1,7 @@
 # The Unfireable Safety Kernel
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/Rust-1.84%2B-orange)](rust-toolchain.toml)
+[![Rust](https://img.shields.io/badge/Rust-1.85%2B-orange)](rust-toolchain.toml)
 [![Status: extraction](https://img.shields.io/badge/status-public%20extraction-yellow)](#status)
 [![paper](https://img.shields.io/badge/paper-arXiv-b31b1b)](#paper)
 
@@ -37,7 +37,7 @@ The paper names the architectural layer this implementation occupies: **executio
 | Property | Result |
 |---|---|
 | License | Apache-2.0 |
-| Implementation language | Rust 1.84+ (`#![forbid(unsafe_code)]`) |
+| Implementation language | Rust 1.85+ (`#![forbid(unsafe_code)]`) |
 | TLS stack | rustls (native-tls and OpenSSL banned via `deny.toml`) |
 | Python-to-Rust migration: byte-equivalent fixtures | 1000 / 1000 |
 | Python-to-Rust migration: adversarial reject parity | 17 / 17 |
@@ -91,6 +91,7 @@ This repository is the **public extraction** of the Unfireable Safety Kernel arc
 - `crates/services/safety-kernel-reaper/`, control-plane reaper (verifies a signed `RevokeCompute` → reclaims compute; fail-closed on kernel-loss; config-driven self-protection; operator-gated signed restore)
 - `crates/domain/src/safety/`, pure types and traits (no I/O, enforced by `agent/boundaries.toml`)
 - `crates/adapters/safety_kernel_client/`, Rust client SDK with fail-closed circuit breaker
+- `crates/adapters/safety_kernel_middleware/`, ready-made axum/tower middleware (`SafetyLayer`) with three-tier (`Unrestricted`/`Supervised`/`Gated`) policy routing, built on the client SDK
 - `crates/adapters/transparency_store/`, Postgres-backed transparency log storage
 - `py-defense/`, Python `safety_kernel_defense` library (audit hook + subprocess propagation, stdlib-only)
 - `examples/`, reference integrations (FastAPI middleware, axum tower::Layer, nginx auth_request, mock kernel + adversarial fixtures, end-to-end reference apps in Python and Rust)
@@ -100,7 +101,6 @@ This repository is the **public extraction** of the Unfireable Safety Kernel arc
 
 - Crates are not on crates.io yet. Build from source (instructions below).
 - The Python defense library is not on PyPI yet. Install from `py-defense/`.
-- The workspace's `crates/domain/Cargo.toml` manifest is not present in this initial extraction. Source is, but you may need to author the manifest for `cargo build --workspace`. Tracked for v1.0.
 - External red-team evaluation against a live deployment. Adversarial fixtures pass in CI; a live evaluation by an unaffiliated party is the right next step and we are actively seeking partners. Contact `security@aryalabs.io`.
 
 ## Quickstart (Docker)
@@ -243,9 +243,10 @@ In each of these systems, the agent is the party that decides whether to invoke 
 | `crates/services/safety-kernel-reaper/` | Control-plane reaper (signed `RevokeCompute` → reclaim compute) |
 | `crates/domain/src/safety/` | Pure types & traits (no I/O) |
 | `crates/adapters/safety_kernel_client/` | Rust client SDK + circuit breaker |
+| `crates/adapters/safety_kernel_middleware/` | axum/tower `SafetyLayer` (three-tier policy gate) |
 | `crates/adapters/transparency_store/` | Postgres-backed transparency-log storage |
 | `contracts/openapi/safety_kernel.yaml` | API contract (source of truth) |
-| `py-defense/` | Python defense library (FastAPI middleware + audit hook) |
+| `py-defense/` | Python defense library (audit hook + subprocess propagation, stdlib-only) |
 | `examples/middleware/` | FastAPI, gRPC, nginx, dispatch-hook integrations |
 | `examples/observability/` | Prometheus metrics + Grafana dashboards |
 | `examples/policy/` | Three-tier policy DSL example |
