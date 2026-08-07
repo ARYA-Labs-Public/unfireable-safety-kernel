@@ -54,6 +54,13 @@ SDK circuit breaker → the kernel. Each denies independently on error.
 Do not add a code path that lets an agent reach a consequential action
 without passing every seam. See `README.md` § Architecture.
 
+The four seams are the forward (deny-an-action) path. There is also a
+separate reverse path — a signed `RevokeCompute` decision drives the
+control-plane **reaper** (`crates/services/safety-kernel-reaper/`) to
+reclaim the workload's compute. It is not a fifth seam; it is the
+resource-layer authority denial alone cannot provide. See
+[`docs/architecture.md` § coercive shutdown](docs/architecture.md#coercive-shutdown-authorization-is-not-termination).
+
 **Fail-closed is the invariant.** Unreachable → deny. Errored → deny.
 Unparseable → deny. Bad signature → deny. The circuit-breaker decision
 function `gate_decision` in `crates/domain/src/safety/client_state.rs`
@@ -95,6 +102,7 @@ through the `Clock` and nonce-source traits (test seams), never directly.
 | `crates/services/safety-kernel/` | The kernel binary (axum + tokio). |
 | `crates/services/transparency-log/` | Append-only Ed25519-signed audit log service. |
 | `crates/services/safety-kernel-reconciler/` | Binary-attestation / drift-detection worker. |
+| `crates/services/safety-kernel-reaper/` | Control-plane reaper: verifies a signed `RevokeCompute` decision and reclaims the workload's compute (coercive shutdown). |
 | `contracts/openapi/safety_kernel.yaml` | API contract (single source of truth). |
 | `py-defense/` | Python `safety_kernel_defense` library (audit hook, stdlib-only). |
 | `examples/` | Reference integrations + adversarial test fixtures. |
