@@ -250,7 +250,10 @@ fn report(mode: &str, outcome: &Outcome) {
             println!("  executor CALLED live {mode:<11}: NO");
         }
         Outcome::FailClosed { outcome } => {
-            println!("  fail-closed stop fired          : op_id={}", outcome.op_id);
+            println!(
+                "  fail-closed stop fired          : op_id={}",
+                outcome.op_id
+            );
         }
     }
 }
@@ -314,11 +317,9 @@ async fn main() {
     let armed = !dry;
     let target = scratch_target();
     let protected = protected_target();
-    let executor = GcpComputeExecutor::new(armed, Some(target.clone()))
-        .with_protected(vec![ProtectedCoord::new(
-            protected.project.clone(),
-            protected.instance.clone(),
-        )]);
+    let executor = GcpComputeExecutor::new(armed, Some(target.clone())).with_protected(vec![
+        ProtectedCoord::new(protected.project.clone(), protected.instance.clone()),
+    ]);
     let verifier =
         PinnedKeyVerifier::from_pubkey_bytes(pubkey_bytes).expect("demo pubkey is valid Ed25519");
     let pinned_fingerprint = verifier.fingerprint().to_string();

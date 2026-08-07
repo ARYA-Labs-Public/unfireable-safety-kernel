@@ -412,7 +412,12 @@ pub struct RevokeAckResponse {
 // ============================================================================
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::float_cmp)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::float_cmp
+)]
 mod tests {
     use super::*;
     use crate::safety::token::{sign_kernel_token, verify_kernel_token};
@@ -538,14 +543,17 @@ mod tests {
     fn params_fingerprint_binds_target_tier_reason() {
         let sk = fixed_signing_key();
         let vk = sk.verifying_key();
-        let (token, signed_fp) =
-            mint_kill(&sk, 1_715_212_345.0, 1_715_212_465.0, Some("rogue"));
+        let (token, signed_fp) = mint_kill(&sk, 1_715_212_345.0, 1_715_212_465.0, Some("rogue"));
         let verified =
             verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0, Some(REVOKE_COMPUTE_AUD))
                 .expect("verify");
 
         // Reaper recomputes from the decoded claims — SAME inputs → match.
-        let run_id = verified.claims.get("run_id").and_then(Value::as_str).unwrap();
+        let run_id = verified
+            .claims
+            .get("run_id")
+            .and_then(Value::as_str)
+            .unwrap();
         let recomputed_same = revoke_params_fingerprint(
             run_id,
             &sample_target(),
@@ -594,7 +602,10 @@ mod tests {
             RevokeTrigger::OperatorEmergencyStop,
             Some("DIFFERENT"),
         );
-        assert_ne!(recomputed_reason, signed_fp, "a swapped reason MUST NOT match");
+        assert_ne!(
+            recomputed_reason, signed_fp,
+            "a swapped reason MUST NOT match"
+        );
     }
 
     /// A restore token round-trips under the restore audience and is
@@ -620,7 +631,10 @@ mod tests {
         let token = sign_kernel_token(&claims, &sk);
 
         let ok = verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0, Some(REVOKE_RESTORE_AUD));
-        assert!(ok.is_ok(), "restore token must verify under restore aud; got {ok:?}");
+        assert!(
+            ok.is_ok(),
+            "restore token must verify under restore aud; got {ok:?}"
+        );
 
         let as_kill =
             verify_kernel_token(&token, &vk, 1_715_212_350.0, 0.0, Some(REVOKE_COMPUTE_AUD));

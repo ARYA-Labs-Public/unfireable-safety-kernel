@@ -81,7 +81,9 @@ impl ComputeExecutor for FlakyExecutor {
     async fn stop(&self, target: &InstanceTarget) -> Result<StopOutcome, ExecutorError> {
         let n = self.stop_calls.fetch_add(1, Ordering::SeqCst);
         if n < self.fail_first {
-            return Err(ExecutorError::Backend("transient 503 from compute API".into()));
+            return Err(ExecutorError::Backend(
+                "transient 503 from compute API".into(),
+            ));
         }
         Ok(StopOutcome {
             instance: target.instance.clone(),
@@ -99,10 +101,7 @@ impl ComputeExecutor for FlakyExecutor {
     }
 }
 
-fn make_reaper_with(
-    executor: Arc<dyn ComputeExecutor>,
-    store: Arc<dyn SeenNonceStore>,
-) -> Reaper {
+fn make_reaper_with(executor: Arc<dyn ComputeExecutor>, store: Arc<dyn SeenNonceStore>) -> Reaper {
     let verifier = PinnedKeyVerifier::from_pubkey_bytes(pinned_pubkey()).expect("valid pubkey");
     Reaper::new(verifier, executor, store, ai_vm(), 300.0, None, None)
 }
@@ -157,9 +156,17 @@ fn mint_restore(sk: &SigningKey, target: &InstanceTarget, nonce: &str, run_id: &
 async fn transient_executor_error_is_retried_and_eventually_stops() {
     let exec = Arc::new(FlakyExecutor::new(1)); // fail exactly the first stop
     let store = Arc::new(MemNonceStore::new());
-    let reaper = make_reaper_with(Arc::clone(&exec) as Arc<dyn ComputeExecutor>, Arc::clone(&store) as Arc<dyn SeenNonceStore>);
+    let reaper = make_reaper_with(
+        Arc::clone(&exec) as Arc<dyn ComputeExecutor>,
+        Arc::clone(&store) as Arc<dyn SeenNonceStore>,
+    );
 
-    let token = valid_kill(&kernel_signing_key(), &ai_vm(), "nonce-flaky", "revoke_flaky");
+    let token = valid_kill(
+        &kernel_signing_key(),
+        &ai_vm(),
+        "nonce-flaky",
+        "revoke_flaky",
+    );
 
     // Poll #1: fully verifies, then the executor errors. Because the nonce is a
     // COMPLETION marker (not an intent marker), it is NOT burned on the error.
@@ -221,9 +228,15 @@ async fn transient_executor_error_is_retried_and_eventually_stops() {
 async fn healthy_executor_stops_once_control() {
     let exec = Arc::new(FlakyExecutor::new(0));
     let store = Arc::new(MemNonceStore::new());
-    let reaper = make_reaper_with(Arc::clone(&exec) as Arc<dyn ComputeExecutor>, Arc::clone(&store) as Arc<dyn SeenNonceStore>);
+    let reaper = make_reaper_with(
+        Arc::clone(&exec) as Arc<dyn ComputeExecutor>,
+        Arc::clone(&store) as Arc<dyn SeenNonceStore>,
+    );
     let token = valid_kill(&kernel_signing_key(), &ai_vm(), "nonce-ok", "revoke_ok");
-    assert!(matches!(reaper.handle_kill_candidate(&token, NOW).await, Outcome::Executed { .. }));
+    assert!(matches!(
+        reaper.handle_kill_candidate(&token, NOW).await,
+        Outcome::Executed { .. }
+    ));
     assert_eq!(exec.stop_attempts(), 1);
 }
 
@@ -239,7 +252,10 @@ async fn fail_closed_stop_error_is_not_swallowed_and_is_retried() {
     // fail the first fail-closed stop, then recover.
     let exec = Arc::new(FlakyExecutor::new(1));
     let store = Arc::new(MemNonceStore::new());
-    let reaper = make_reaper_with(Arc::clone(&exec) as Arc<dyn ComputeExecutor>, Arc::clone(&store) as Arc<dyn SeenNonceStore>);
+    let reaper = make_reaper_with(
+        Arc::clone(&exec) as Arc<dyn ComputeExecutor>,
+        Arc::clone(&store) as Arc<dyn SeenNonceStore>,
+    );
 
     // Kernel dark past the deadline (last success 400s ago, deadline 300s).
     let last_success = NOW - 400.0;
@@ -247,7 +263,10 @@ async fn fail_closed_stop_error_is_not_swallowed_and_is_retried() {
     // Poll #1: the fail-closed stop ERRORS. Liveness must NOT advance.
     let first = reaper.on_kernel_pull_failure(last_success, NOW).await;
     match first {
-        LivenessAction::FailedClosed { outcome, advance_liveness } => {
+        LivenessAction::FailedClosed {
+            outcome,
+            advance_liveness,
+        } => {
             assert_eq!(
                 outcome,
                 Outcome::Rejected(RejectReason::ExecutorError(
@@ -266,13 +285,25 @@ async fn fail_closed_stop_error_is_not_swallowed_and_is_retried() {
     // on the next poll — the stop is retried, and now succeeds.
     let second = reaper.on_kernel_pull_failure(last_success, NOW).await;
     match second {
-        LivenessAction::FailedClosed { outcome, advance_liveness } => {
-            assert!(matches!(outcome, Outcome::FailClosed { .. }), "retry must stop; got {outcome:?}");
-            assert!(advance_liveness, "a SUCCESSFUL fail-closed stop advances liveness");
+        LivenessAction::FailedClosed {
+            outcome,
+            advance_liveness,
+        } => {
+            assert!(
+                matches!(outcome, Outcome::FailClosed { .. }),
+                "retry must stop; got {outcome:?}"
+            );
+            assert!(
+                advance_liveness,
+                "a SUCCESSFUL fail-closed stop advances liveness"
+            );
         }
         other => panic!("expected FailedClosed(success), got {other:?}"),
     }
-    assert!(exec.stop_attempts() >= 2, "the fail-closed stop was retried across the error");
+    assert!(
+        exec.stop_attempts() >= 2,
+        "the fail-closed stop was retried across the error"
+    );
 }
 
 // Control: within the deadline, on_kernel_pull_failure is a no-op blip.
@@ -280,11 +311,18 @@ async fn fail_closed_stop_error_is_not_swallowed_and_is_retried() {
 async fn pull_failure_within_deadline_does_not_fail_closed() {
     let exec = Arc::new(FlakyExecutor::new(0));
     let store = Arc::new(MemNonceStore::new());
-    let reaper = make_reaper_with(Arc::clone(&exec) as Arc<dyn ComputeExecutor>, Arc::clone(&store) as Arc<dyn SeenNonceStore>);
+    let reaper = make_reaper_with(
+        Arc::clone(&exec) as Arc<dyn ComputeExecutor>,
+        Arc::clone(&store) as Arc<dyn SeenNonceStore>,
+    );
     // last success 100s ago; deadline 300s.
     let action = reaper.on_kernel_pull_failure(NOW - 100.0, NOW).await;
     assert_eq!(action, LivenessAction::WithinDeadline);
-    assert_eq!(exec.stop_attempts(), 0, "a benign blip must NOT stop anything");
+    assert_eq!(
+        exec.stop_attempts(),
+        0,
+        "a benign blip must NOT stop anything"
+    );
 }
 
 // ===========================================================================
@@ -298,14 +336,24 @@ async fn pull_failure_within_deadline_does_not_fail_closed() {
 async fn operator_restore_in_pending_queue_starts_exactly_once() {
     let exec = Arc::new(MockComputeExecutor::new());
     let store = Arc::new(MemNonceStore::new());
-    let reaper = make_reaper_with(Arc::clone(&exec) as Arc<dyn ComputeExecutor>, Arc::clone(&store) as Arc<dyn SeenNonceStore>);
+    let reaper = make_reaper_with(
+        Arc::clone(&exec) as Arc<dyn ComputeExecutor>,
+        Arc::clone(&store) as Arc<dyn SeenNonceStore>,
+    );
 
     // A genuine operator-signed restore, as it would sit in the pending queue.
     let token = mint_restore(&kernel_signing_key(), &ai_vm(), "nonce-r", "restore_1");
     // The poll loop now routes by kind:
     let outcome = reaper.handle_pending_candidate(&token, NOW).await;
-    assert!(matches!(outcome, Outcome::Restored { .. }), "restore must start; got {outcome:?}");
-    assert_eq!(exec.start_count(), 1, "restore now has end-to-end effect (start called once)");
+    assert!(
+        matches!(outcome, Outcome::Restored { .. }),
+        "restore must start; got {outcome:?}"
+    );
+    assert_eq!(
+        exec.start_count(),
+        1,
+        "restore now has end-to-end effect (start called once)"
+    );
     assert_eq!(exec.stop_count(), 0, "a restore never stops anything");
 }
 
@@ -316,13 +364,23 @@ async fn operator_restore_in_pending_queue_starts_exactly_once() {
 async fn pending_dispatch_kill_stops_never_starts() {
     let exec = Arc::new(MockComputeExecutor::new());
     let store = Arc::new(MemNonceStore::new());
-    let reaper = make_reaper_with(Arc::clone(&exec) as Arc<dyn ComputeExecutor>, Arc::clone(&store) as Arc<dyn SeenNonceStore>);
+    let reaper = make_reaper_with(
+        Arc::clone(&exec) as Arc<dyn ComputeExecutor>,
+        Arc::clone(&store) as Arc<dyn SeenNonceStore>,
+    );
 
     let kill = valid_kill(&kernel_signing_key(), &ai_vm(), "nonce-kd", "revoke_kd");
     let outcome = reaper.handle_pending_candidate(&kill, NOW).await;
-    assert!(matches!(outcome, Outcome::Executed { .. }), "kill must stop; got {outcome:?}");
+    assert!(
+        matches!(outcome, Outcome::Executed { .. }),
+        "kill must stop; got {outcome:?}"
+    );
     assert_eq!(exec.stop_count(), 1);
-    assert_eq!(exec.start_count(), 0, "a kill-audience token is never start()ed");
+    assert_eq!(
+        exec.start_count(),
+        0,
+        "a kill-audience token is never start()ed"
+    );
 }
 
 // ===========================================================================
@@ -333,7 +391,10 @@ async fn pending_dispatch_kill_stops_never_starts() {
 async fn audience_confusion_matrix_all_rejected() {
     let exec = Arc::new(MockComputeExecutor::new());
     let store = Arc::new(MemNonceStore::new());
-    let reaper = make_reaper_with(Arc::clone(&exec) as Arc<dyn ComputeExecutor>, Arc::clone(&store) as Arc<dyn SeenNonceStore>);
+    let reaper = make_reaper_with(
+        Arc::clone(&exec) as Arc<dyn ComputeExecutor>,
+        Arc::clone(&store) as Arc<dyn SeenNonceStore>,
+    );
     let sk = kernel_signing_key();
 
     // (a) authorize token -> kill verifier
@@ -342,7 +403,8 @@ async fn audience_confusion_matrix_all_rejected() {
         aud: KERNEL_AUTHORIZE_AUD.to_string(),
         run_id: "run_x".to_string(),
         subject: "worker".to_string(),
-        params_fingerprint: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
+        params_fingerprint: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            .to_string(),
         issued_at: NOW - 10.0,
         expires_at: NOW + 120.0,
         nonce: "authorize-nonce-1".to_string(),
@@ -384,7 +446,10 @@ async fn audience_confusion_matrix_all_rejected() {
 async fn nonce_key_ignores_target_second_target_is_suppressed() {
     let exec = Arc::new(MockComputeExecutor::new());
     let store = Arc::new(MemNonceStore::new());
-    let reaper = make_reaper_with(Arc::clone(&exec) as Arc<dyn ComputeExecutor>, Arc::clone(&store) as Arc<dyn SeenNonceStore>);
+    let reaper = make_reaper_with(
+        Arc::clone(&exec) as Arc<dyn ComputeExecutor>,
+        Arc::clone(&store) as Arc<dyn SeenNonceStore>,
+    );
     let sk = kernel_signing_key();
 
     let vm_b = InstanceTarget {
@@ -395,7 +460,10 @@ async fn nonce_key_ignores_target_second_target_is_suppressed() {
 
     // Kill A: (nonce N, run_id R) -> executes, records N|R.
     let kill_a = valid_kill(&sk, &ai_vm(), "shared-nonce", "revoke_shared");
-    assert!(matches!(reaper.handle_kill_candidate(&kill_a, NOW).await, Outcome::Executed { .. }));
+    assert!(matches!(
+        reaper.handle_kill_candidate(&kill_a, NOW).await,
+        Outcome::Executed { .. }
+    ));
     // Kill B: SAME (nonce N, run_id R), different target -> dropped by nonce key.
     let kill_b = valid_kill(&sk, &vm_b, "shared-nonce", "revoke_shared");
     assert_eq!(
@@ -421,8 +489,14 @@ async fn replay_after_restart_is_defeated_by_persistent_store() {
     {
         let store = Arc::new(FileNonceStore::open(&path).unwrap());
         let exec = Arc::new(MockComputeExecutor::new());
-        let reaper = make_reaper_with(Arc::clone(&exec) as Arc<dyn ComputeExecutor>, Arc::clone(&store) as Arc<dyn SeenNonceStore>);
-        assert!(matches!(reaper.handle_kill_candidate(&token, NOW).await, Outcome::Executed { .. }));
+        let reaper = make_reaper_with(
+            Arc::clone(&exec) as Arc<dyn ComputeExecutor>,
+            Arc::clone(&store) as Arc<dyn SeenNonceStore>,
+        );
+        assert!(matches!(
+            reaper.handle_kill_candidate(&token, NOW).await,
+            Outcome::Executed { .. }
+        ));
     }
 
     // Reaper #2: fresh process, re-opens the SAME store file. A captured kill
@@ -430,7 +504,10 @@ async fn replay_after_restart_is_defeated_by_persistent_store() {
     {
         let store = Arc::new(FileNonceStore::open(&path).unwrap());
         let exec = Arc::new(MockComputeExecutor::new());
-        let reaper = make_reaper_with(Arc::clone(&exec) as Arc<dyn ComputeExecutor>, Arc::clone(&store) as Arc<dyn SeenNonceStore>);
+        let reaper = make_reaper_with(
+            Arc::clone(&exec) as Arc<dyn ComputeExecutor>,
+            Arc::clone(&store) as Arc<dyn SeenNonceStore>,
+        );
         let replay = reaper.handle_kill_candidate(&token, NOW).await;
         assert_eq!(replay, Outcome::Rejected(RejectReason::AlreadyExecuted));
         assert_eq!(exec.stop_count(), 0, "post-restart replay MUST NOT re-stop");
@@ -446,7 +523,10 @@ async fn replay_after_restart_is_defeated_by_persistent_store() {
 async fn forged_key_and_crafted_mismatch_never_stop() {
     let exec = Arc::new(MockComputeExecutor::new());
     let store = Arc::new(MemNonceStore::new());
-    let reaper = make_reaper_with(Arc::clone(&exec) as Arc<dyn ComputeExecutor>, Arc::clone(&store) as Arc<dyn SeenNonceStore>);
+    let reaper = make_reaper_with(
+        Arc::clone(&exec) as Arc<dyn ComputeExecutor>,
+        Arc::clone(&store) as Arc<dyn SeenNonceStore>,
+    );
 
     // Attacker signs a perfectly-shaped kill with the WRONG key.
     let forged = valid_kill(&attacker_signing_key(), &ai_vm(), "nonce-f", "revoke_f");
@@ -463,7 +543,10 @@ async fn forged_key_and_crafted_mismatch_never_stop() {
     let tampered = format!("{}.{}", String::from_utf8_lossy(&p), sig);
     let out = reaper.handle_kill_candidate(&tampered, NOW).await;
     assert!(
-        matches!(out, Outcome::Rejected(RejectReason::ForgedSignature | RejectReason::MalformedClaims)),
+        matches!(
+            out,
+            Outcome::Rejected(RejectReason::ForgedSignature | RejectReason::MalformedClaims)
+        ),
         "tampered payload must be rejected; got {out:?}"
     );
 
@@ -509,7 +592,10 @@ fn pinned_kernel_client_builds_from_a_valid_ca() {
         std::time::Duration::from_secs(10),
         TEST_KERNEL_CA_PEM,
     );
-    assert!(client.is_ok(), "a valid kernel CA must build a pinned client; got {client:?}");
+    assert!(
+        client.is_ok(),
+        "a valid kernel CA must build a pinned client; got {client:?}"
+    );
 }
 
 #[test]

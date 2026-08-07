@@ -125,7 +125,10 @@ impl SeenNonceStore for FileNonceStore {
         // Durable write FIRST — only insert into the hot set once the bytes
         // are flushed, so an fsync failure leaves `is_seen` == false and the
         // Reaper fails closed on the candidate instead of double-executing.
-        let mut f = OpenOptions::new().create(true).append(true).open(&self.path)?;
+        let mut f = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.path)?;
         writeln!(f, "{}", key.to_line())?;
         f.flush()?;
         set.insert(key.clone());

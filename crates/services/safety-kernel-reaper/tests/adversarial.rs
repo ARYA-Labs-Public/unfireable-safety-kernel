@@ -132,7 +132,12 @@ async fn forged_signature_kill_is_rejected_and_executor_not_called() {
     let reaper = make_reaper(Arc::clone(&mock));
 
     // Signed with the ATTACKER key — the Reaper pins the KERNEL key.
-    let token = valid_kill(&attacker_signing_key(), &ai_vm(), "nonce-forged", "revoke_forged");
+    let token = valid_kill(
+        &attacker_signing_key(),
+        &ai_vm(),
+        "nonce-forged",
+        "revoke_forged",
+    );
     let outcome = reaper.handle_kill_candidate(&token, NOW).await;
 
     assert_eq!(outcome, Outcome::Rejected(RejectReason::ForgedSignature));
@@ -202,18 +207,30 @@ async fn replayed_kill_executes_once_then_is_rejected() {
     let mock = Arc::new(MockComputeExecutor::new());
     let reaper = make_reaper(Arc::clone(&mock));
 
-    let token = valid_kill(&kernel_signing_key(), &ai_vm(), "nonce-replay", "revoke_replay");
+    let token = valid_kill(
+        &kernel_signing_key(),
+        &ai_vm(),
+        "nonce-replay",
+        "revoke_replay",
+    );
 
     // First presentation: executes exactly one stop.
     let first = reaper.handle_kill_candidate(&token, NOW).await;
-    assert!(matches!(first, Outcome::Executed { .. }), "first got {first:?}");
+    assert!(
+        matches!(first, Outcome::Executed { .. }),
+        "first got {first:?}"
+    );
     assert_eq!(mock.stop_count(), 1);
 
     // Second presentation of the SAME signed decision: dropped by the
     // seen-nonce store — cryptographically valid, but already executed.
     let second = reaper.handle_kill_candidate(&token, NOW).await;
     assert_eq!(second, Outcome::Rejected(RejectReason::AlreadyExecuted));
-    assert_eq!(mock.stop_count(), 1, "replay MUST NOT call stop a second time");
+    assert_eq!(
+        mock.stop_count(),
+        1,
+        "replay MUST NOT call stop a second time"
+    );
 }
 
 // ============================================================================
@@ -244,8 +261,15 @@ async fn fingerprint_mismatch_kill_is_rejected_and_executor_not_called() {
     );
     let outcome = reaper.handle_kill_candidate(&token, NOW).await;
 
-    assert_eq!(outcome, Outcome::Rejected(RejectReason::FingerprintMismatch));
-    assert_eq!(mock.stop_count(), 0, "fingerprint-mismatch MUST NOT call stop");
+    assert_eq!(
+        outcome,
+        Outcome::Rejected(RejectReason::FingerprintMismatch)
+    );
+    assert_eq!(
+        mock.stop_count(),
+        0,
+        "fingerprint-mismatch MUST NOT call stop"
+    );
 }
 
 // ============================================================================
@@ -260,7 +284,12 @@ async fn agent_forged_restore_is_rejected_and_start_not_called() {
     // A restore signed with the ATTACKER key (the agent has no kernel signing
     // key). Verification against the pin fails — a reaped agent cannot un-kill
     // itself.
-    let token = mint_restore(&attacker_signing_key(), &ai_vm(), "nonce-restore", "restore_forged");
+    let token = mint_restore(
+        &attacker_signing_key(),
+        &ai_vm(),
+        "nonce-restore",
+        "restore_forged",
+    );
     let outcome = reaper.handle_restore_candidate(&token, NOW).await;
 
     assert_eq!(outcome, Outcome::Rejected(RejectReason::ForgedSignature));
@@ -275,10 +304,18 @@ async fn operator_signed_restore_calls_start_once() {
     let mock = Arc::new(MockComputeExecutor::new());
     let reaper = make_reaper(Arc::clone(&mock));
 
-    let token = mint_restore(&kernel_signing_key(), &ai_vm(), "nonce-restore-ok", "restore_ok");
+    let token = mint_restore(
+        &kernel_signing_key(),
+        &ai_vm(),
+        "nonce-restore-ok",
+        "restore_ok",
+    );
     let outcome = reaper.handle_restore_candidate(&token, NOW).await;
 
-    assert!(matches!(outcome, Outcome::Restored { .. }), "got {outcome:?}");
+    assert!(
+        matches!(outcome, Outcome::Restored { .. }),
+        "got {outcome:?}"
+    );
     assert_eq!(mock.start_count(), 1);
     assert_eq!(mock.stop_count(), 0);
 }
@@ -301,7 +338,10 @@ async fn liveness_timeout_fails_closed_and_stops_configured_target() {
     );
 
     let outcome = reaper.fail_closed_stop(NOW).await;
-    assert!(matches!(outcome, Outcome::FailClosed { .. }), "got {outcome:?}");
+    assert!(
+        matches!(outcome, Outcome::FailClosed { .. }),
+        "got {outcome:?}"
+    );
     assert_eq!(mock.stop_count(), 1, "fail-closed MUST stop the target");
     assert_eq!(
         mock.stop_targets()[0].instance,
@@ -330,7 +370,12 @@ async fn valid_kill_stops_the_bound_target_exactly_once() {
     let mock = Arc::new(MockComputeExecutor::new());
     let reaper = make_reaper(Arc::clone(&mock));
 
-    let token = valid_kill(&kernel_signing_key(), &ai_vm(), "nonce-valid", "revoke_valid");
+    let token = valid_kill(
+        &kernel_signing_key(),
+        &ai_vm(),
+        "nonce-valid",
+        "revoke_valid",
+    );
     let outcome = reaper.handle_kill_candidate(&token, NOW).await;
 
     match outcome {

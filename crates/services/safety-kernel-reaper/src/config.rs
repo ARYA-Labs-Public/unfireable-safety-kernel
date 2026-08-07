@@ -134,8 +134,8 @@ impl ReaperConfig {
     /// unreadable, a protected-instance entry is malformed, or `REAPER_ARMED=true`
     /// without a scratch target.
     pub fn from_env() -> Result<Self, ConfigError> {
-        let kernel_url =
-            env_nonempty("REAPER_KERNEL_URL").ok_or_else(|| ConfigError::Missing("REAPER_KERNEL_URL".to_string()))?;
+        let kernel_url = env_nonempty("REAPER_KERNEL_URL")
+            .ok_or_else(|| ConfigError::Missing("REAPER_KERNEL_URL".to_string()))?;
 
         // The reaper API key is read by NAME (default the worker-key sibling
         // name), never hardcoded.

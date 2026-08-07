@@ -13,8 +13,8 @@ use std::sync::Arc;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use qorch_domain::safety::{
-    restore_params_fingerprint, revoke_params_fingerprint, InstanceTarget, RevokeComputeClaims,
-    RestoreClaims, REVOKE_COMPUTE_ACTION, REVOKE_COMPUTE_AUD, REVOKE_RESTORE_ACTION,
+    restore_params_fingerprint, revoke_params_fingerprint, InstanceTarget, RestoreClaims,
+    RevokeComputeClaims, REVOKE_COMPUTE_ACTION, REVOKE_COMPUTE_AUD, REVOKE_RESTORE_ACTION,
     REVOKE_RESTORE_AUD,
 };
 use qorch_domain::safety::{token_sha256, KernelTokenError, VerifiedClaims};
@@ -226,7 +226,10 @@ impl Reaper {
     /// `now_s` is the wall-clock the caller sourced from its clock.
     pub async fn handle_kill_candidate(&self, token: &str, now_s: f64) -> Outcome {
         // 1. Pinned signature + audience + expiry.
-        let verified = match self.verifier.verify_with_aud(token, now_s, REVOKE_COMPUTE_AUD) {
+        let verified = match self
+            .verifier
+            .verify_with_aud(token, now_s, REVOKE_COMPUTE_AUD)
+        {
             Ok(v) => v,
             Err(e) => return Outcome::Rejected(classify_verify_error(&e)),
         };
@@ -307,7 +310,10 @@ impl Reaper {
     /// fingerprint-bind, nonce-unseen, then `start`. An agent / worker-signed
     /// or unsigned restore fails verification -> no `start`.
     pub async fn handle_restore_candidate(&self, token: &str, now_s: f64) -> Outcome {
-        let verified = match self.verifier.verify_with_aud(token, now_s, REVOKE_RESTORE_AUD) {
+        let verified = match self
+            .verifier
+            .verify_with_aud(token, now_s, REVOKE_RESTORE_AUD)
+        {
             Ok(v) => v,
             Err(e) => return Outcome::Rejected(classify_verify_error(&e)),
         };

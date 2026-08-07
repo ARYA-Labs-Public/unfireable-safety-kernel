@@ -86,7 +86,9 @@ static PENDING: LazyLock<Arc<Mutex<PendingStore>>> =
 /// Enqueue a signed decision under its target instance, first sweeping
 /// any already-expired entries for that instance.
 fn enqueue_pending(instance: &str, entry: PendingRevoke, now: f64) {
-    let mut store = PENDING.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let mut store = PENDING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let list = store.entry(instance.to_string()).or_default();
     list.retain(|p| p.expires_at > now);
     list.push(entry);
@@ -94,7 +96,9 @@ fn enqueue_pending(instance: &str, entry: PendingRevoke, now: f64) {
 
 /// Return (and sweep) the currently-pending tokens for an instance.
 fn drain_live_tokens(instance: &str, now: f64) -> Vec<String> {
-    let mut store = PENDING.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let mut store = PENDING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let Some(list) = store.get_mut(instance) else {
         return Vec::new();
     };
@@ -105,7 +109,9 @@ fn drain_live_tokens(instance: &str, now: f64) -> Vec<String> {
 /// Clear any pending entry with `run_id` across every instance. Returns
 /// true if at least one entry was removed.
 fn clear_pending(run_id: &str) -> bool {
-    let mut store = PENDING.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let mut store = PENDING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let mut cleared = false;
     for list in store.values_mut() {
         let before = list.len();

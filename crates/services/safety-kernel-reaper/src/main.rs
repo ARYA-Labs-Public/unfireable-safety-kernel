@@ -35,7 +35,10 @@ async fn main() -> anyhow::Result<()> {
 
     let verifier = PinnedKeyVerifier::from_pubkey_bytes(cfg.pinned_pubkey)
         .map_err(|e| anyhow::anyhow!("invalid pinned verifying key: {e:?}"))?;
-    tracing::info!(fingerprint = verifier.fingerprint(), "pinned kernel verifying key loaded");
+    tracing::info!(
+        fingerprint = verifier.fingerprint(),
+        "pinned kernel verifying key loaded"
+    );
 
     // SAFETY: default to the MOCK executor. Even when armed, the cloud executor
     // is scratch-scoped + live-arming-gated and never defaults to the agent VM.

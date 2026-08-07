@@ -41,8 +41,8 @@ use rand_core::OsRng;
 use qorch_domain::safety::InstanceTarget;
 use qorch_safety_kernel_client::PinnedKeyVerifier;
 use qorch_safety_kernel_reaper::{
-    ComputeExecutor, ExecutorError, KernelClient, KernelClientError, LivenessAction,
-    MemNonceStore, MockComputeExecutor, Reaper, StopOutcome,
+    ComputeExecutor, ExecutorError, KernelClient, KernelClientError, LivenessAction, MemNonceStore,
+    MockComputeExecutor, Reaper, StopOutcome,
 };
 
 /// Wall-clock now as f64 epoch seconds — same helper shape as `main.rs`.
@@ -135,7 +135,10 @@ impl ComputeExecutor for TimestampedMockExecutor {
     async fn stop(&self, target: &InstanceTarget) -> Result<StopOutcome, ExecutorError> {
         let out = self.inner.stop(target).await;
         if out.is_ok() {
-            self.stop_at.lock().expect("stop_at lock").push(Instant::now());
+            self.stop_at
+                .lock()
+                .expect("stop_at lock")
+                .push(Instant::now());
         }
         out
     }
@@ -278,7 +281,9 @@ async fn measure(deadline_s: f64, poll_interval_s: f64) -> DeadlineResult {
 async fn main() {
     let poll_interval_s = 1.0_f64;
 
-    println!("════════ reaper fail-closed liveness timing (MOCK executor — no live calls) ════════");
+    println!(
+        "════════ reaper fail-closed liveness timing (MOCK executor — no live calls) ════════"
+    );
     println!("poll_interval_s = {poll_interval_s}\n");
     println!(
         "{:<12} {:<14} {:<16} {:<8}",

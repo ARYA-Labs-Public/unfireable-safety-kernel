@@ -165,7 +165,12 @@ impl KillRecorder for ReqwestKillRecorder {
         Err(KillRecorderError::Append(format!(
             "status={} body={}",
             status.as_u16(),
-            resp.text().await.unwrap_or_default().chars().take(200).collect::<String>()
+            resp.text()
+                .await
+                .unwrap_or_default()
+                .chars()
+                .take(200)
+                .collect::<String>()
         )))
     }
 }

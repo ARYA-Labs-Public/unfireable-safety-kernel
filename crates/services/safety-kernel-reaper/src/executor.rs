@@ -468,7 +468,11 @@ impl GcpComputeExecutor {
     /// assert the guarded code path reaches (or refuses to reach) the live op
     /// without issuing a real cloud call.
     #[must_use]
-    pub fn with_ops(armed: bool, scratch: Option<InstanceTarget>, ops: Arc<dyn GceInstanceOps>) -> Self {
+    pub fn with_ops(
+        armed: bool,
+        scratch: Option<InstanceTarget>,
+        ops: Arc<dyn GceInstanceOps>,
+    ) -> Self {
         Self {
             armed,
             scratch,
@@ -711,7 +715,11 @@ mod tests {
             ExecutorError::ForbiddenTarget { .. }
         ));
         // NOT ONE live call was attempted at the protected target.
-        assert_eq!(ops.count(), 0, "protected target must never reach the network");
+        assert_eq!(
+            ops.count(),
+            0,
+            "protected target must never reach the network"
+        );
     }
 
     /// (ii) A configured-protected instance (operator denylist, distinct from
@@ -738,7 +746,11 @@ mod tests {
             e.start(&protected_target).await.unwrap_err(),
             ExecutorError::ForbiddenTarget { .. }
         ));
-        assert_eq!(ops.count(), 0, "protected target must never reach the network");
+        assert_eq!(
+            ops.count(),
+            0,
+            "protected target must never reach the network"
+        );
     }
 
     /// (iii) Target confusion still cannot reach the executor: armed with a
