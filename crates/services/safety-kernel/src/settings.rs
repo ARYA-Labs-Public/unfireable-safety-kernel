@@ -58,6 +58,16 @@ pub struct Settings {
     pub api_key_api: Option<String>,
     pub api_key_operator: Option<String>,
 
+    /// Dedicated `reaper` caller-role key. The control-plane Reaper
+    /// presents this to pull the pending-revoke queue and ack
+    /// executions; the agent's `worker` key MUST NOT be able to read the
+    /// queue. Optional at boot: when `None`, the `reaper` role can never
+    /// be matched, so `/revoke/pending` + `/revoke/ack` are unreachable
+    /// by anyone except `operator` (fail-closed — no key, no reaper
+    /// access). Provisioned by the operator as part of live-arming, NOT
+    /// required to boot the code behind the mock executor.
+    pub api_key_reaper: Option<String>,
+
     /// Ed25519 signing key (32-byte seed, base64url; padded or
     /// unpadded both accepted at decode time). For managed key backends
     /// (`key_backend != Env`) this is empty until
@@ -87,6 +97,10 @@ pub struct Settings {
     pub default_token_ttl_s: i64,
     pub max_token_ttl_s: i64,
     pub approval_token_ttl_s: i64,
+
+    /// Revoke / restore token TTL in seconds (short-lived; floored at
+    /// 30s at mint time). A coercive-shutdown kill goes stale fast.
+    pub revoke_token_ttl_s: i64,
 
     /// `QORCH_KERNEL_BUILD_VERSION` (default `"0.0.0-dev"`). Echoed
     /// in `/health.version`.
@@ -290,6 +304,11 @@ impl Settings {
         let api_key_operator = env::var("QORCH_KERNEL_API_KEY_OPERATOR")
             .ok()
             .filter(|v| !v.trim().is_empty());
+        // Optional reaper role key (see struct doc). Empty ⇒ never
+        // matches, so the reaper-gated revoke queue stays unreachable.
+        let api_key_reaper = env::var("QORCH_KERNEL_API_KEY_REAPER")
+            .ok()
+            .filter(|v| !v.trim().is_empty());
 
         if api_key_worker.is_none() {
             return Err(anyhow!("missing QORCH_KERNEL_API_KEY_WORKER"));
@@ -321,6 +340,12 @@ impl Settings {
             .and_then(|v| v.parse::<i64>().ok())
             .unwrap_or(365 * 24 * 60 * 60)
             .max(60);
+        // Revoke token TTL (short, floored at 30s at mint time).
+        let revoke_token_ttl_s = env::var("QORCH_KERNEL_REVOKE_TOKEN_TTL_S")
+            .ok()
+            .and_then(|v| v.parse::<i64>().ok())
+            .unwrap_or(120)
+            .max(30);
 
         let build_version =
             env::var("QORCH_KERNEL_BUILD_VERSION").unwrap_or_else(|_| "0.0.0-dev".to_string());
@@ -424,6 +449,7 @@ impl Settings {
             api_key_worker,
             api_key_api,
             api_key_operator,
+            api_key_reaper,
             signing_key_b64,
             key_backend,
             key_gcp_project,
@@ -433,6 +459,7 @@ impl Settings {
             default_token_ttl_s,
             max_token_ttl_s,
             approval_token_ttl_s,
+            revoke_token_ttl_s,
             build_version,
             listen_addr,
             policy_sock_path,

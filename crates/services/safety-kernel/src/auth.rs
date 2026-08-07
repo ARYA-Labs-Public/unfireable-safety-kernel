@@ -123,6 +123,9 @@ pub async fn auth_layer(
     let worker_key = s.api_key_worker.as_deref().unwrap_or("");
     let api_key = s.api_key_api.as_deref().unwrap_or("");
     let operator_key = s.api_key_operator.as_deref().unwrap_or("");
+    // Optional reaper role key. Empty ⇒ never matches, so the
+    // reaper-gated revoke queue endpoints stay unreachable (fail-closed).
+    let reaper_key = s.api_key_reaper.as_deref().unwrap_or("");
     if worker_key.is_empty() || api_key.is_empty() {
         return deny(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -158,6 +161,9 @@ pub async fn auth_layer(
     } else if !operator_key.is_empty() && constant_time_eq(supplied_bytes, operator_key.as_bytes())
     {
         Some("operator")
+    } else if !reaper_key.is_empty() && constant_time_eq(supplied_bytes, reaper_key.as_bytes()) {
+        // The dedicated Reaper identity (pull queue + ack).
+        Some("reaper")
     } else {
         None
     };

@@ -172,6 +172,61 @@ This boundary is the foundation of every other property. It is enforced
 by the operating system's process model, by container isolation, and by
 the deployment topology — not by code inside the kernel itself.
 
+## Coercive shutdown: authorization is not termination
+
+An authorization layer sits *above* the running compute and can only
+answer `ALLOW` or `DENY`. That is necessary but, on its own, not
+sufficient: a system that keeps its compute can keep retrying after
+every denial. Reclaiming the compute needs a *resource-layer* authority
+that owns the reservation — not just a policy layer that owns the
+verdict. The kernel provides both halves and keeps them on separate
+ladders:
+
+```
+   policy ladder (kernel decides WHEN)     execution ladder (reaper decides HOW)
+   ────────────────────────────────       ─────────────────────────────────────
+   deny action                             signal   (SIGTERM)
+        │                                       │
+   revoke tool                              kill     (SIGKILL / cgroup.kill)
+        │                                       │
+   revoke compute  ──── signed decision ──▶ stop     (reclaim the reservation)
+```
+
+The **Reaper** is a minimal privileged supervisor that runs *outside*
+the governed workload's privilege domain. It holds no policy. It does
+one thing: pull the kernel's decisions, verify the pinned kernel
+signature plus nonce and expiry, and act. A `RevokeCompute` decision
+rides the same Ed25519 + transparency-log rails as every authorize
+decision; the nonce and expiry defeat replay, and the pinned public key
+makes the decision offline-verifiable.
+
+Three properties make this coercive rather than cooperative:
+
+1. **The Reaper owns the compute.** It reclaims the reservation directly
+   (up to stopping the instance) rather than asking the workload to
+   stand down. The workload gets no vote.
+2. **The workload cannot disable it.** The Reaper is in a different
+   privilege domain and the workload holds no permission over the
+   governance tier — the same process-boundary argument as above,
+   applied to the thing that can stop it.
+3. **It fails closed.** If the kernel signal path is lost past a
+   configured liveness deadline, the Reaper resolves that to a shutdown
+   rather than assuming the workload is healthy. A blip shorter than the
+   deadline does not fire; recovery after a real stop is an operator
+   action, never an automatic resurrection.
+
+Every stop is itself a signed, logged decision — including an operator
+emergency stop, which routes through the same path as everything else,
+so there is no side-channel kill and no unaudited shutdown. The
+un-kill / restore path is operator-gated, signed, and audited the same
+way.
+
+A deployer protects its own control host by configuration, not by a
+value baked into the code: the Reaper refuses to stop the instance it is
+running on (self-identified at startup) and honors an operator-supplied
+denylist of protected instances. That guard runs first, unconditionally,
+independent of whether the Reaper is armed.
+
 ## Threat model summary
 
 The kernel's threat model treats everything below the process boundary
@@ -183,7 +238,7 @@ releases are the trusted boundary.
 For the full adversary-by-adversary breakdown — network attackers,
 compromised application code, tampered binaries, substituted keys,
 replay attacks, caller-language bypass, and the explicit out-of-scope
-items — see [`docs/security/threat-model.md`](security/threat-model.md).
+items — see § 2 of the paper (referenced from the [README](../README.md#paper)).
 
 ## What's out of scope
 

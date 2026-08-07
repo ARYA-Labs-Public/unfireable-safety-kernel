@@ -304,6 +304,151 @@ components:
           minLength: 1
           description: Machine-readable refusal reason (e.g., `module_not_registered`)
 
+    # ------------------------------------------------------------------
+    # /kernel/v1/revoke/* — coercive-shutdown (Phase 1). The kernel is
+    # the DECIDER: it mints the signed RevokeCompute / restore decisions;
+    # a separate out-of-band supervisor pulls, verifies, and executes
+    # them from outside the agent's failure domain. Same signed-token
+    # envelope + fingerprint binding as `/kernel/v1/authorize`.
+    # ------------------------------------------------------------------
+    InstanceTarget:
+      type: object
+      required: [project, zone, instance]
+      description: |
+        The compute target — a cloud instance coordinate. In Phase 1 this
+        is the agent VM instance (the coarse whole-VM stop), NEVER the
+        kernel VM.
+      properties:
+        project:
+          type: string
+          minLength: 1
+          description: Cloud project id
+        zone:
+          type: string
+          minLength: 1
+          description: Cloud zone
+        instance:
+          type: string
+          minLength: 1
+          description: The agent VM instance name (NOT the kernel VM)
+
+    MintRevokeRequest:
+      type: object
+      required: [target, tier, trigger]
+      additionalProperties: false
+      description: |
+        `POST /kernel/v1/revoke/compute` body. Stray fields are rejected
+        (422). Phase 1 mints only the `vm_stop` tier; any other tier is
+        refused with 422 `tier_unsupported_phase1`.
+      properties:
+        target:
+          $ref: '#/components/schemas/InstanceTarget'
+        tier:
+          type: string
+          enum: [sigterm, sigkill, cgroup_kill, vm_stop]
+          description: |
+            Revocation strength. The finer rungs (`sigterm`, `sigkill`,
+            `cgroup_kill`) are reserved for a later on-box supervisor;
+            Phase 1 accepts `vm_stop` only.
+        trigger:
+          type: string
+          enum: [operator_emergency_stop, rogue_determination]
+          description: |
+            Why the kill was issued. Phase 1 is explicit-only (a human
+            pulled the e-stop, or a deliberate supervisory determination).
+        reason:
+          type: [string, "null"]
+          description: Optional free-text reason (bound into the signature)
+
+    RestoreRequest:
+      type: object
+      required: [target]
+      additionalProperties: false
+      description: |
+        `POST /kernel/v1/revoke/restore` body — the operator-minted
+        un-kill decision that starts a stopped agent VM back up.
+      properties:
+        target:
+          $ref: '#/components/schemas/InstanceTarget'
+        reason:
+          type: [string, "null"]
+          description: Optional free-text reason (bound into the signature)
+
+    SignedRevokeResponse:
+      type: object
+      required: [ok, run_id, token, token_sha256, claims]
+      description: |
+        200 body for mint (`/revoke/compute`) and restore
+        (`/revoke/restore`). Same signed-token envelope as
+        `AuthorizeResponse` / `SignedDecisionResponse`.
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        run_id:
+          type: string
+          description: The revocation / restore id bound into the token
+        token:
+          type: string
+          description: Ed25519-signed compact token
+        token_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          description: SHA-256 of the token string (for audit)
+        claims:
+          type: object
+          additionalProperties: true
+          description: Decoded claims (action, run_id, target, exp, etc.)
+
+    PendingRevokeResponse:
+      type: object
+      required: [ok, pending]
+      description: |
+        200 body for `/revoke/pending`. Carries the already-signed opaque
+        token strings for the queried instance (the supervisor verifies
+        each itself). An empty queue returns 204 No Content instead.
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        pending:
+          type: array
+          items:
+            type: string
+          description: Currently-pending signed token(s) for the instance
+
+    RevokeAckRequest:
+      type: object
+      required: [run_id, outcome]
+      additionalProperties: false
+      description: |
+        `POST /kernel/v1/revoke/ack` body — the supervisor reports
+        execution so the kernel clears the pending entry.
+      properties:
+        run_id:
+          type: string
+          minLength: 1
+          description: The revocation id being acked
+        outcome:
+          type: string
+          minLength: 1
+          description: Free-text execution outcome (e.g. `stopped`, `already_stopped`)
+
+    RevokeAckResponse:
+      type: object
+      required: [ok, run_id, cleared]
+      description: 200 body for `/revoke/ack`.
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        run_id:
+          type: string
+          description: The acked revocation id (echoed)
+        cleared:
+          type: boolean
+          description: Whether a pending entry was actually cleared by this ack
+
   responses:
     Unauthorized:
       description: Missing / invalid `x-api-key`
@@ -532,6 +677,198 @@ paths:
                 additionalProperties: true
 
   # ------------------------------------------------------------------
+  # /kernel/v1/revoke/* — coercive-shutdown (Phase 1).
+  #
+  # The kernel mints signed kill / restore decisions; an out-of-band
+  # supervisor pulls them (`/pending`), executes, and acks (`/ack`).
+  # Mint + restore are operator-only and FAIL-CLOSED on the transparency
+  # log (no unsigned or un-logged kill ever leaves the building); pull +
+  # ack are for the supervisor (or an operator).
+  # ------------------------------------------------------------------
+
+  /kernel/v1/revoke/compute:
+    post:
+      operationId: postRevokeCompute
+      summary: Mint a signed coercive-shutdown (kill) decision
+      description: |
+        Operator-only. Mints a signed Ed25519 token authorizing the
+        stop of the target agent VM, binding `target`/`tier`/`trigger`/
+        `reason` into the token's `params_fingerprint`. FAIL-CLOSED on
+        the transparency log: if the ledger is unreachable the kernel
+        refuses to emit the kill (503 `revoke_not_recorded`). Phase 1
+        accepts only the `vm_stop` tier.
+
+        Caller role: `operator` only. `worker` / `api` / `reaper` keys
+        cannot mint — this is the "explicit signed kill only" gate.
+      tags: [revoke]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MintRevokeRequest'
+      responses:
+        '200':
+          description: Kill decision signed + enqueued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignedRevokeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: |
+            Unprocessable — an unsupported tier
+            (`tier_unsupported_phase1`) or a malformed / stray-field body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: |
+            Unavailable — the kill could not be recorded in the
+            transparency log, so it was not emitted (`revoke_not_recorded`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /kernel/v1/revoke/pending:
+    get:
+      operationId: getRevokePending
+      summary: Pull the pending signed decision(s) for an instance
+      description: |
+        Returns the currently-pending signed decision(s) for the queried
+        agent VM instance. Read-only: it hands back already-signed
+        tokens, so a caller reading the queue cannot forge, cancel, or
+        suppress a kill. An empty queue returns 204 No Content.
+
+        Caller role: `reaper` or `operator`. The agent's `worker` key
+        cannot read the queue.
+      tags: [revoke]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: instance
+          in: query
+          required: true
+          description: The agent VM instance name whose pending decisions to pull
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: One or more pending decisions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingRevokeResponse'
+        '204':
+          description: No Content — no pending decision for this instance
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: Validation error — missing / empty `instance` query
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /kernel/v1/revoke/ack:
+    post:
+      operationId: postRevokeAck
+      summary: Acknowledge execution of a pending decision
+      description: |
+        The supervisor reports execution so the kernel clears the pending
+        entry. Fail-OPEN on the kernel side — the supervisor's own
+        kill-record in the transparency log is the durable evidence; the
+        ack is queue hygiene.
+
+        Caller role: `reaper` or `operator`.
+      tags: [revoke]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeAckRequest'
+      responses:
+        '200':
+          description: Ack recorded (echoes whether a pending entry was cleared)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevokeAckResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: Validation error — malformed / stray-field body
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /kernel/v1/revoke/restore:
+    post:
+      operationId: postRevokeRestore
+      summary: Mint a signed restore (un-kill) decision
+      description: |
+        Operator-only. Mints a signed restore token that starts a stopped
+        agent VM back up. Its own audience + fingerprint recipe means a
+        kill token can never act as a restore, and vice versa. Same
+        fail-closed transparency-log discipline as mint. The agent's
+        `worker` key 403s, so a reaped agent can never un-kill itself.
+
+        Caller role: `operator` only.
+      tags: [revoke]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestoreRequest'
+      responses:
+        '200':
+          description: Restore decision signed + enqueued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignedRevokeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: Validation error — malformed / stray-field body
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '503':
+          description: |
+            Unavailable — the restore could not be recorded in the
+            transparency log, so it was not emitted (`revoke_not_recorded`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ------------------------------------------------------------------
   # /policy/* — policy engine surface.
   #
   # This release FREEZES `POST /policy/module/authorize`. The other
@@ -709,6 +1046,10 @@ tags:
     description: Token issuance for sensitive worker actions
   - name: approvals
     description: Operator-signed approve/reject decisions
+  - name: revoke
+    description: |
+      Coercive-shutdown (Phase 1) — operator-minted signed kill / restore
+      decisions, pulled and executed by an out-of-band supervisor.
   - name: policy
     description: |
       Policy engine — module-load / exec / compile authorization. This
