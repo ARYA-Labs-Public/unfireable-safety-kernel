@@ -8,5 +8,3 @@ pub mod approvals;
 pub mod authorize;
 pub mod meta;
 pub mod policy;
-// Coercive-shutdown revoke/restore endpoints.
-pub mod revoke;
