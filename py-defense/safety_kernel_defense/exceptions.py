@@ -31,6 +31,8 @@ __all__ = [
     "PolicyDenied",
     "KernelUnavailable",
     "HookConfigError",
+    "SignatureInvalid",
+    "RevokeError",
 ]
 
 
@@ -91,3 +93,59 @@ class HookConfigError(RuntimeError):
     host, invalid charset for ``caller_subject``). Never raised from
     the audit callback itself — only at install time.
     """
+
+
+class SignatureInvalid(RuntimeError):
+    """An ``ALLOW`` decision arrived but its Ed25519 signature did not
+    verify against the configured public key.
+
+    Raised inside :class:`~safety_kernel_defense.middleware.SafetyKernelMiddleware`
+    when the kernel returned a 200 ALLOW carrying a token whose
+    signature (over the base64url payload) fails verification, whose
+    token is malformed, or whose bound claims are expired. This is the
+    fail-CLOSED integrity check: a reachable kernel is not enough — the
+    reply must be provably minted by the trusted signing key. The
+    middleware maps this to HTTP 503 (``signature_invalid``); it is
+    never surfaced as an ALLOW.
+
+    Attributes
+    ----------
+    detail: short machine-friendly reason (``bad_signature``,
+        ``malformed_token``, ``token_expired``).
+    """
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(f"safety-kernel signature verification failed: {detail}")
+        self.detail = detail
+
+
+class RevokeError(RuntimeError):
+    """A ``/kernel/v1/revoke/*`` call returned a non-success HTTP status.
+
+    Raised by :class:`~safety_kernel_defense.revoke_client.RevokeClient`
+    when the kernel answered with a status outside the endpoint's
+    documented success set (e.g. 401/403/422/503). The client raises
+    rather than returning a partial/false-success object — a revoke
+    surface that swallowed an error into a success would defeat the
+    fail-closed contract (a supervisor must never believe a kill was
+    minted/pulled/acked when it was not).
+
+    Attributes
+    ----------
+    status: the HTTP status code the kernel returned.
+    error_code: the kernel's stable ``error`` field, if any.
+    reason: the kernel's optional human-readable ``reason``, if any.
+    """
+
+    def __init__(
+        self,
+        status: int,
+        *,
+        error_code: str | None = None,
+        reason: str | None = None,
+    ) -> None:
+        suffix = f" ({error_code})" if error_code else ""
+        super().__init__(f"safety-kernel revoke call failed: HTTP {status}{suffix}")
+        self.status = status
+        self.error_code = error_code
+        self.reason = reason

@@ -6,7 +6,9 @@ This directory is the entry point for safety-kernel adopters.
 
 - **[`architecture.md`](architecture.md)** — the design in one read.
   What the kernel is, why it's a separate process, how the four defense
-  seams compose, what the transparency log signs, what's in/out of scope.
+  seams compose, what the transparency log signs, the coercive-shutdown
+  reverse path (the reaper that reclaims compute when denial is not
+  enough), and what's in/out of scope.
 
 - **[`integration/getting-started.md`](integration/getting-started.md)** —
   a working integration in about 10 minutes. Build the kernel from source,

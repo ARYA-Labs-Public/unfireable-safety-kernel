@@ -20,7 +20,8 @@ crates.io.
 6. qorch-safety-kernel-middleware   ← depends on domain + safety-kernel-client
 7. qorch-transparency-log           ← depends on domain + adapters + transparency-store
 8. qorch-safety-kernel              ← depends on domain + application + adapters
-9. qorch-safety-kernel-reconciler   ← depends on domain + safety-kernel-client
+9.  qorch-safety-kernel-reconciler  ← depends on domain + safety-kernel-client
+10. qorch-safety-kernel-reaper       ← depends on domain + safety-kernel-client
 ```
 
 After each step, wait ~1 minute for crates.io's index to propagate before

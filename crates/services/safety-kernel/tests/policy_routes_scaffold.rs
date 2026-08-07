@@ -67,6 +67,7 @@ fn test_settings() -> Settings {
         api_key_worker: Some("test-worker-key".to_string()),
         api_key_api: Some("test-api-key".to_string()),
         api_key_operator: Some("test-operator-key".to_string()),
+        api_key_reaper: None,
         signing_key_b64: zero_seed_b64.clone(),
         key_backend: qorch_safety_kernel::key_backend::KeyBackendKind::Env,
         key_gcp_project: None,
@@ -76,6 +77,7 @@ fn test_settings() -> Settings {
         default_token_ttl_s: 60,
         max_token_ttl_s: 300,
         approval_token_ttl_s: 365 * 24 * 60 * 60,
+        revoke_token_ttl_s: 120,
         build_version: "test-policy-scaffold".to_string(),
         listen_addr: "127.0.0.1:0".to_string(),
         // Use a non-existent socket path; the slice-2 handlers' IPC

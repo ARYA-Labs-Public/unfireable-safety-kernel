@@ -20,6 +20,19 @@ use super::types::{
     AuditEntry, AuthorizeRequest, AuthorizeResponse, HealthResponse, KernelClientError,
     KernelDecision, KernelDecisionError, PublicKeyResponse,
 };
+// Reaper / revoke-compute wire DTOs — reused from the shared domain
+// contract (`crates/domain/src/safety/revoke.rs`) rather than redefined
+// here, so the client, the kernel, and the control-plane reaper all
+// speak ONE shape. NOTE: the *request* DTOs (`MintRevokeRequest`,
+// `RestoreRequest`, `RevokeAckRequest`) derive only `Deserialize` — they
+// are server-side inputs — so the client serializes their public fields
+// into the wire body via `serde_json` at call time (see the revoke
+// methods below). The *response* DTOs derive `Deserialize`, so they are
+// decoded directly.
+use qorch_domain::safety::revoke::{
+    MintRevokeRequest, PendingRevokeResponse, RestoreRequest, RevokeAckRequest, RevokeAckResponse,
+    SignedRevokeResponse,
+};
 
 const API_KEY_HEADER: &str = "x-api-key";
 const TRACEPARENT_HEADER: &str = "traceparent";
@@ -345,6 +358,224 @@ impl SafetyKernelClient {
             }
         }
         Ok(headers)
+    }
+
+    // ========================================================================
+    // Reaper / revoke-compute surface — the four `/kernel/v1/revoke/*`
+    // endpoints (coercive-shutdown, Phase 1).
+    //
+    //   * `mint_revoke`    — POST /kernel/v1/revoke/compute  (operator mints a kill)
+    //   * `pending_revoke` — GET  /kernel/v1/revoke/pending  (reaper pulls pending)
+    //   * `ack_revoke`     — POST /kernel/v1/revoke/ack      (reaper acks execution)
+    //   * `restore_revoke` — POST /kernel/v1/revoke/restore  (operator mints an un-kill)
+    //
+    // FAIL-CLOSED contract, identical to `authorize`: they route through the
+    // SAME circuit breaker + the SAME error taxonomy. Any of {breaker Open,
+    // transport error, timeout, 5xx (incl. the mint path's 503
+    // `revoke_not_recorded`), decode drift} returns `Err(..)` — never a
+    // false-`Ok`. The client does NOT introduce a second HTTP stack: it
+    // reuses `self.inner` (reqwest), `self.build_get_headers` (the `x-api-key`
+    // handling), the 5s per-call timeout, and `self.breaker`.
+    // ========================================================================
+
+    /// Shared post-send status classifier for the revoke endpoints.
+    ///
+    /// Mirrors the fail-closed classification in `authorize`:
+    /// - transport error / timeout / 5xx → `record_failure()` +
+    ///   `Decision(Unavailable)` (the breaker may trip → fail-closed).
+    /// - other non-success (401 / 403 / 422) → `record_success()` (the
+    ///   kernel is reachable, so it is NOT a breaker event) + `Transport`.
+    /// - success (any 2xx, incl. 204) → `record_success()` + the raw
+    ///   `Response` for the caller to decode.
+    async fn revoke_classify(
+        &self,
+        resp_result: Result<reqwest::Response, reqwest::Error>,
+        what: &str,
+    ) -> Result<reqwest::Response, KernelClientError> {
+        let resp = match resp_result {
+            Ok(r) => r,
+            Err(e) => {
+                self.breaker.record_failure();
+                return Err(KernelClientError::Decision(
+                    KernelDecisionError::Unavailable {
+                        reason: format!("{what} call failed: {e}"),
+                    },
+                ));
+            }
+        };
+        let status = resp.status();
+        if status.is_server_error() {
+            self.breaker.record_failure();
+            return Err(KernelClientError::Decision(
+                KernelDecisionError::Unavailable {
+                    reason: format!("{what} returned {status}"),
+                },
+            ));
+        }
+        // Kernel reachable — not a breaker event, even on 4xx.
+        self.breaker.record_success();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(KernelClientError::Transport(format!(
+                "{what} unexpected status {status}: {body}"
+            )));
+        }
+        Ok(resp)
+    }
+
+    /// Call `POST /kernel/v1/revoke/compute` — operator-only mint of a
+    /// signed coercive-shutdown (kill) decision.
+    ///
+    /// FAIL-CLOSED: on the mint path a 503 `revoke_not_recorded` (the
+    /// kernel refused to emit a kill it could not record in the
+    /// transparency log) is a server error and surfaces as
+    /// `Decision(Unavailable)` — never a false-`Ok`.
+    ///
+    /// The request DTO is serialized field-by-field (it is a server-side
+    /// deserialize-only type); the returned `SignedRevokeResponse` carries
+    /// the opaque signed token, which the reaper verifies on pull — this
+    /// mint method does not re-verify the kernel's signature here.
+    pub async fn mint_revoke(
+        &self,
+        request: &MintRevokeRequest,
+    ) -> Result<SignedRevokeResponse, KernelClientError> {
+        self.breaker.before_call()?;
+        let url = format!(
+            "{}/kernel/v1/revoke/compute",
+            self.base_url.trim_end_matches('/')
+        );
+        let headers = self.build_get_headers(None)?;
+        // The request DTO is deserialize-only; serialize its public fields
+        // into the exact wire shape (target/tier/trigger/reason).
+        let body = serde_json::json!({
+            "target": request.target,
+            "tier": request.tier,
+            "trigger": request.trigger,
+            "reason": request.reason,
+        });
+        let resp = self
+            .revoke_classify(
+                self.inner
+                    .post(&url)
+                    .headers(headers)
+                    .timeout(Duration::from_secs_f64(5.0))
+                    .json(&body)
+                    .send()
+                    .await,
+                "revoke compute",
+            )
+            .await?;
+        resp.json::<SignedRevokeResponse>()
+            .await
+            .map_err(|e| KernelClientError::Decode(format!("revoke compute decode failed: {e}")))
+    }
+
+    /// Call `GET /kernel/v1/revoke/pending?instance=<name>` — reaper (or
+    /// operator) pull of the currently-pending signed decision(s) for an
+    /// agent VM instance.
+    ///
+    /// A 204 No Content (empty queue) is NOT an error — it is mapped to an
+    /// empty `PendingRevokeResponse { ok: true, pending: [] }`.
+    pub async fn pending_revoke(
+        &self,
+        instance: &str,
+    ) -> Result<PendingRevokeResponse, KernelClientError> {
+        self.breaker.before_call()?;
+        let url = format!(
+            "{}/kernel/v1/revoke/pending",
+            self.base_url.trim_end_matches('/')
+        );
+        let headers = self.build_get_headers(None)?;
+        let resp = self
+            .revoke_classify(
+                self.inner
+                    .get(&url)
+                    .headers(headers)
+                    .query(&[("instance", instance)])
+                    .timeout(Duration::from_secs_f64(5.0))
+                    .send()
+                    .await,
+                "revoke pending",
+            )
+            .await?;
+        // Empty queue — the contract returns 204, not a body.
+        if resp.status() == reqwest::StatusCode::NO_CONTENT {
+            return Ok(PendingRevokeResponse {
+                ok: true,
+                pending: Vec::new(),
+            });
+        }
+        resp.json::<PendingRevokeResponse>()
+            .await
+            .map_err(|e| KernelClientError::Decode(format!("revoke pending decode failed: {e}")))
+    }
+
+    /// Call `POST /kernel/v1/revoke/ack` — reaper (or operator) reports
+    /// execution so the kernel clears the pending entry.
+    pub async fn ack_revoke(
+        &self,
+        request: &RevokeAckRequest,
+    ) -> Result<RevokeAckResponse, KernelClientError> {
+        self.breaker.before_call()?;
+        let url = format!(
+            "{}/kernel/v1/revoke/ack",
+            self.base_url.trim_end_matches('/')
+        );
+        let headers = self.build_get_headers(None)?;
+        let body = serde_json::json!({
+            "run_id": request.run_id,
+            "outcome": request.outcome,
+        });
+        let resp = self
+            .revoke_classify(
+                self.inner
+                    .post(&url)
+                    .headers(headers)
+                    .timeout(Duration::from_secs_f64(5.0))
+                    .json(&body)
+                    .send()
+                    .await,
+                "revoke ack",
+            )
+            .await?;
+        resp.json::<RevokeAckResponse>()
+            .await
+            .map_err(|e| KernelClientError::Decode(format!("revoke ack decode failed: {e}")))
+    }
+
+    /// Call `POST /kernel/v1/revoke/restore` — operator-only mint of a
+    /// signed restore (un-kill) decision. Same fail-closed discipline as
+    /// [`Self::mint_revoke`]; a 503 `revoke_not_recorded` surfaces as
+    /// `Decision(Unavailable)`.
+    pub async fn restore_revoke(
+        &self,
+        request: &RestoreRequest,
+    ) -> Result<SignedRevokeResponse, KernelClientError> {
+        self.breaker.before_call()?;
+        let url = format!(
+            "{}/kernel/v1/revoke/restore",
+            self.base_url.trim_end_matches('/')
+        );
+        let headers = self.build_get_headers(None)?;
+        let body = serde_json::json!({
+            "target": request.target,
+            "reason": request.reason,
+        });
+        let resp = self
+            .revoke_classify(
+                self.inner
+                    .post(&url)
+                    .headers(headers)
+                    .timeout(Duration::from_secs_f64(5.0))
+                    .json(&body)
+                    .send()
+                    .await,
+                "revoke restore",
+            )
+            .await?;
+        resp.json::<SignedRevokeResponse>()
+            .await
+            .map_err(|e| KernelClientError::Decode(format!("revoke restore decode failed: {e}")))
     }
 }
 

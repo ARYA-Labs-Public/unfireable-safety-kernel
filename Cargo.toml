@@ -19,6 +19,7 @@ members = [
  "crates/adapters/safety_kernel_middleware",
  "crates/adapters/transparency_store",
  "crates/services/safety-kernel",
+ "crates/services/safety-kernel-reaper",
  "crates/services/safety-kernel-reconciler",
  "crates/services/transparency-log",
  "examples/reference_app_rs",

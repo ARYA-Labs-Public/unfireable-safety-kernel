@@ -24,6 +24,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   response shape.
 - Reconciler worker that periodically verifies log consistency and surfaces
   drift between the signed log and downstream consumers.
+- Coercive-shutdown reverse path: `/kernel/v1/revoke/{compute,pending,ack,restore}`
+  endpoints that mint and dispatch signed `RevokeCompute` / restore decisions,
+  plus a separate control-plane reaper (`crates/services/safety-kernel-reaper/`)
+  that verifies a signed decision and reclaims the workload's compute
+  (signal → kill → stop). Fails closed if the kernel signal path is lost past a
+  configured deadline; self-protection (own-host + operator denylist) is
+  config-driven; the un-kill/restore path is operator-gated, signed, and audited.
+- Reaper/revoke client surface in both SDKs so integrators can drive the
+  `/kernel/v1/revoke/*` endpoints: a `RevokeClient` in the Python defense
+  package and `mint_revoke` / `pending_revoke` / `ack_revoke` / `restore_revoke`
+  on the Rust `SafetyKernelClient`. Fail-closed — a transport error, timeout,
+  or 5xx returns an error, never a false success.
 
 ### Changed
 

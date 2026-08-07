@@ -29,9 +29,21 @@ Threat model: ``docs/safety_kernel/threat_model_caller_bypass.md``.
 
 from __future__ import annotations
 
-from .exceptions import HookConfigError, KernelUnavailable, PolicyDenied
+from typing import TYPE_CHECKING, Any
+
+from .exceptions import (
+    HookConfigError,
+    KernelUnavailable,
+    PolicyDenied,
+    RevokeError,
+    SignatureInvalid,
+)
 from .install_audit_hook import install_audit_hook
 from .subprocess_propagation import wrap_multiprocessing, wrap_subprocess
+
+if TYPE_CHECKING:  # import for type-checkers only — no runtime dependency pull
+    from .middleware import SafetyKernelMiddleware
+    from .revoke_client import InstanceTarget, RevokeClient
 
 __all__ = [
     "install_audit_hook",
@@ -40,8 +52,36 @@ __all__ = [
     "PolicyDenied",
     "KernelUnavailable",
     "HookConfigError",
+    "SignatureInvalid",
+    "RevokeError",
+    # FastAPI-extra surface — importing these pulls the [fastapi] deps.
+    "SafetyKernelMiddleware",
+    "RevokeClient",
+    "InstanceTarget",
 ]
 
 # Package version — kept here so the hook can report it as part of
 # the optional metadata payload (the architecture overview "metadata" default).
-__version__ = "0.1.0"
+__version__ = "0.2.0"
+
+# The core audit hook is stdlib-only. The FastAPI middleware + revoke
+# client depend on the `[fastapi]` extra (httpx / starlette / cryptography),
+# so they are imported LAZILY here (PEP 562) — `import safety_kernel_defense`
+# stays stdlib-only, and the extra deps are only required when a caller
+# actually touches `SafetyKernelMiddleware` / `RevokeClient`.
+_LAZY = {
+    "SafetyKernelMiddleware": ".middleware",
+    "RevokeClient": ".revoke_client",
+    "InstanceTarget": ".revoke_client",
+}
+
+
+def __getattr__(name: str) -> Any:
+    """Lazily import the FastAPI-extra surface on first attribute access."""
+    module_path = _LAZY.get(name)
+    if module_path is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    import importlib
+
+    module = importlib.import_module(module_path, __name__)
+    return getattr(module, name)

@@ -1849,6 +1849,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "qorch-safety-kernel-reaper"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64 0.22.1",
+ "ed25519-dalek",
+ "hex",
+ "qorch-domain",
+ "qorch-safety-kernel-client",
+ "rand_core 0.6.4",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "tempfile",
+ "thiserror 2.0.19",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "qorch-safety-kernel-reconciler"
 version = "0.1.0"
 dependencies = [

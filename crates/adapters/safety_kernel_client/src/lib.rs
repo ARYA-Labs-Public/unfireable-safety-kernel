@@ -56,3 +56,11 @@ pub use types::{
     AuditEntry, AuthorizeRequest, AuthorizeResponse, HealthResponse, KernelClientError,
     KernelDecision, KernelDecisionError, PublicKeyResponse,
 };
+
+// Reaper / revoke-compute wire DTOs — re-exported from the shared domain
+// contract so SDK callers can build revoke requests without depending on
+// `qorch-domain` directly.
+pub use qorch_domain::safety::revoke::{
+    InstanceTarget, MintRevokeRequest, PendingRevokeResponse, RestoreRequest, RevocationTier,
+    RevokeAckRequest, RevokeAckResponse, RevokeTrigger, SignedRevokeResponse,
+};
