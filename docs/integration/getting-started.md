@@ -239,5 +239,5 @@ for the verifier walkthrough.
   gate (seam 1).
 - [`reconciler-and-transparency-log.md`](reconciler-and-transparency-log.md)
   — verifying log entries from outside the kernel.
-- **The paper, § 2** — the full threat model the kernel is designed
-  against (see the [README](../../README.md#paper) for the arXiv reference).
+- [`../security/threat-model.md`](../security/threat-model.md) — the
+  full threat model the kernel is designed against.
