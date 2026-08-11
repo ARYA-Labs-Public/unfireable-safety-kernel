@@ -16,6 +16,7 @@ Run with::
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any
 
@@ -32,6 +33,8 @@ from packages.safety.client import (
     PinnedKeyVerifier,
     SafetyKernelClient,
 )
+
+_LOG = logging.getLogger(__name__)
 
 __all__ = ["app", "build_app"]
 
@@ -154,12 +157,15 @@ def build_app(
                 subject="api",
             )
         except KernelClientError as exc:
+            # Log the detail server-side; do NOT return it to the caller
+            # (CodeQL py/stack-trace-exposure — exception text can leak
+            # internal state to an untrusted client).
+            _LOG.warning("authorize call failed: %s", exc)
             return JSONResponse(
                 status_code=503,
                 content={
                     "error": "service_unavailable",
                     "reason": "safety_kernel_unavailable",
-                    "detail": str(exc),
                 },
             )
         if not decision.allowed:
