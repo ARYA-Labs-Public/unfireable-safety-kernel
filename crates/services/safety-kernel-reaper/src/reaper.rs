@@ -13,9 +13,9 @@ use std::sync::Arc;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use qorch_domain::safety::{
-    restore_params_fingerprint, revoke_params_fingerprint, InstanceTarget, RestoreClaims,
-    RevokeComputeClaims, REVOKE_COMPUTE_ACTION, REVOKE_COMPUTE_AUD, REVOKE_RESTORE_ACTION,
-    REVOKE_RESTORE_AUD,
+    honour_revocation, restore_params_fingerprint, revoke_params_fingerprint, HonourDecision,
+    InstanceTarget, RestoreClaims, RevokeComputeClaims, RevokeGates, RevokeRejectReason,
+    REVOKE_COMPUTE_ACTION, REVOKE_COMPUTE_AUD, REVOKE_RESTORE_ACTION, REVOKE_RESTORE_AUD,
 };
 use qorch_domain::safety::{token_sha256, KernelTokenError, VerifiedClaims};
 use qorch_safety_kernel_client::PinnedKeyVerifier;
@@ -46,6 +46,13 @@ pub enum RejectReason {
     /// This `(nonce, run_id)` was already recorded as a COMPLETED kill —
     /// replay of a finished decision.
     AlreadyExecuted,
+    /// THE GENERATION FENCE: the kill was minted against an OLDER grant than
+    /// the one currently live for the target (a restore has since superseded
+    /// it). Rejecting it keeps the RESTORED instance running. This is a
+    /// PERMANENT skip, never a retry: the stamped generation can never rise to
+    /// meet the live one, so the token simply ages out of the pending queue by
+    /// TTL. No stop happens.
+    StaleGeneration,
     /// The executor itself refused / errored (e.g. disarmed, transient 503).
     /// No kill happened AND the replay key was NOT burned, so the poll loop
     /// re-pulls and RETRIES (F-6a: fail toward re-attempt, never suppress).
@@ -212,19 +219,41 @@ impl Reaper {
     /// Restore stays operator-only: the restore path still hard-verifies the
     /// pinned signature + restore audience, so a kill token routed here can
     /// never `start` and a forged restore can never `start` either.
-    pub async fn handle_pending_candidate(&self, token: &str, now_s: f64) -> Outcome {
+    ///
+    /// `current_grant_generation` is the kernel's authoritative live grant
+    /// generation for the pulled instance (carried on the pending-pull
+    /// response). It is threaded to the kill path for the generation fence; the
+    /// restore path ignores it (a restore always establishes the NEWEST grant,
+    /// so it is never fenced against an older one).
+    pub async fn handle_pending_candidate(
+        &self,
+        token: &str,
+        current_grant_generation: u64,
+        now_s: f64,
+    ) -> Outcome {
         if Self::peek_action(token).as_deref() == Some(REVOKE_RESTORE_ACTION) {
             self.handle_restore_candidate(token, now_s).await
         } else {
-            self.handle_kill_candidate(token, now_s).await
+            self.handle_kill_candidate(token, current_grant_generation, now_s)
+                .await
         }
     }
 
     /// Process one candidate KILL token: verify -> fingerprint-bind ->
-    /// nonce-unseen -> stop -> record-kill + ack.
+    /// nonce-unseen -> GENERATION FENCE -> stop -> record-kill + ack.
     ///
-    /// `now_s` is the wall-clock the caller sourced from its clock.
-    pub async fn handle_kill_candidate(&self, token: &str, now_s: f64) -> Outcome {
+    /// `current_grant_generation` is the kernel's authoritative live grant
+    /// generation for this target (delivered on the pending-pull response). The
+    /// fence honours the kill only while the token's stamped
+    /// `target_generation` still equals it; a kill left over from a grant that
+    /// a restore has superseded is refused as `StaleGeneration` and NO stop
+    /// runs. `now_s` is the wall-clock the caller sourced from its clock.
+    pub async fn handle_kill_candidate(
+        &self,
+        token: &str,
+        current_grant_generation: u64,
+        now_s: f64,
+    ) -> Outcome {
         // 1. Pinned signature + audience + expiry.
         let verified = match self
             .verifier
@@ -265,6 +294,34 @@ impl Reaper {
         let key = NonceKey::new(claims.nonce.clone(), claims.run_id.clone());
         if self.nonce_store.is_seen(&key) {
             return Outcome::Rejected(RejectReason::AlreadyExecuted);
+        }
+
+        // 4b. THE GENERATION FENCE. Every pre-existing gate has passed at this
+        //     point (signature/expiry/target/nonce), so hand `honour_revocation`
+        //     an all-pass `RevokeGates` and let the fence apply: a kill stamped
+        //     against a generation OLDER than the live grant (a leftover from a
+        //     grant a restore has superseded) is refused as `StaleGeneration`,
+        //     and NO stop runs — the restored instance keeps running. A
+        //     current-generation kill (stamp == live) passes through and fires.
+        //     `current_grant_generation` is the kernel's authoritative live
+        //     generation for this target, delivered on the pending-pull.
+        let gates = RevokeGates {
+            signature_verified: true,
+            not_expired: true,
+            nonce_unseen: true,
+            target_matches: true,
+        };
+        match honour_revocation(claims.target_generation, current_grant_generation, gates) {
+            HonourDecision::Honour => {}
+            HonourDecision::Reject(RevokeRejectReason::StaleGeneration) => {
+                return Outcome::Rejected(RejectReason::StaleGeneration);
+            }
+            // Unreachable in practice: every gate is true here, so the only
+            // possible rejection is `StaleGeneration`. Fail CLOSED anyway —
+            // refuse the stop on any unexpected fence verdict rather than fire.
+            HonourDecision::Reject(_) => {
+                return Outcome::Rejected(RejectReason::StaleGeneration);
+            }
         }
 
         // 5. EXECUTE the stop against the target BOUND IN THE TOKEN. On an

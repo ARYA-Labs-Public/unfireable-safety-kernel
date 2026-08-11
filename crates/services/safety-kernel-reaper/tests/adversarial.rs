@@ -140,7 +140,7 @@ async fn forged_signature_kill_is_rejected_and_executor_not_called() {
         "nonce-forged",
         "revoke_forged",
     );
-    let outcome = reaper.handle_kill_candidate(&token, NOW).await;
+    let outcome = reaper.handle_kill_candidate(&token, 0, NOW).await;
 
     assert_eq!(outcome, Outcome::Rejected(RejectReason::ForgedSignature));
     assert_eq!(mock.stop_count(), 0, "forged kill MUST NOT call stop");
@@ -165,7 +165,7 @@ async fn expired_kill_is_rejected_and_executor_not_called() {
         "nonce-expired",
         "revoke_expired",
     );
-    let outcome = reaper.handle_kill_candidate(&token, NOW).await;
+    let outcome = reaper.handle_kill_candidate(&token, 0, NOW).await;
 
     assert_eq!(outcome, Outcome::Rejected(RejectReason::Expired));
     assert_eq!(mock.stop_count(), 0, "expired kill MUST NOT call stop");
@@ -194,7 +194,7 @@ async fn wrong_audience_token_is_rejected_and_executor_not_called() {
         nonce: "authorize-nonce-000000".to_string(),
     };
     let token = sign_kernel_token(&authorize, &kernel_signing_key());
-    let outcome = reaper.handle_kill_candidate(&token, NOW).await;
+    let outcome = reaper.handle_kill_candidate(&token, 0, NOW).await;
 
     assert_eq!(outcome, Outcome::Rejected(RejectReason::WrongAudience));
     assert_eq!(mock.stop_count(), 0, "authorize token MUST NOT call stop");
@@ -217,7 +217,7 @@ async fn replayed_kill_executes_once_then_is_rejected() {
     );
 
     // First presentation: executes exactly one stop.
-    let first = reaper.handle_kill_candidate(&token, NOW).await;
+    let first = reaper.handle_kill_candidate(&token, 0, NOW).await;
     assert!(
         matches!(first, Outcome::Executed { .. }),
         "first got {first:?}"
@@ -226,7 +226,7 @@ async fn replayed_kill_executes_once_then_is_rejected() {
 
     // Second presentation of the SAME signed decision: dropped by the
     // seen-nonce store — cryptographically valid, but already executed.
-    let second = reaper.handle_kill_candidate(&token, NOW).await;
+    let second = reaper.handle_kill_candidate(&token, 0, NOW).await;
     assert_eq!(second, Outcome::Rejected(RejectReason::AlreadyExecuted));
     assert_eq!(
         mock.stop_count(),
@@ -261,7 +261,7 @@ async fn fingerprint_mismatch_kill_is_rejected_and_executor_not_called() {
         "nonce-fpmm",
         "revoke_fpmm",
     );
-    let outcome = reaper.handle_kill_candidate(&token, NOW).await;
+    let outcome = reaper.handle_kill_candidate(&token, 0, NOW).await;
 
     assert_eq!(
         outcome,
@@ -378,7 +378,7 @@ async fn valid_kill_stops_the_bound_target_exactly_once() {
         "nonce-valid",
         "revoke_valid",
     );
-    let outcome = reaper.handle_kill_candidate(&token, NOW).await;
+    let outcome = reaper.handle_kill_candidate(&token, 0, NOW).await;
 
     match outcome {
         Outcome::Executed { run_id, outcome } => {

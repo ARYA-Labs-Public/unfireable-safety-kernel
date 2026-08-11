@@ -117,6 +117,12 @@ wiremock = "0.6"
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tower = { workspace = true, features = ["util"] }
 http-body-util = "0.1"
+# Generation-fence end-to-end test (`tests/revoke_generation_fence.rs`) drives
+# the REAL mint/restore/pending handlers into the REAL control-plane Reaper, so
+# a kernel-minted stale kill is proven fenced end-to-end. The Reaper crate does
+# NOT depend on this one, so this dev-only edge is acyclic.
+qorch-safety-kernel-reaper = { path = "../safety-kernel-reaper" }
+qorch-safety-kernel-client = { path = "../../adapters/safety_kernel_client" }
 #  slice 5 §3.2: criterion microbench for `POST /policy/module/authorize`.
 # Informational only — the gating p99 number is the pytest-benchmark
 # e2e harness at `tests/perf/policy_authorize_e2e.py`. `harness = false`
