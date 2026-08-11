@@ -234,9 +234,7 @@ class SafetyKernelMiddleware(BaseHTTPMiddleware):
                 "operator_pubkey_hex must be hex-encoded (64 chars → 32 bytes)"
             ) from exc
         if len(raw) != 32:
-            raise ValueError(
-                f"operator_pubkey_hex must decode to 32 bytes; got {len(raw)}"
-            )
+            raise ValueError(f"operator_pubkey_hex must decode to 32 bytes; got {len(raw)}")
         return Ed25519PublicKey.from_public_bytes(raw)
 
     # --------------------------------------------------------------- dispatch

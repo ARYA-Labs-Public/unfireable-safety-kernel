@@ -256,9 +256,7 @@ class MockKernel:
             "expires_at": now + 3600,
             "nonce": "n-" + str(now),
         }
-        token, token_sha = self._sign_token(
-            claims, tamper=self.tamper_authorize_signature
-        )
+        token, token_sha = self._sign_token(claims, tamper=self.tamper_authorize_signature)
         return 200, {"ok": True, "token": token, "token_sha256": token_sha, "claims": claims}
 
     def _revoke_mint_response(self, req: Any, *, kind: str) -> tuple[int, Any]:

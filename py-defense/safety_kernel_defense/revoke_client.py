@@ -227,9 +227,7 @@ class RevokeClient:
         try:
             parsed = resp.json()
         except (ValueError, json.JSONDecodeError) as exc:
-            raise RevokeError(
-                resp.status_code, error_code="unparseable_response"
-            ) from exc
+            raise RevokeError(resp.status_code, error_code="unparseable_response") from exc
         if not isinstance(parsed, dict) or parsed.get("ok") is not True:
             raise RevokeError(resp.status_code, error_code="not_ok_envelope")
         return parsed

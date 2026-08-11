@@ -42,6 +42,10 @@ fastapi = [
 test = [
     "pytest>=7.0",
     "coverage[toml]>=7.0",
+    # The middleware + revoke-client tests import fastapi/httpx/cryptography,
+    # so the test extra pulls the fastapi extra. Keeps `pip install .[test]`
+    # (what CI runs) self-sufficient; the CORE package stays stdlib-only.
+    "safety-kernel-defense[fastapi]",
 ]
 
 [project.urls]
