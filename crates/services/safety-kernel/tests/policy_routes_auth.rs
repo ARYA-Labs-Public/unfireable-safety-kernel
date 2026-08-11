@@ -95,6 +95,7 @@ fn test_settings() -> Settings {
         api_key_worker: Some(TEST_WORKER_KEY.to_string()),
         api_key_api: Some(TEST_API_KEY.to_string()),
         api_key_operator: Some(TEST_OPERATOR_KEY.to_string()),
+        api_key_reaper: None,
         signing_key_b64: zero_seed_b64.clone(),
         key_backend: qorch_safety_kernel::key_backend::KeyBackendKind::Env,
         key_gcp_project: None,
@@ -104,6 +105,7 @@ fn test_settings() -> Settings {
         default_token_ttl_s: 60,
         max_token_ttl_s: 300,
         approval_token_ttl_s: 365 * 24 * 60 * 60,
+        revoke_token_ttl_s: 120,
         build_version: "test-policy-auth".to_string(),
         // The auth-layer doesn't bind a socket; this path is never
         // touched by 401 / 501 paths.

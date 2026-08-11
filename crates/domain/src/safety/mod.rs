@@ -30,6 +30,8 @@ pub mod decision;
 pub mod episodic_chain;
 pub mod error;
 pub mod policy;
+// RevokeCompute coercive-shutdown shared contract (kernel mints, Reaper consumes).
+pub mod revoke;
 pub mod token;
 
 pub use api_action_allowlist::is_api_action_allowed;
@@ -51,6 +53,14 @@ pub use episodic_chain::{
 pub use error::{
     KernelTokenClaimsError, KernelTokenError, KernelTokenExpiredError, KernelTokenFormatError,
     KernelTokenSignatureError,
+};
+// RevokeCompute shared contract (kernel mints, Reaper consumes).
+pub use revoke::{
+    honour_revocation, restore_params_fingerprint, revoke_params_fingerprint, HonourDecision,
+    InstanceTarget, MintRevokeRequest, PendingQuery, PendingRevokeResponse, RestoreClaims,
+    RestoreRequest, RevocationTier, RevokeAckRequest, RevokeAckResponse, RevokeComputeClaims,
+    RevokeGates, RevokeRejectReason, RevokeTrigger, SignedRevokeResponse, REVOKE_COMPUTE_ACTION,
+    REVOKE_COMPUTE_AUD, REVOKE_RESTORE_ACTION, REVOKE_RESTORE_AUD,
 };
 pub use token::{
     params_fingerprint, sign_kernel_token, stable_json, token_sha256, verify_kernel_token,
