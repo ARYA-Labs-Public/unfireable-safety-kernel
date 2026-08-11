@@ -40,7 +40,7 @@ pub use executor::{
     fetch_self_identity, ComputeExecutor, ExecutorError, GceInstanceOps, GcpComputeExecutor,
     MetadataGceOps, MockComputeExecutor, ProtectedCoord, StopOutcome,
 };
-pub use kernel_client::{KernelClient, KernelClientError, ReqwestKernelClient};
+pub use kernel_client::{KernelClient, KernelClientError, PendingPull, ReqwestKernelClient};
 pub use nonce_store::{FileNonceStore, MemNonceStore, NonceKey, SeenNonceStore};
 pub use reaper::{LivenessAction, Outcome, Reaper, RejectReason};
 pub use tlog::{KillRecord, KillRecorder, KillRecorderError, ReqwestKillRecorder};

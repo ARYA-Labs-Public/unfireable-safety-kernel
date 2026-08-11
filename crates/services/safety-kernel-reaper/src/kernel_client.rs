@@ -30,13 +30,27 @@ pub enum KernelClientError {
     Malformed(String),
 }
 
+/// The result of a pending pull: the signed token(s) plus the kernel's
+/// AUTHORITATIVE current grant generation for the queried instance. The Reaper
+/// fences each pulled kill against `current_grant_generation` — a kill stamped
+/// against an older generation was superseded by a restore and must not fire.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PendingPull {
+    /// The currently-pending signed token(s) for the instance.
+    pub tokens: Vec<String>,
+    /// The kernel's live grant generation for the queried instance (`0` when
+    /// the queue is empty or the kernel does not report one).
+    pub current_grant_generation: u64,
+}
+
 /// The pull/ack surface. Injected so the Reaper state machine is tested with a
 /// mock and driven live by the reqwest impl.
 #[async_trait]
 pub trait KernelClient: Send + Sync {
-    /// Pull the currently-pending signed kill token(s) for `instance`.
-    /// A 204 (empty queue) maps to `Ok(vec![])`.
-    async fn pull_pending(&self, instance: &str) -> Result<Vec<String>, KernelClientError>;
+    /// Pull the currently-pending signed kill token(s) for `instance`, together
+    /// with the kernel's authoritative current grant generation. A 204 (empty
+    /// queue) maps to an empty [`PendingPull`] (generation `0`).
+    async fn pull_pending(&self, instance: &str) -> Result<PendingPull, KernelClientError>;
     /// Report execution of a kill so the kernel clears its pending entry.
     /// Fail-open on the kernel side (the Reaper's own tlog kill-record is the
     /// durable evidence), so an ack failure is logged, not fatal.
@@ -125,7 +139,7 @@ fn truncate(s: &str, max: usize) -> String {
 
 #[async_trait]
 impl KernelClient for ReqwestKernelClient {
-    async fn pull_pending(&self, instance: &str) -> Result<Vec<String>, KernelClientError> {
+    async fn pull_pending(&self, instance: &str) -> Result<PendingPull, KernelClientError> {
         let url = format!(
             "{}/kernel/v1/revoke/pending",
             self.base_url.trim_end_matches('/')
@@ -141,7 +155,7 @@ impl KernelClient for ReqwestKernelClient {
 
         let status = resp.status();
         if status == reqwest::StatusCode::NO_CONTENT {
-            return Ok(vec![]);
+            return Ok(PendingPull::default());
         }
         if !status.is_success() {
             let detail = truncate(&resp.text().await.unwrap_or_default(), 300);
@@ -154,7 +168,10 @@ impl KernelClient for ReqwestKernelClient {
             .json()
             .await
             .map_err(|e| KernelClientError::Malformed(truncate(&e.to_string(), 300)))?;
-        Ok(parsed.pending)
+        Ok(PendingPull {
+            tokens: parsed.pending,
+            current_grant_generation: parsed.current_grant_generation,
+        })
     }
 
     async fn ack(&self, run_id: &str, outcome: &str) -> Result<(), KernelClientError> {

@@ -148,13 +148,19 @@ async fn main() -> anyhow::Result<()> {
     let mut last_success = now_s();
     loop {
         match kernel_client.pull_pending(&cfg.target.instance).await {
-            Ok(tokens) => {
+            Ok(pull) => {
                 last_success = now_s();
-                for token in tokens {
+                for token in pull.tokens {
                     // F-obs: dispatch by KIND — kill tokens stop(), operator
                     // restore tokens start(). The old loop forced everything
                     // through the kill path, so restores were dead.
-                    let outcome = reaper.handle_pending_candidate(&token, now_s()).await;
+                    //
+                    // The kernel's authoritative live grant generation for this
+                    // instance rides on the same pull; it is threaded to the
+                    // kill path so a stale (pre-restore) kill is fenced out.
+                    let outcome = reaper
+                        .handle_pending_candidate(&token, pull.current_grant_generation, now_s())
+                        .await;
                     tracing::info!(?outcome, "processed pending revoke candidate");
                 }
             }
