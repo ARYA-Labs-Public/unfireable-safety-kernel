@@ -115,12 +115,19 @@ pub struct InstanceTarget {
 /// is what stops a caller committing to target A while hashing target B.
 ///
 /// Canonical payload (keys sorted by `stable_json` at hash time):
-/// `{ "run_id", "target": {project,zone,instance}, "tier": "vm_stop",
-///    "trigger": "operator_emergency_stop", "reason": <string|null> }`.
+/// `{ "run_id", "target": {project,zone,instance}, "target_generation": <u64>,
+///    "tier": "vm_stop", "trigger": "operator_emergency_stop",
+///    "reason": <string|null> }`.
+///
+/// `target_generation` is the grant generation the revocation is minted
+/// against; binding it here means a tamperer cannot lift a valid kill and
+/// re-stamp it against a newer grant without the Reaper's fingerprint
+/// recompute (and the ed25519 signature) rejecting it.
 #[must_use]
 pub fn revoke_params_fingerprint(
     run_id: &str,
     target: &InstanceTarget,
+    target_generation: u64,
     tier: RevocationTier,
     trigger: RevokeTrigger,
     reason: Option<&str>,
@@ -130,6 +137,10 @@ pub fn revoke_params_fingerprint(
     m.insert(
         "target".to_string(),
         serde_json::to_value(target).unwrap_or(Value::Null),
+    );
+    m.insert(
+        "target_generation".to_string(),
+        Value::Number(target_generation.into()),
     );
     m.insert(
         "tier".to_string(),
@@ -170,6 +181,122 @@ pub fn restore_params_fingerprint(
 }
 
 // ============================================================================
+// Generation fence — the honour decision (pure, formally verifiable)
+// ============================================================================
+
+/// The four pre-existing gate outcomes the reaper computes for a candidate
+/// kill token BEFORE the generation fence. Grouping them keeps the fence's
+/// signature honest: the fence sits IN FRONT OF / ALONGSIDE these gates, it
+/// does not replace them.
+///
+/// Each flag is the *result* of a gate the reaper already runs today:
+/// - `signature_verified`: the pinned-key ed25519 signature verified.
+/// - `not_expired`: `exp` is still in the future (the TTL gate).
+/// - `nonce_unseen`: this `(nonce, run_id)` is NOT in the durable seen-store.
+/// - `target_matches`: `params_fingerprint` recomputed from the decoded
+///   claims equals the signed one (claimed target == bound target).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RevokeGates {
+    /// The pinned-key signature verified.
+    pub signature_verified: bool,
+    /// `exp` is still in the future (not stale by TTL).
+    pub not_expired: bool,
+    /// This `(nonce, run_id)` has NOT been recorded as a completed kill.
+    pub nonce_unseen: bool,
+    /// Recomputed `params_fingerprint` matches the signed one.
+    pub target_matches: bool,
+}
+
+/// Why a candidate kill was NOT honoured. `StaleGeneration` is the fence's
+/// own verdict; the other four mirror the pre-existing gate rejections.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RevokeRejectReason {
+    /// The pinned-key signature did not verify.
+    SignatureUnverified,
+    /// `exp` is in the past — a captured kill went stale by TTL.
+    Expired,
+    /// `(nonce, run_id)` already recorded — a replay of a completed kill.
+    NonceReplayed,
+    /// Recomputed `params_fingerprint` did not match (claimed A, bound B).
+    TargetMismatch,
+    /// THE FENCE: the revocation was minted against an OLDER grant than the
+    /// one currently live. A stale kill that outlived its target after a
+    /// restore. Rejecting it keeps the RESTORED instance running — which is
+    /// correct: a stale kill must never fire against a new grant.
+    StaleGeneration,
+}
+
+/// The honour decision for a candidate kill token.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HonourDecision {
+    /// Every gate passed AND the revocation's generation equals the current
+    /// grant generation — execute the stop.
+    Honour,
+    /// Do not honour; the variant carries the specific reason.
+    Reject(RevokeRejectReason),
+}
+
+/// Decide whether to HONOUR a candidate kill (execute the stop).
+///
+/// `revocation_generation` is the grant generation the revocation was minted
+/// against (carried on `RevokeComputeClaims::target_generation`).
+/// `current_grant_generation` is the generation of the grant currently live
+/// for the target — authoritative in the kernel and delivered to the reaper
+/// out of band (on the pending-pull response). `gates` carries the four
+/// pre-existing gate results.
+///
+/// # The fencing invariant (proved exhaustively by the `#[cfg(kani)]`
+/// harness below and by the concrete `#[test]`)
+///
+/// > A kill is honoured ⟹ every gate passed AND
+/// > `revocation_generation == current_grant_generation`.
+///
+/// Equivalently: a revocation whose generation is *older* than the live grant
+/// (`revocation_generation < current_grant_generation`) is NEVER honoured,
+/// under any interleaving of revoke / expiry / restore. That is the defense
+/// the `(nonce, run_id)` dedup store structurally cannot provide: dedup would
+/// need unbounded durable memory, and the stale message is *legitimate* (valid
+/// signature, clean tlog) — it has merely outlived its grant. Fencing on a
+/// monotonic generation catches it with bounded state.
+///
+/// Fail-closed: this REJECTS a stale revocation (does not honour), so a stale
+/// kill does not fire and the restored instance keeps running. It never lets a
+/// *current*-generation kill (all gates passing, generations equal) be skipped.
+#[must_use]
+pub fn honour_revocation(
+    revocation_generation: u64,
+    current_grant_generation: u64,
+    gates: RevokeGates,
+) -> HonourDecision {
+    // The four pre-existing gates run first — an unverified token's
+    // generation field is meaningless until the signature is checked.
+    if !gates.signature_verified {
+        return HonourDecision::Reject(RevokeRejectReason::SignatureUnverified);
+    }
+    if !gates.not_expired {
+        return HonourDecision::Reject(RevokeRejectReason::Expired);
+    }
+    if !gates.target_matches {
+        return HonourDecision::Reject(RevokeRejectReason::TargetMismatch);
+    }
+    if !gates.nonce_unseen {
+        return HonourDecision::Reject(RevokeRejectReason::NonceReplayed);
+    }
+    // THE FENCE: honour ONLY a revocation minted against the CURRENT grant.
+    // A revocation whose generation differs from the live grant — in
+    // practice one that is OLDER, left over from a grant that a restore has
+    // since superseded — is refused. This is the defense dedup structurally
+    // cannot give: the stale message is legitimate (valid signature, clean
+    // tlog), it has merely outlived its grant. Rejecting keeps the restored
+    // instance running, which is correct; a current-generation kill (all
+    // gates passing, generations equal) still fires.
+    if revocation_generation != current_grant_generation {
+        return HonourDecision::Reject(RevokeRejectReason::StaleGeneration);
+    }
+    HonourDecision::Honour
+}
+
+// ============================================================================
 // Signed claim sets
 // ============================================================================
 
@@ -197,6 +324,14 @@ pub struct RevokeComputeClaims {
     // ---- revoke-specific extra claims (also inside the signed payload) ----
     /// Which VM to stop.
     pub target: InstanceTarget,
+    /// The grant generation this revocation was minted against — the fencing
+    /// identity. The kernel stamps it from the live grant at mint time; the
+    /// Reaper honours the kill ONLY when it still equals the current grant
+    /// generation (see [`honour_revocation`]). Every restore mints a NEW
+    /// grant with an incremented generation, so a kill left over from a
+    /// pre-restore grant is fenced out. Bound into the signature via both
+    /// `to_btreemap` and [`revoke_params_fingerprint`].
+    pub target_generation: u64,
     /// `VmStop` in Phase 1.
     pub tier: RevocationTier,
     /// Explicit-only in Phase 1.
@@ -243,6 +378,10 @@ impl ToClaimsMap for RevokeComputeClaims {
         m.insert(
             "target".to_string(),
             serde_json::to_value(&self.target).unwrap_or(Value::Null),
+        );
+        m.insert(
+            "target_generation".to_string(),
+            Value::Number(self.target_generation.into()),
         );
         m.insert(
             "tier".to_string(),
@@ -438,6 +577,9 @@ mod tests {
         }
     }
 
+    /// The grant generation the test kill tokens are minted against.
+    const TEST_GENERATION: u64 = 3;
+
     /// Build a signed kill token with the given time window + reason.
     fn mint_kill(sk: &SigningKey, iat: f64, exp: f64, reason: Option<&str>) -> (String, String) {
         let target = sample_target();
@@ -445,6 +587,7 @@ mod tests {
         let fp = revoke_params_fingerprint(
             run_id,
             &target,
+            TEST_GENERATION,
             RevocationTier::VmStop,
             RevokeTrigger::OperatorEmergencyStop,
             reason,
@@ -458,6 +601,7 @@ mod tests {
             expires_at: exp,
             nonce: "revoke-nonce-abc_123".to_string(),
             target,
+            target_generation: TEST_GENERATION,
             tier: RevocationTier::VmStop,
             trigger: RevokeTrigger::OperatorEmergencyStop,
             reason: reason.map(str::to_string),
@@ -557,6 +701,7 @@ mod tests {
         let recomputed_same = revoke_params_fingerprint(
             run_id,
             &sample_target(),
+            TEST_GENERATION,
             RevocationTier::VmStop,
             RevokeTrigger::OperatorEmergencyStop,
             Some("rogue"),
@@ -575,6 +720,7 @@ mod tests {
         let recomputed_other = revoke_params_fingerprint(
             run_id,
             &other_target,
+            TEST_GENERATION,
             RevocationTier::VmStop,
             RevokeTrigger::OperatorEmergencyStop,
             Some("rogue"),
@@ -588,6 +734,7 @@ mod tests {
         let recomputed_tier = revoke_params_fingerprint(
             run_id,
             &sample_target(),
+            TEST_GENERATION,
             RevocationTier::Sigterm,
             RevokeTrigger::OperatorEmergencyStop,
             Some("rogue"),
@@ -598,6 +745,7 @@ mod tests {
         let recomputed_reason = revoke_params_fingerprint(
             run_id,
             &sample_target(),
+            TEST_GENERATION,
             RevocationTier::VmStop,
             RevokeTrigger::OperatorEmergencyStop,
             Some("DIFFERENT"),
@@ -605,6 +753,22 @@ mod tests {
         assert_ne!(
             recomputed_reason, signed_fp,
             "a swapped reason MUST NOT match"
+        );
+
+        // A different target_generation must NOT reproduce it — the fence
+        // identity is bound into the signature, so a stale kill cannot be
+        // re-stamped against a newer grant and still verify.
+        let recomputed_generation = revoke_params_fingerprint(
+            run_id,
+            &sample_target(),
+            TEST_GENERATION + 1,
+            RevocationTier::VmStop,
+            RevokeTrigger::OperatorEmergencyStop,
+            Some("rogue"),
+        );
+        assert_ne!(
+            recomputed_generation, signed_fp,
+            "a swapped target_generation MUST NOT match"
         );
     }
 
@@ -660,6 +824,105 @@ mod tests {
         assert_eq!(req.target.instance, "i");
     }
 
+    // ------------------------------------------------------------------
+    // Generation fence — the honour decision (concrete-enumeration proof)
+    // ------------------------------------------------------------------
+
+    /// All-gates-passing fixture — the fence is the only thing that can
+    /// reject in these tests.
+    const ALL_GATES_PASS: RevokeGates = RevokeGates {
+        signature_verified: true,
+        not_expired: true,
+        nonce_unseen: true,
+        target_matches: true,
+    };
+
+    /// THE BUG, as an interleaving: grant → revoke(gen=g) → restore(bumps to
+    /// g+1) → redeliver revoke(gen=g). The redelivered kill still has a valid
+    /// signature, is within TTL, its nonce was never burned (dedup cannot
+    /// cover an unbounded window), and its target still matches — every
+    /// pre-existing gate PASSES. Only the generation fence distinguishes it.
+    /// It MUST be rejected as `StaleGeneration`, or it terminates the
+    /// RESTORED instance.
+    #[test]
+    fn stale_revoke_after_restore_is_fenced() {
+        let grant_gen: u64 = 7; // grant → generation 7
+        let revoke_gen: u64 = grant_gen; // revoke minted against generation 7
+        let current_grant_gen: u64 = grant_gen + 1; // restore → new grant, gen 8
+
+        let d = honour_revocation(revoke_gen, current_grant_gen, ALL_GATES_PASS);
+        assert_eq!(
+            d,
+            HonourDecision::Reject(RevokeRejectReason::StaleGeneration),
+            "a revocation minted against the pre-restore grant (gen {revoke_gen}) MUST NOT \
+             terminate the restored instance (live grant gen {current_grant_gen})"
+        );
+    }
+
+    /// The fence must NOT fail-OPEN: a fresh, current-generation kill with
+    /// every gate passing MUST still fire.
+    #[test]
+    fn current_generation_kill_is_honoured() {
+        assert_eq!(
+            honour_revocation(8, 8, ALL_GATES_PASS),
+            HonourDecision::Honour,
+            "a current-generation kill with all gates passing MUST be honoured"
+        );
+    }
+
+    /// Exhaustive over every `(gates, revocation_generation,
+    /// current_grant_generation)` in a bounded generation domain — the
+    /// concrete-enumeration counterpart of the `#[cfg(kani)]` symbolic proof.
+    /// Encodes the full fencing invariant.
+    #[test]
+    fn honour_revocation_fences_stale_generations_exhaustive() {
+        for signature_verified in [false, true] {
+            for not_expired in [false, true] {
+                for nonce_unseen in [false, true] {
+                    for target_matches in [false, true] {
+                        for rev_gen in 0u64..4 {
+                            for cur_gen in 0u64..4 {
+                                let gates = RevokeGates {
+                                    signature_verified,
+                                    not_expired,
+                                    nonce_unseen,
+                                    target_matches,
+                                };
+                                let d = honour_revocation(rev_gen, cur_gen, gates);
+                                if matches!(d, HonourDecision::Honour) {
+                                    // INVARIANT: honoured ⟹ all gates pass AND
+                                    // the generations are equal.
+                                    assert!(
+                                        signature_verified
+                                            && not_expired
+                                            && nonce_unseen
+                                            && target_matches,
+                                        "honoured with a FAILING gate: {gates:?}"
+                                    );
+                                    assert_eq!(
+                                        rev_gen, cur_gen,
+                                        "FENCING VIOLATED: honoured a revocation minted against \
+                                         generation {rev_gen} while the live grant is generation \
+                                         {cur_gen} — a stale kill would terminate the restored \
+                                         instance"
+                                    );
+                                }
+                                // A strictly-older generation is NEVER honoured.
+                                if rev_gen < cur_gen {
+                                    assert!(
+                                        !matches!(d, HonourDecision::Honour),
+                                        "honoured a STALE (older-generation) revocation: \
+                                         rev_gen={rev_gen} cur_gen={cur_gen}"
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// A stray field on the mint body is rejected (deny_unknown_fields).
     #[test]
     fn mint_request_rejects_unknown_field() {
@@ -671,5 +934,56 @@ mod tests {
         }"#;
         let res: Result<MintRevokeRequest, _> = serde_json::from_str(body);
         assert!(res.is_err(), "unknown field MUST be rejected");
+    }
+}
+
+/// Symbolic formal-verification harness for the generation fence. Compiled
+/// only under `cargo kani`; excluded from ordinary builds and tests (no
+/// `kani` dependency is pulled in normal mode). Mirrors the pattern in
+/// `client_state.rs` — the proofs discharge the fencing invariant over the
+/// ACTUAL shipped `honour_revocation` function, not a separate model.
+#[cfg(kani)]
+mod kani_proofs {
+    use super::{honour_revocation, HonourDecision, RevokeGates};
+
+    /// Build a fully-symbolic gate vector.
+    fn any_gates() -> RevokeGates {
+        RevokeGates {
+            signature_verified: kani::any(),
+            not_expired: kani::any(),
+            nonce_unseen: kani::any(),
+            target_matches: kani::any(),
+        }
+    }
+
+    /// THE FENCING THEOREM: a kill is honoured ⟹ every gate passed AND the
+    /// revocation generation equals the current grant generation. Proved for
+    /// every `(revocation_generation, current_grant_generation, gates)` over
+    /// the full symbolic `u64` domain.
+    #[kani::proof]
+    fn honour_implies_current_generation_and_all_gates() {
+        let revocation_generation: u64 = kani::any();
+        let current_grant_generation: u64 = kani::any();
+        let gates = any_gates();
+        let d = honour_revocation(revocation_generation, current_grant_generation, gates);
+        if matches!(d, HonourDecision::Honour) {
+            assert!(gates.signature_verified);
+            assert!(gates.not_expired);
+            assert!(gates.nonce_unseen);
+            assert!(gates.target_matches);
+            assert_eq!(revocation_generation, current_grant_generation);
+        }
+    }
+
+    /// A strictly-older-generation revocation is NEVER honoured — for every
+    /// gate assignment. This is the stale-after-restore case in symbolic form.
+    #[kani::proof]
+    fn older_generation_is_never_honoured() {
+        let revocation_generation: u64 = kani::any();
+        let current_grant_generation: u64 = kani::any();
+        kani::assume(revocation_generation < current_grant_generation);
+        let gates = any_gates();
+        let d = honour_revocation(revocation_generation, current_grant_generation, gates);
+        assert!(!matches!(d, HonourDecision::Honour));
     }
 }

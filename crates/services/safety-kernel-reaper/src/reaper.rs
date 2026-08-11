@@ -249,6 +249,7 @@ impl Reaper {
         let recomputed = revoke_params_fingerprint(
             &claims.run_id,
             &claims.target,
+            claims.target_generation,
             claims.tier,
             claims.trigger,
             claims.reason.as_deref(),

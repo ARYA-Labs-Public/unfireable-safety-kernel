@@ -110,6 +110,7 @@ fn valid_kill(sk: &SigningKey, target: &InstanceTarget, nonce: &str, run_id: &st
     let fp = revoke_params_fingerprint(
         run_id,
         target,
+        0,
         RevocationTier::VmStop,
         RevokeTrigger::OperatorEmergencyStop,
         Some("e-stop"),
@@ -123,6 +124,7 @@ fn valid_kill(sk: &SigningKey, target: &InstanceTarget, nonce: &str, run_id: &st
         expires_at: NOW + 120.0,
         nonce: nonce.to_string(),
         target: target.clone(),
+        target_generation: 0,
         tier: RevocationTier::VmStop,
         trigger: RevokeTrigger::OperatorEmergencyStop,
         reason: Some("e-stop".to_string()),

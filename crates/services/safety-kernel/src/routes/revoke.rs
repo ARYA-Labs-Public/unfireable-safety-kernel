@@ -251,10 +251,22 @@ pub async fn mint_revoke(
     let run_id = format!("revoke_{}", Uuid::now_v7());
     let ttl = state.settings.revoke_token_ttl_s.max(30);
 
-    // Step 4 — bind target/tier/trigger/reason through params_fingerprint.
+    // PLACEHOLDER — the authoritative grant generation is NOT tracked in the
+    // kernel yet. The fence in `honour_revocation` reads the current grant
+    // generation to reject a revocation left over from a superseded grant.
+    // Until the kernel keeps a per-target monotonic generation (incremented on
+    // every restore mint) and stamps it here + echoes it on the pending-pull
+    // response, this stays 0. This is the follow-up plumbing; a hardcoded 0
+    // means the fence is inert (every revoke and grant are "generation 0"), so
+    // this is NOT yet a live defense — it only makes the wire carry the field.
+    let target_generation: u64 = 0;
+
+    // Step 4 — bind target/generation/tier/trigger/reason through
+    // params_fingerprint.
     let fp = revoke_params_fingerprint(
         &run_id,
         &body.target,
+        target_generation,
         body.tier,
         body.trigger,
         body.reason.as_deref(),
@@ -271,6 +283,7 @@ pub async fn mint_revoke(
         expires_at: now + (ttl as f64),
         nonce,
         target: body.target.clone(),
+        target_generation,
         tier: body.tier,
         trigger: body.trigger,
         reason: body.reason.clone(),

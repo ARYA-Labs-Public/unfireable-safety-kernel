@@ -56,10 +56,11 @@ pub use error::{
 };
 // RevokeCompute shared contract (kernel mints, Reaper consumes).
 pub use revoke::{
-    restore_params_fingerprint, revoke_params_fingerprint, InstanceTarget, MintRevokeRequest,
-    PendingQuery, PendingRevokeResponse, RestoreClaims, RestoreRequest, RevocationTier,
-    RevokeAckRequest, RevokeAckResponse, RevokeComputeClaims, RevokeTrigger, SignedRevokeResponse,
-    REVOKE_COMPUTE_ACTION, REVOKE_COMPUTE_AUD, REVOKE_RESTORE_ACTION, REVOKE_RESTORE_AUD,
+    honour_revocation, restore_params_fingerprint, revoke_params_fingerprint, HonourDecision,
+    InstanceTarget, MintRevokeRequest, PendingQuery, PendingRevokeResponse, RestoreClaims,
+    RestoreRequest, RevocationTier, RevokeAckRequest, RevokeAckResponse, RevokeComputeClaims,
+    RevokeGates, RevokeRejectReason, RevokeTrigger, SignedRevokeResponse, REVOKE_COMPUTE_ACTION,
+    REVOKE_COMPUTE_AUD, REVOKE_RESTORE_ACTION, REVOKE_RESTORE_AUD,
 };
 pub use token::{
     params_fingerprint, sign_kernel_token, stable_json, token_sha256, verify_kernel_token,

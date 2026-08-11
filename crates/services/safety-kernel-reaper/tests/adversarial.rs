@@ -81,6 +81,7 @@ fn mint_kill(
     let fp = revoke_params_fingerprint(
         run_id,
         fp_target,
+        0,
         RevocationTier::VmStop,
         RevokeTrigger::OperatorEmergencyStop,
         Some("e-stop"),
@@ -94,6 +95,7 @@ fn mint_kill(
         expires_at: exp,
         nonce: nonce.to_string(),
         target: claim_target.clone(),
+        target_generation: 0,
         tier: RevocationTier::VmStop,
         trigger: RevokeTrigger::OperatorEmergencyStop,
         reason: Some("e-stop".to_string()),
