@@ -369,7 +369,7 @@ async fn main() {
         "stop" => {
             let (token, minted_at) = mint_kill(&operator_key);
             println!("minted kill token sha256 : {}", token_sha256(&token));
-            reaper.handle_kill_candidate(&token, minted_at).await
+            reaper.handle_kill_candidate(&token, 0, minted_at).await
         }
         "start" => {
             let (token, minted_at) = mint_restore(&operator_key);
@@ -387,7 +387,7 @@ async fn main() {
                 protected_target().instance,
                 token_sha256(&token)
             );
-            reaper.handle_kill_candidate(&token, minted_at).await
+            reaper.handle_kill_candidate(&token, 0, minted_at).await
         }
         "forged" => {
             // Correct target, correct claims shape — signed with a key the
@@ -397,7 +397,7 @@ async fn main() {
                 "minted kill token sha256 (SIGNED BY ATTACKER KEY, NOT the pinned operator key): {}",
                 token_sha256(&token)
             );
-            reaper.handle_kill_candidate(&token, minted_at).await
+            reaper.handle_kill_candidate(&token, 0, minted_at).await
         }
         "expired" => {
             // Correct key, correct target — `exp` already elapsed. Mint with
@@ -409,7 +409,7 @@ async fn main() {
             println!("minted kill token sha256 (EXPIRED, exp was {TOKEN_TTL_S}s past an issued_at 1h ago): {}", token_sha256(&token));
             // Verify at the REAL current wall-clock, not the stale mint time,
             // so the expiry check actually fires.
-            reaper.handle_kill_candidate(&token, now_s()).await
+            reaper.handle_kill_candidate(&token, 0, now_s()).await
         }
         "wrong-target" => {
             // Correct key, correct claims shape — target is neither the
@@ -420,7 +420,7 @@ async fn main() {
                 other_target().instance,
                 token_sha256(&token)
             );
-            reaper.handle_kill_candidate(&token, minted_at).await
+            reaper.handle_kill_candidate(&token, 0, minted_at).await
         }
         _ => unreachable!("CLI parsing only accepts the six known modes"),
     };

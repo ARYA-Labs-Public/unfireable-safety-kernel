@@ -42,7 +42,7 @@ use qorch_domain::safety::InstanceTarget;
 use qorch_safety_kernel_client::PinnedKeyVerifier;
 use qorch_safety_kernel_reaper::{
     ComputeExecutor, ExecutorError, KernelClient, KernelClientError, LivenessAction, MemNonceStore,
-    MockComputeExecutor, Reaper, StopOutcome,
+    MockComputeExecutor, PendingPull, Reaper, StopOutcome,
 };
 
 /// Wall-clock now as f64 epoch seconds — same helper shape as `main.rs`.
@@ -84,10 +84,10 @@ impl ToggleKernelClient {
 
 #[async_trait]
 impl KernelClient for ToggleKernelClient {
-    async fn pull_pending(&self, _instance: &str) -> Result<Vec<String>, KernelClientError> {
+    async fn pull_pending(&self, _instance: &str) -> Result<PendingPull, KernelClientError> {
         self.pulls.fetch_add(1, Ordering::SeqCst);
         if self.reachable.load(Ordering::SeqCst) {
-            Ok(vec![]) // empty pending queue == a healthy pull, matches a 204.
+            Ok(PendingPull::default()) // empty pending queue == a healthy pull, matches a 204.
         } else {
             Err(KernelClientError::Unreachable(
                 "liveness_timing harness: toggled unreachable".to_string(),

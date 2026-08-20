@@ -172,7 +172,7 @@ async fn transient_executor_error_is_retried_and_eventually_stops() {
 
     // Poll #1: fully verifies, then the executor errors. Because the nonce is a
     // COMPLETION marker (not an intent marker), it is NOT burned on the error.
-    let first = reaper.handle_kill_candidate(&token, NOW).await;
+    let first = reaper.handle_kill_candidate(&token, 0, NOW).await;
     assert_eq!(
         first,
         Outcome::Rejected(RejectReason::ExecutorError(
@@ -188,7 +188,7 @@ async fn transient_executor_error_is_retried_and_eventually_stops() {
 
     // The token is still pending (no ack on the error path), so the loop
     // re-presents the SAME signed decision on the next poll.
-    let second = reaper.handle_kill_candidate(&token, NOW).await;
+    let second = reaper.handle_kill_candidate(&token, 0, NOW).await;
 
     // FIX: the retry now runs a real stop and SUCCEEDS.
     assert!(
@@ -211,7 +211,7 @@ async fn transient_executor_error_is_retried_and_eventually_stops() {
 
     // A THIRD presentation is now a genuine replay of a COMPLETED kill -> drop
     // (F-3 preserved: a finished kill still can't be replayed).
-    let third = reaper.handle_kill_candidate(&token, NOW).await;
+    let third = reaper.handle_kill_candidate(&token, 0, NOW).await;
     assert_eq!(
         third,
         Outcome::Rejected(RejectReason::AlreadyExecuted),
@@ -236,7 +236,7 @@ async fn healthy_executor_stops_once_control() {
     );
     let token = valid_kill(&kernel_signing_key(), &ai_vm(), "nonce-ok", "revoke_ok");
     assert!(matches!(
-        reaper.handle_kill_candidate(&token, NOW).await,
+        reaper.handle_kill_candidate(&token, 0, NOW).await,
         Outcome::Executed { .. }
     ));
     assert_eq!(exec.stop_attempts(), 1);
@@ -346,7 +346,7 @@ async fn operator_restore_in_pending_queue_starts_exactly_once() {
     // A genuine operator-signed restore, as it would sit in the pending queue.
     let token = mint_restore(&kernel_signing_key(), &ai_vm(), "nonce-r", "restore_1");
     // The poll loop now routes by kind:
-    let outcome = reaper.handle_pending_candidate(&token, NOW).await;
+    let outcome = reaper.handle_pending_candidate(&token, 0, NOW).await;
     assert!(
         matches!(outcome, Outcome::Restored { .. }),
         "restore must start; got {outcome:?}"
@@ -372,7 +372,7 @@ async fn pending_dispatch_kill_stops_never_starts() {
     );
 
     let kill = valid_kill(&kernel_signing_key(), &ai_vm(), "nonce-kd", "revoke_kd");
-    let outcome = reaper.handle_pending_candidate(&kill, NOW).await;
+    let outcome = reaper.handle_pending_candidate(&kill, 0, NOW).await;
     assert!(
         matches!(outcome, Outcome::Executed { .. }),
         "kill must stop; got {outcome:?}"
@@ -413,7 +413,7 @@ async fn audience_confusion_matrix_all_rejected() {
     };
     let auth_tok = sign_kernel_token(&authorize, &sk);
     assert_eq!(
-        reaper.handle_kill_candidate(&auth_tok, NOW).await,
+        reaper.handle_kill_candidate(&auth_tok, 0, NOW).await,
         Outcome::Rejected(RejectReason::WrongAudience),
         "a valid AUTHORIZE token must not act as a kill"
     );
@@ -421,7 +421,7 @@ async fn audience_confusion_matrix_all_rejected() {
     // (b) restore token -> kill verifier
     let restore = mint_restore(&sk, &ai_vm(), "nonce-r2", "restore_2");
     assert_eq!(
-        reaper.handle_kill_candidate(&restore, NOW).await,
+        reaper.handle_kill_candidate(&restore, 0, NOW).await,
         Outcome::Rejected(RejectReason::WrongAudience)
     );
 
@@ -463,13 +463,13 @@ async fn nonce_key_ignores_target_second_target_is_suppressed() {
     // Kill A: (nonce N, run_id R) -> executes, records N|R.
     let kill_a = valid_kill(&sk, &ai_vm(), "shared-nonce", "revoke_shared");
     assert!(matches!(
-        reaper.handle_kill_candidate(&kill_a, NOW).await,
+        reaper.handle_kill_candidate(&kill_a, 0, NOW).await,
         Outcome::Executed { .. }
     ));
     // Kill B: SAME (nonce N, run_id R), different target -> dropped by nonce key.
     let kill_b = valid_kill(&sk, &vm_b, "shared-nonce", "revoke_shared");
     assert_eq!(
-        reaper.handle_kill_candidate(&kill_b, NOW).await,
+        reaper.handle_kill_candidate(&kill_b, 0, NOW).await,
         Outcome::Rejected(RejectReason::AlreadyExecuted),
         "nonce key (nonce,run_id) ignores target: a nonce reused across targets suppresses the 2nd kill"
     );
@@ -496,7 +496,7 @@ async fn replay_after_restart_is_defeated_by_persistent_store() {
             Arc::clone(&store) as Arc<dyn SeenNonceStore>,
         );
         assert!(matches!(
-            reaper.handle_kill_candidate(&token, NOW).await,
+            reaper.handle_kill_candidate(&token, 0, NOW).await,
             Outcome::Executed { .. }
         ));
     }
@@ -510,7 +510,7 @@ async fn replay_after_restart_is_defeated_by_persistent_store() {
             Arc::clone(&exec) as Arc<dyn ComputeExecutor>,
             Arc::clone(&store) as Arc<dyn SeenNonceStore>,
         );
-        let replay = reaper.handle_kill_candidate(&token, NOW).await;
+        let replay = reaper.handle_kill_candidate(&token, 0, NOW).await;
         assert_eq!(replay, Outcome::Rejected(RejectReason::AlreadyExecuted));
         assert_eq!(exec.stop_count(), 0, "post-restart replay MUST NOT re-stop");
     }
@@ -533,7 +533,7 @@ async fn forged_key_and_crafted_mismatch_never_stop() {
     // Attacker signs a perfectly-shaped kill with the WRONG key.
     let forged = valid_kill(&attacker_signing_key(), &ai_vm(), "nonce-f", "revoke_f");
     assert_eq!(
-        reaper.handle_kill_candidate(&forged, NOW).await,
+        reaper.handle_kill_candidate(&forged, 0, NOW).await,
         Outcome::Rejected(RejectReason::ForgedSignature)
     );
 
@@ -543,7 +543,7 @@ async fn forged_key_and_crafted_mismatch_never_stop() {
     let mut p = payload.as_bytes().to_vec();
     p[0] ^= 0x01; // corrupt one payload byte
     let tampered = format!("{}.{}", String::from_utf8_lossy(&p), sig);
-    let out = reaper.handle_kill_candidate(&tampered, NOW).await;
+    let out = reaper.handle_kill_candidate(&tampered, 0, NOW).await;
     assert!(
         matches!(
             out,

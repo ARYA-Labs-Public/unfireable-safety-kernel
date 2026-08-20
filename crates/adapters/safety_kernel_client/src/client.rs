@@ -503,6 +503,7 @@ impl SafetyKernelClient {
             return Ok(PendingRevokeResponse {
                 ok: true,
                 pending: Vec::new(),
+                current_grant_generation: 0,
             });
         }
         resp.json::<PendingRevokeResponse>()

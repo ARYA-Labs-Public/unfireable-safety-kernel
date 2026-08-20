@@ -91,7 +91,7 @@ pub enum RevokeTrigger {
 /// The compute target — a cloud instance coordinate. In Phase 1 this is
 /// the whole agent VM (`compute.instances.stop` is coarse). This is the
 /// agent VM instance, NEVER the kernel VM.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct InstanceTarget {
     /// Cloud project id, e.g. `"my-project"`.
     pub project: String,
@@ -522,6 +522,20 @@ pub struct PendingRevokeResponse {
     pub ok: bool,
     /// The currently-pending signed token(s) for the queried instance.
     pub pending: Vec<String>,
+    /// The kernel's AUTHORITATIVE current grant generation for the queried
+    /// instance — the value the Reaper fences each pulled kill against (see
+    /// [`honour_revocation`]). The kernel fills it from its per-target
+    /// monotonic generation state at pull time; a kill whose
+    /// `target_generation` is older than this has been superseded by a
+    /// restore and must NOT fire.
+    ///
+    /// `#[serde(default)]` so a response from a kernel that predates the
+    /// generation plumbing decodes to `0` — the pre-restore baseline — rather
+    /// than failing to parse. `0` is the fail-safe default: it only ever lets
+    /// a generation-`0` kill through (the original, unfenced behaviour), never
+    /// suppresses a current kill.
+    #[serde(default)]
+    pub current_grant_generation: u64,
 }
 
 /// `POST /kernel/v1/revoke/ack` request body — the Reaper reports
