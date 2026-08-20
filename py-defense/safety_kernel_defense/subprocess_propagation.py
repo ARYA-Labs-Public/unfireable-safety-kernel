@@ -245,10 +245,13 @@ def wrap_subprocess(*popen_args: Any, **popen_kwargs: Any) -> subprocess.Popen:
     if caller_env is not None:
         missing = [v for v in _REQUIRED_PROPAGATION_VARS if v not in caller_env]
         if missing:
+            # Log a COUNT, not the var names — the durable audit event below
+            # carries the specific names for forensics; the general log stays
+            # free of config identifiers (CodeQL py/clear-text-logging).
             _LOGGER.critical(
-                "wrap_subprocess: caller env= stripped safety-kernel vars %s "
-                "for argv0=%s — re-injecting from hook config",
-                missing,
+                "wrap_subprocess: caller env= stripped %d required safety-kernel "
+                "var(s) for argv0=%s — re-injecting from hook config",
+                len(missing),
                 argv0,
             )
             _emit_propagation_failure_event(
