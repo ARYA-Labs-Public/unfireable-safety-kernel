@@ -1,0 +1,97 @@
+name: Issue & PR triage
+
+# Auto-acknowledges every new issue and pull request. GitHub delivers the
+# acknowledgment to the author as an email notification (they are subscribed to
+# their own thread), so this is the "email the submitter" step — done the
+# privacy-respecting, GitHub-native way, without harvesting anyone's address.
+#
+# `pull_request_target` runs in the context of the BASE repo so a fork PR can
+# still be commented on / labeled. This workflow NEVER checks out or executes
+# PR-author code, so that elevated token cannot be abused by a malicious fork.
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+# Least privilege: comment + label only.
+permissions:
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: triage-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  acknowledge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Acknowledge and label
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const isPR = !!context.payload.pull_request;
+            const obj = context.payload.issue || context.payload.pull_request;
+            const number = obj.number;
+            const author = obj.user.login;
+            const assoc = obj.author_association; // FIRST_TIME_CONTRIBUTOR, NONE, MEMBER, ...
+            const firstTime = ['FIRST_TIMER', 'FIRST_TIME_CONTRIBUTOR', 'NONE'].includes(assoc);
+
+            // Ensure a label exists before applying it (addLabels 404s on a missing label).
+            async function ensureLabel(name, color, description) {
+              try {
+                await github.rest.issues.getLabel({ ...context.repo, name });
+              } catch (e) {
+                if (e.status === 404) {
+                  await github.rest.issues.createLabel({ ...context.repo, name, color, description });
+                } else {
+                  throw e;
+                }
+              }
+            }
+
+            let body;
+            if (isPR) {
+              await ensureLabel('needs-review', '0e8a16', 'Awaiting maintainer review');
+              await github.rest.issues.addLabels({ ...context.repo, issue_number: number, labels: ['needs-review'] });
+              body = [
+                `Thanks for the pull request, @${author}! 🙏`,
+                ``,
+                firstTime ? `Welcome — it looks like this may be your first contribution here. We're glad you're building on the Safety Kernel.` : ``,
+                ``,
+                `A maintainer will review this. To keep things moving, please make sure:`,
+                ``,
+                `- [ ] Every commit is **signed off** (\`git commit -s\`, DCO) — CI enforces this.`,
+                `- [ ] \`cargo fmt --check\`, \`cargo clippy --workspace --all-targets -- -D warnings\`, and \`cargo test --workspace\` are green.`,
+                `- [ ] A bug fix includes a test that fails before the change and passes after.`,
+                `- [ ] If this touches the security model (fail-closed semantics, signatures, the transparency log, circuit-breaker invariants, or the OpenAPI contract), it is backed by a [Discussion](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/discussions) first — see [CONTRIBUTING.md](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/blob/main/CONTRIBUTING.md).`,
+                ``,
+                `Green CI is required to merge; we do not merge red.`,
+              ].filter(Boolean).join('\n');
+            } else {
+              // The issue forms request `needs-triage`, but GitHub silently
+              // skips a label that does not exist yet — so guarantee it here.
+              await ensureLabel('needs-triage', 'fbca04', 'Awaiting maintainer triage');
+              await github.rest.issues.addLabels({ ...context.repo, issue_number: number, labels: ['needs-triage'] });
+              body = [
+                `Thanks for opening this issue, @${author}! 🙏`,
+                ``,
+                firstTime ? `Welcome, and thanks for taking the time to report this.` : ``,
+                ``,
+                `A maintainer will triage it. What happens next:`,
+                ``,
+                `- We aim to give every issue a first response and a triage decision within a few business days.`,
+                `- If we need more detail we'll add the **needs-info** label and comment here.`,
+                ``,
+                `A couple of reminders so nothing slips through the cracks:`,
+                ``,
+                `- 🔒 **If this is a security vulnerability, please close this and report it privately** — email security@aryalabs.io or file a [private advisory](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/security/advisories/new). Public issues become advisories the moment they're filed. See [SECURITY.md](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/blob/main/SECURITY.md).`,
+                `- 💬 Integration or deployment **questions** are better as [Discussions](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/discussions), where the next person can find the answer.`,
+                ``,
+                `By participating you agree to our [Code of Conduct](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/blob/main/CODE_OF_CONDUCT.md).`,
+              ].filter(Boolean).join('\n');
+            }
+
+            await github.rest.issues.createComment({ ...context.repo, issue_number: number, body });
