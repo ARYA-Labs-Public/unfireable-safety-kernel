@@ -39,7 +39,9 @@ proofs:
 	  --harness safety::client_state::kani_proofs::open_within_cooldown_always_refuses \
 	  --harness safety::client_state::kani_proofs::open_permits_only_after_cooldown \
 	  --harness safety::client_state::kani_proofs::half_open_with_probe_in_flight_refuses \
-	  --harness safety::client_state::kani_proofs::permit_characterization_is_exhaustive
+	  --harness safety::client_state::kani_proofs::permit_characterization_is_exhaustive \
+	  --harness safety::revoke::kani_proofs::honour_implies_current_generation_and_all_gates \
+	  --harness safety::revoke::kani_proofs::older_generation_is_never_honoured
 
 # ---- quality / security ----
 
