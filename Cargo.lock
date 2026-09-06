@@ -1780,6 +1780,8 @@ dependencies = [
  "qorch-adapters",
  "qorch-application",
  "qorch-domain",
+ "qorch-safety-kernel-client",
+ "qorch-safety-kernel-reaper",
  "rand_core 0.6.4",
  "rcgen",
  "regex",

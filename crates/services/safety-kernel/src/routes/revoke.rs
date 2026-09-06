@@ -48,10 +48,10 @@ use uuid::Uuid;
 use qorch_adapters::policy_engine_client::AuditAppendRequest;
 use qorch_domain::safety::{
     revoke::{
-        restore_params_fingerprint, revoke_params_fingerprint, MintRevokeRequest, PendingQuery,
-        PendingRevokeResponse, RestoreClaims, RestoreRequest, RevocationTier, RevokeAckRequest,
-        RevokeAckResponse, RevokeComputeClaims, SignedRevokeResponse, REVOKE_COMPUTE_AUD,
-        REVOKE_RESTORE_AUD,
+        restore_params_fingerprint, revoke_params_fingerprint, InstanceTarget, MintRevokeRequest,
+        PendingQuery, PendingRevokeResponse, RestoreClaims, RestoreRequest, RevocationTier,
+        RevokeAckRequest, RevokeAckResponse, RevokeComputeClaims, SignedRevokeResponse,
+        REVOKE_COMPUTE_AUD, REVOKE_RESTORE_AUD,
     },
     sign_kernel_token, token_sha256, ToClaimsMap,
 };
@@ -122,6 +122,107 @@ fn clear_pending(run_id: &str) -> bool {
     }
     cleared
 }
+
+// ============================================================================
+// Authoritative per-target grant generation (the fence identity) — Phase-1
+// in-memory; see rationale below.
+// ============================================================================
+
+/// The kernel's authoritative per-target monotonic grant generation — the
+/// identity the Reaper's generation fence ([`qorch_domain::safety::revoke::
+/// honour_revocation`]) checks a kill against.
+///
+/// Semantics:
+/// - A target that was never restored is at generation `0` (the first-ever
+///   grant). [`current`](GrantGenerationStore::current) returns `0` for an
+///   unknown target — it does NOT create an entry.
+/// - Every RESTORE mints a NEW grant, so it [`increment`s](
+///   GrantGenerationStore::increment) the target's generation. A restore of a
+///   never-seen target establishes generation `1` (superseding the implicit
+///   generation-`0` grant that a leftover kill was minted against).
+/// - The mint path STAMPS a kill with the target's current generation; the
+///   Reaper later honours the kill only while that stamp still equals the
+///   live generation.
+///
+/// A trait so a durable (e.g. Postgres-backed) implementation can replace the
+/// Phase-1 in-memory one without touching the handlers.
+pub trait GrantGenerationStore: Send + Sync {
+    /// The current grant generation for `target` (`0` if never restored).
+    fn current(&self, target: &InstanceTarget) -> u64;
+    /// Establish a NEW grant for `target` (a restore) and return the new,
+    /// incremented generation.
+    fn increment(&self, target: &InstanceTarget) -> u64;
+    /// The current generation resolved by instance NAME only — the pending
+    /// pull query carries just the instance, not the full project/zone/
+    /// instance triple. Returns the MAX generation across any stored target
+    /// whose instance matches (the fail-closed choice: a higher live
+    /// generation fences MORE leftover kills), or `0` if none is known.
+    fn current_for_instance(&self, instance: &str) -> u64;
+}
+
+/// The Phase-1 in-memory generation store: a `Mutex<HashMap<InstanceTarget,
+/// u64>>`.
+///
+/// DURABILITY (follow-up): this is process-local and resets on kernel restart.
+/// After a restart every target reads back as generation `0`, so a kill minted
+/// against a pre-restart grant `> 0` would no longer be fenced by generation
+/// alone. This is acceptable for Phase 1 for the same reason the pending store
+/// is in-memory — the transparency-log is the durable record and a still-live
+/// threat is re-minted by the operator — but a durable (PG) generation table
+/// is the correct hardening and is intentionally deferred here, not built.
+#[derive(Debug, Default)]
+pub struct InMemoryGrantGenerationStore {
+    generations: Mutex<HashMap<InstanceTarget, u64>>,
+}
+
+impl InMemoryGrantGenerationStore {
+    /// A fresh, empty store (every target starts at generation `0`).
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl GrantGenerationStore for InMemoryGrantGenerationStore {
+    fn current(&self, target: &InstanceTarget) -> u64 {
+        self.generations
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(target)
+            .copied()
+            .unwrap_or(0)
+    }
+
+    fn increment(&self, target: &InstanceTarget) -> u64 {
+        let mut map = self
+            .generations
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let entry = map.entry(target.clone()).or_insert(0);
+        *entry = entry.saturating_add(1);
+        *entry
+    }
+
+    fn current_for_instance(&self, instance: &str) -> u64 {
+        self.generations
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .iter()
+            .filter(|(t, _)| t.instance == instance)
+            .map(|(_, g)| *g)
+            .max()
+            .unwrap_or(0)
+    }
+}
+
+/// The single per-process grant-generation store. Kept as a process-global
+/// (mirroring the `PENDING` store above) rather than an `AppState` field, for
+/// the same reason documented there: threading a new field through `AppState`
+/// churns every construction site across the signing-path test fixtures for no
+/// behavioural gain, and the store's lifetime/sharing semantics are identical
+/// either way (one instance per kernel process).
+static GENERATIONS: LazyLock<InMemoryGrantGenerationStore> =
+    LazyLock::new(InMemoryGrantGenerationStore::new);
 
 // ============================================================================
 // Small helpers
@@ -251,15 +352,13 @@ pub async fn mint_revoke(
     let run_id = format!("revoke_{}", Uuid::now_v7());
     let ttl = state.settings.revoke_token_ttl_s.max(30);
 
-    // PLACEHOLDER — the authoritative grant generation is NOT tracked in the
-    // kernel yet. The fence in `honour_revocation` reads the current grant
-    // generation to reject a revocation left over from a superseded grant.
-    // Until the kernel keeps a per-target monotonic generation (incremented on
-    // every restore mint) and stamps it here + echoes it on the pending-pull
-    // response, this stays 0. This is the follow-up plumbing; a hardcoded 0
-    // means the fence is inert (every revoke and grant are "generation 0"), so
-    // this is NOT yet a live defense — it only makes the wire carry the field.
-    let target_generation: u64 = 0;
+    // Stamp the kill with the target's CURRENT authoritative grant generation.
+    // The Reaper honours this kill only while the live grant generation still
+    // equals this stamp; a later restore increments the target's generation, so
+    // this kill is fenced out as stale (see `honour_revocation` + the pending
+    // handler's `current_grant_generation` echo). A first-ever grant is
+    // generation 0.
+    let target_generation = GENERATIONS.current(&body.target);
 
     // Step 4 — bind target/generation/tier/trigger/reason through
     // params_fingerprint.
@@ -368,7 +467,16 @@ pub async fn pending_revoke(
     if pending.is_empty() {
         return StatusCode::NO_CONTENT.into_response();
     }
-    Json(PendingRevokeResponse { ok: true, pending }).into_response()
+    // Echo the AUTHORITATIVE current grant generation for this instance so the
+    // Reaper can fence a stale (pre-restore) kill. Resolved by instance name —
+    // the pull query carries only the instance, not the full target triple.
+    let current_grant_generation = GENERATIONS.current_for_instance(&q.instance);
+    Json(PendingRevokeResponse {
+        ok: true,
+        pending,
+        current_grant_generation,
+    })
+    .into_response()
 }
 
 // ============================================================================
@@ -460,6 +568,14 @@ pub async fn restore_revoke(
         );
     }
 
+    // A restore ESTABLISHES A NEW GRANT — bump the target's authoritative
+    // generation. Done only AFTER the fail-closed tlog append succeeds, so a
+    // restore that was never durably recorded does not silently advance the
+    // fence. From this point every kill minted against the pre-restore
+    // generation is stale and the Reaper's fence refuses it, keeping the
+    // restored instance alive.
+    let new_generation = GENERATIONS.increment(&body.target);
+
     // Enqueue so the Reaper's single pull sees the restore too; it
     // distinguishes kill vs restore by verifying the token's `aud`.
     enqueue_pending(
@@ -479,6 +595,7 @@ pub async fn restore_revoke(
             "caller_role": caller.0,
         },
         "token_sha256": tok_sha,
+        "new_grant_generation": new_generation,
         "claims": btree_to_value(&claims_map),
     });
     audit_append(&state, "kernel_revoke_restore", audit_payload, now).await;
@@ -505,4 +622,82 @@ pub fn router() -> Router<AppState> {
         .route("/kernel/v1/revoke/pending", get(pending_revoke))
         .route("/kernel/v1/revoke/ack", post(ack_revoke))
         .route("/kernel/v1/revoke/restore", post(restore_revoke))
+}
+
+// ============================================================================
+// Tests — the authoritative generation store (isolated, no process-global)
+// ============================================================================
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::{GrantGenerationStore, InMemoryGrantGenerationStore};
+    use qorch_domain::safety::revoke::InstanceTarget;
+
+    fn target(instance: &str) -> InstanceTarget {
+        InstanceTarget {
+            project: "example-project".to_string(),
+            zone: "zone-a".to_string(),
+            instance: instance.to_string(),
+        }
+    }
+
+    /// A never-restored target reads generation 0 without creating an entry;
+    /// the first restore establishes generation 1 and each subsequent restore
+    /// increments monotonically.
+    #[test]
+    fn first_grant_is_zero_and_restore_increments() {
+        let store = InMemoryGrantGenerationStore::new();
+        let t = target("vm-a");
+        assert_eq!(store.current(&t), 0, "first-ever grant is generation 0");
+        // `current` must not have created an entry.
+        assert_eq!(store.current_for_instance("vm-a"), 0);
+
+        assert_eq!(store.increment(&t), 1, "a restore establishes generation 1");
+        assert_eq!(store.current(&t), 1);
+        assert_eq!(store.increment(&t), 2, "a second restore -> generation 2");
+        assert_eq!(store.current(&t), 2);
+    }
+
+    /// Distinct targets keep independent generations; `current_for_instance`
+    /// resolves by instance NAME (the pull query carries only the instance).
+    #[test]
+    fn generations_are_per_target_and_resolve_by_instance_name() {
+        let store = InMemoryGrantGenerationStore::new();
+        let a = target("vm-a");
+        let b = target("vm-b");
+        store.increment(&a); // a -> 1
+        store.increment(&a); // a -> 2
+        store.increment(&b); // b -> 1
+
+        assert_eq!(store.current(&a), 2);
+        assert_eq!(store.current(&b), 1);
+        assert_eq!(store.current_for_instance("vm-a"), 2);
+        assert_eq!(store.current_for_instance("vm-b"), 1);
+        assert_eq!(
+            store.current_for_instance("vm-unknown"),
+            0,
+            "an unknown instance resolves to generation 0"
+        );
+    }
+
+    /// The fence identity in words: a kill stamped at the generation the mint
+    /// saw is honoured while that is still current, and fenced the moment a
+    /// restore has moved the live generation past it.
+    #[test]
+    fn mint_stamp_then_restore_makes_the_stamp_stale() {
+        let store = InMemoryGrantGenerationStore::new();
+        let t = target("vm-fence");
+        // Mint reads the CURRENT generation to stamp a kill.
+        let stamped_at_mint = store.current(&t); // 0
+        assert_eq!(stamped_at_mint, 0);
+        // A restore bumps the live generation.
+        let live_after_restore = store.increment(&t); // 1
+        assert_eq!(live_after_restore, 1);
+        // The kill's stamp is now strictly older than the live generation.
+        assert!(
+            stamped_at_mint < store.current_for_instance("vm-fence"),
+            "after a restore the pre-restore stamp is stale"
+        );
+    }
 }
