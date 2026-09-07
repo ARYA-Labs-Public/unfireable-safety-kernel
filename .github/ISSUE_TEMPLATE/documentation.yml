@@ -1,0 +1,47 @@
+name: 📝 Documentation issue
+description: A doc is wrong, unclear, missing, or an adopter-deployment/config gap (per SECURITY.md, config errors are documentation issues).
+title: "docs: <one-line summary>"
+labels: ["documentation", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Docs matter as much as code for an authorization seam — a misconfigured
+        deployment (e.g. a kernel without mTLS) is an adopter risk we would
+        rather close with clearer docs. Per [SECURITY.md](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/blob/main/SECURITY.md),
+        deployment/config gaps belong here, not in the security lane.
+
+  - type: input
+    id: location
+    attributes:
+      label: Where
+      description: File path, doc page, or URL. `README.md`, `docs/…`, a rustdoc page, the OpenAPI description, etc.
+      placeholder: "e.g. docs/deployment/mtls.md, or README.md § At a glance"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong or missing
+      description: What did the docs say (or fail to say) that led you astray?
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested fix
+      description: What should it say instead? A concrete rewrite is ideal.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: coc
+    attributes:
+      label: Code of Conduct
+      options:
+        - label: >-
+            I agree to follow this project's
+            [Code of Conduct](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/blob/main/CODE_OF_CONDUCT.md).
+          required: true
