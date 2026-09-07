@@ -10,6 +10,28 @@ this document end-to-end before opening a PR.
 This project is governed by the [Contributor Covenant](CODE_OF_CONDUCT.md).
 By participating you agree to uphold it.
 
+## Reporting Issues and Requesting Features
+
+Open a new issue and pick the template — it routes your report to the right
+lane and asks for what the maintainers need:
+
+- **🐛 Bug** — a defect in the kernel, reaper, transparency log, client SDK, or
+  defense crate. A minimal failing `cargo test` (or `pytest`) is the fastest
+  path to a fix.
+- **✨ Feature** — a new capability or integration. If it touches the security
+  model, open a Discussion first (see [Contribution Scope](#contribution-scope)).
+- **📝 Documentation** — a doc that is wrong, unclear, or missing, including
+  adopter deployment/config gaps.
+
+Two things never belong in a public issue:
+
+- **Security vulnerabilities** → private disclosure only. See [SECURITY.md](SECURITY.md).
+- **Questions and hardening reviews** → [Discussions](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/discussions),
+  so the next person can find the answer.
+
+Every new issue and pull request gets an automatic acknowledgment with next
+steps and the response window; a maintainer triages from there.
+
 ## Local Development Setup
 
 You will need:

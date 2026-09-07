@@ -1,0 +1,142 @@
+name: 🐛 Bug report
+description: Report a defect in the kernel, reaper, transparency log, client SDK, or defense crate.
+title: "bug: <one-line summary>"
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug against the Safety Kernel. This project keeps a
+        high bar for changes because it is an authorization seam, so a precise,
+        reproducible report is the fastest path to a fix.
+
+        A great bug report is a **minimal failing test case** — see
+        [CONTRIBUTING.md](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/blob/main/CONTRIBUTING.md).
+
+  - type: checkboxes
+    id: prechecks
+    attributes:
+      label: Before you file
+      description: Please confirm each of these.
+      options:
+        - label: >-
+            This is **NOT a security vulnerability**. Vulnerabilities go to
+            private disclosure (SECURITY.md), never a public issue.
+          required: true
+        - label: >-
+            I searched [existing issues](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/issues?q=is%3Aissue) and this is not
+            a duplicate.
+          required: true
+        - label: >-
+            I reproduced this on a clean checkout of `main` (or I state the exact
+            version/SHA below).
+          required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      description: Which part of the system? (mirrors the SECURITY.md scope map)
+      options:
+        - "kernel binary (crates/services/safety-kernel)"
+        - "control-plane reaper (crates/services/safety-kernel-reaper)"
+        - "transparency log service (crates/services/transparency-log)"
+        - "reconciler worker (crates/services/safety-kernel-reconciler)"
+        - "Rust client SDK (crates/adapters/safety_kernel_client)"
+        - "domain crate (crates/domain)"
+        - "Python defense crate (py-defense)"
+        - "OpenAPI contract (contracts/openapi)"
+        - "examples / reference integrations"
+        - "build / CI / release tooling"
+        - "docs"
+        - "other / not sure"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit SHA
+      description: Output of `git rev-parse HEAD`, or the released tag you are on.
+      placeholder: "e.g. v0.4.1  or  dd2ddcd"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you observe? Include the exact error text if there is one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: >-
+        What should have happened instead? For this project, be explicit if the
+        expectation is a **fail-closed** behavior (deny / refuse / halt).
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: >-
+        Ideally a minimal failing `cargo test` (or `pytest`) the maintainers can
+        run. Otherwise, numbered steps.
+      value: |
+        1.
+        2.
+        3.
+      render: shell
+    validations:
+      required: true
+
+  - type: dropdown
+    id: failclosed
+    attributes:
+      label: Does this affect a fail-closed / safety invariant?
+      description: >-
+        e.g. an ALLOW that should have been DENY, a kill that fired against a
+        restored instance, a missing or forgeable transparency-log entry, a
+        reaper that did not fail closed when the kernel went dark.
+      options:
+        - "No — functional/quality bug only"
+        - "Maybe — not sure, please assess"
+        - "Yes — a safety/fail-closed invariant appears to be violated"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Rust version (`rustc --version`), and how you are running the kernel.
+      value: |
+        - OS:
+        - `rustc --version`:
+        - Deployment (compose / systemd / bare cargo / other):
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste `tracing` output or stack traces. This is rendered as code — no need for backticks.
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: coc
+    attributes:
+      label: Code of Conduct
+      options:
+        - label: >-
+            I agree to follow this project's
+            [Code of Conduct](https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/blob/main/CODE_OF_CONDUCT.md).
+          required: true

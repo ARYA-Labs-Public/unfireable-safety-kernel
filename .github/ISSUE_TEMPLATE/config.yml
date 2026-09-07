@@ -1,0 +1,30 @@
+# Issue-template chooser configuration.
+# https://docs.github.com/communities/using-templates-to-encourage-useful-issues-and-pull-requests
+#
+# Blank issues are DISABLED: a safety kernel intake must route every report to
+# the right lane. Security vulnerabilities in particular must NEVER land as a
+# public issue (see SECURITY.md) — the contact links below send them to private
+# disclosure instead of the issue tracker.
+blank_issues_enabled: false
+contact_links:
+  - name: 🔒 Report a security vulnerability (private)
+    url: https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/security/advisories/new
+    about: >-
+      Do NOT open a public issue for a vulnerability. File a private GitHub
+      Security Advisory here, or email security@aryalabs.io. See SECURITY.md for
+      the disclosure policy and SLA.
+
+  - name: 💬 Ask a question or request a hardening review
+    url: https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/discussions
+    about: >-
+      "How do I integrate this with X?", deployment/wiring help, and hardening
+      reviews are Discussions, not issues — so the next person can find the
+      answer.
+
+  - name: 📐 Propose a change to the security model or wire contract
+    url: https://github.com/ARYA-Labs-Public/unfireable-safety-kernel/discussions/new?category=ideas
+    about: >-
+      Changes to fail-closed semantics, signature schemes, the transparency
+      log, circuit-breaker invariants, or the OpenAPI contract require a
+      Discussion BEFORE any code lands (see CONTRIBUTING.md → Contribution
+      Scope).
