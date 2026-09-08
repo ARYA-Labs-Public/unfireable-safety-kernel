@@ -1,0 +1,18 @@
+# This file declares this repository's CI gate, mirroring the rust job of .github/workflows/ci.yml.
+# Gates are workspace-scoped as CI has them; clippy is advisory because CI passes -W warnings and does not fail on findings.
+
+[gates.build]
+cmd = "cargo check --workspace --all-targets"
+blocking = true
+
+[gates.clippy]
+cmd = "cargo clippy --workspace --all-targets -- -W warnings"
+blocking = false
+
+[gates.fmt]
+cmd = "cargo fmt --all -- --check"
+blocking = true
+
+[gates.test]
+cmd = "cargo test --workspace --no-fail-fast"
+blocking = true
