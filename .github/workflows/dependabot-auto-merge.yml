@@ -1,0 +1,61 @@
+# Dependabot auto-merge for patch/minor bumps.
+#
+# Why: when a new RustSec advisory lands, the Monday Security Lane cron on
+# main goes red and Dependabot opens the fixing bump at the same time. If
+# nobody merges that bump, main stays red and every other Dependabot PR
+# inherits the failure (2026-09-28, RUSTSEC-2026-0285). Letting patch and
+# minor bumps merge themselves once every required check is green closes
+# that window.
+#
+# Safety rails:
+#   - Only Dependabot-authored PRs, only semver patch/minor. Major bumps
+#     (e.g. actions/github-script 7 -> 9) still need a human.
+#   - `gh pr merge --auto` does nothing until the `main` ruleset's required
+#     checks pass; it never skips CI.
+#   - No-op with a notice if "Allow auto-merge" is off in repo settings.
+#
+# Actions pinned to commit SHAs per SECURITY.md (tag retained as comment).
+
+name: Dependabot auto-merge
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check repo allows auto-merge
+        id: gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          allowed="$(gh api "repos/${GITHUB_REPOSITORY}" -q '.allow_auto_merge')"
+          echo "allowed=${allowed}" >> "$GITHUB_OUTPUT"
+          if [ "${allowed}" != "true" ]; then
+            echo "::notice::Auto-merge is not enabled on this repo (Settings -> General -> Allow auto-merge). Skipping."
+          fi
+
+      - name: Dependabot metadata
+        if: steps.gate.outputs.allowed == 'true'
+        id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge for patch/minor bumps
+        if: >-
+          steps.gate.outputs.allowed == 'true' &&
+          (steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+           steps.meta.outputs.update-type == 'version-update:semver-minor')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "$PR_URL"
