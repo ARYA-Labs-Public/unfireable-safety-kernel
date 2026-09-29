@@ -20,7 +20,8 @@ ignore = [
  # rustls-pemfile 2.2.0 is unmaintained (archived; its functionality moved
  # into rustls-pki-types ≥1.9). It is a thin transitive wrapper pulled via
  # reqwest → hyper-rustls; NOT a vulnerability. Tracked for removal when
- # the upstream stack drops the dep. Re-review by 2026-09-01.
+ # the upstream stack drops the dep. Re-reviewed 2026-09-29: still
+ # pulled by reqwest 0.12 -> hyper-rustls 0.27. Re-review by 2027-03-01.
  "RUSTSEC-2025-0134",
 ]
 
