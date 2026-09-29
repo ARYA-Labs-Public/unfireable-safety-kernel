@@ -34,6 +34,14 @@ repository = "https://github.com/ARYA-Labs-Public/unfireable-safety-kernel"
 authors = ["ARYA Labs <eng@aryalabs.io>"]
 
 [workspace.dependencies]
+lru = "0.18.2"
+rusqlite = { version = "0.32", features = ["bundled"] }
+rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
+tempfile = "3"
+http-body-util = "0.1"
+axum-server = { version = "0.8", default-features = false, features = ["tls-rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+rustls-pemfile = "2"
 # Promoted here once ≥2 crates pin the same version.
 # - NO `jsonwebtoken` (custom compact form, not JWT).
 # - NO `serde_json` `preserve_order`: byte stability via `BTreeMap`, not insertion order.

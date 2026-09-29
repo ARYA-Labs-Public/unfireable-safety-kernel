@@ -1,6 +1,6 @@
 //! Wave context — goal, phases, domain, gate surfaces, timestamps.
 //!
-//! Per. `WaveContext` is the data carried alongside the
+//! Per internal-ref. `WaveContext` is the data carried alongside the
 //! type-state witness in `Wave<S>`. It is plain data — no behaviour
 //! beyond constructors and accessors. State transitions are handled
 //! by the [`super::Wave`] generic.
@@ -101,7 +101,7 @@ pub enum UatOutcome {
 /// allow-lists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum WaveDomain {
-    /// Biotech / pharma / life-sciences workloads.
+    /// Biotech / DDI / Atlas / Nanofold.
     Biotech,
     /// Telco / SYNAPSE / SON / channel intent.
     Telco,
@@ -139,7 +139,7 @@ pub struct WavePhase {
 pub struct WaveContext {
     /// Stable wave identifier.
     pub wave_id: WaveId,
-    /// Originating Linear issue (e.g. `""`).
+    /// Originating Linear issue (e.g. `"internal-ref"`).
     pub linear_issue: String,
     /// Domain this wave belongs to.
     pub domain: WaveDomain,
@@ -199,7 +199,7 @@ mod tests {
         gs.insert(GateSurface::SafetyKernel);
         WaveContext::new(
             WaveId::new("wave-001"),
-            "",
+            "internal-ref",
             WaveDomain::Platform,
             "type-state wave model",
             vec![WavePhase {

@@ -1,23 +1,23 @@
 //! `Wave<S>` — type-state model of the wave pipeline.
 //!
-//! Per. The Manus skill family (`/plan`, `/team`, `/test`,
+//! Per internal-ref. The Manus skill family (`/plan`, `/team`, `/test`,
 //! `/purple-team`, `/user-acceptance`, `/closeout`) is enforced today
 //! by a bash git hook (`.claude/hooks/team_release_gate.sh`). That
 //! works for a human developer typing `git commit`; it does not work
-//! for the autonomous self-improvement loop at A3+ where no `git commit` is run.
+//! for the autonomous agent loop where no `git commit` is run.
 //!
 //! `Wave<S>` makes the same ceremony a *compile-time* property:
 //!
 //! ```text
 //! Wave<Planned>
-//!.decompose(roles)            -> Wave<Decomposed>
-//!.run_adversarial_suite(sid)  -> Wave<Tested>
-//!.run_purple_team(sid)        -> Wave<PurpleTeamed>      [or]
-//!.skip_purple_team_if_no_gate_surface()
+//!   .decompose(roles)            -> Wave<Decomposed>
+//!   .run_adversarial_suite(sid)  -> Wave<Tested>
+//!   .run_purple_team(sid)        -> Wave<PurpleTeamed>      [or]
+//!   .skip_purple_team_if_no_gate_surface()
 //!                                -> Wave<PurpleTeamed>
-//!.run_user_acceptance(verdicts)
+//!   .run_user_acceptance(verdicts)
 //!                                -> Wave<Accepted>
-//!.closeout(closed_at_epoch)   -> (Wave<Closed>, WaveLearningRecord)
+//!   .closeout(closed_at_epoch)   -> (Wave<Closed>, WaveLearningRecord)
 //! ```
 //!
 //! Skipping a stage (calling `.closeout()` on `Wave<Tested>`, for
@@ -42,8 +42,38 @@
 //! private). A downstream crate that itself uses `unsafe` could
 //! synthesize a `Wave<Closed>` — that is the deliberate property of
 //! Rust's `PhantomData`-based type-states and matches `invariant.rs`.
+//!
+//! # internal-ref — `PhantomData` does not gate `serde`
+//!
+//! The soundness note above is true for in-process Rust code, but it
+//! does **not** cover `serde`. `#[derive(Deserialize)]` on `Wave<S>`
+//! deserializes every *non-phantom* field regardless of what `S` is
+//! instantiated at, and because `adversarial_session`,
+//! `purple_team_session`, and `uat_verdicts` are all `Option<_>`,
+//! `serde` treats an absent JSON key as `None` rather than a parse
+//! error. `serde_json::from_str::<Wave<Closed>>("{\"ctx\": ..., \
+//! \"role_assignments\": []}")` — a payload shaped exactly like a
+//! freshly-`Planned` wave — deserializes successfully, synthesizing a
+//! "closed" wave that never traversed a single transition method.
+//! `PhantomData<Closed>` proves nothing about *how* a value was
+//! built; it only blocks the *typed* transition methods.
+//!
+//! `Wave<S>` therefore has a **hand-written** `Deserialize` impl
+//! (below) instead of `#[derive(Deserialize)]`: it deserializes into
+//! a private wire form and then calls
+//! [`verifier::WaveStateAuditFields::validate_wire_fields`] for the
+//! target state `S` *before* the `Wave<S>` value is allowed to exist.
+//! A payload that omits (or nulls out) a field its target state
+//! requires is rejected at the `serde_json::from_str` call site with
+//! a `serde::de::Error` — there is no `Wave<S>` value on the other
+//! side of a failed deserialize, so this is impossible-by-construction
+//! for exactly the bypass above. See `verifier.rs` for what this
+//! check does — and does not — close (it cannot detect a *fabricated
+//! but well-shaped* session id; that requires the transparency-log
+//! cross-check documented there).
 
-use serde::{Deserialize, Serialize};
+use serde::de::Error as SerdeDeError;
+use serde::{Deserialize, Deserializer, Serialize};
 use std::marker::PhantomData;
 
 pub mod context;
@@ -52,6 +82,7 @@ pub mod learning;
 pub mod roles;
 pub mod session_record;
 pub mod stage;
+pub mod verifier;
 
 use context::{AdversarialSessionId, PurpleTeamSessionId, UatVerdict, WaveContext};
 use learning::{
@@ -59,6 +90,7 @@ use learning::{
     WavePhaseRecord,
 };
 use roles::WaveRoleAssignment;
+use verifier::WaveStateAuditFields;
 
 // ---------------------------------------------------------------------------
 // State markers. Each is a unit struct used only as a type parameter.
@@ -97,7 +129,7 @@ pub struct Closed;
 // Wave<S>
 // ---------------------------------------------------------------------------
 
-/// A wave in the platform ceremony pipeline.
+/// A wave in the release ceremony pipeline.
 ///
 /// `S` is the type-state — one of [`Planned`], [`Decomposed`],
 /// [`Tested`], [`PurpleTeamed`], [`Accepted`], [`Closed`]. The
@@ -125,7 +157,7 @@ pub struct Closed;
 /// gs.insert(GateSurface::SafetyKernel);
 /// let ctx = WaveContext::new(
 ///     WaveId::new("wave-001"),
-///     "",
+///     "internal-ref",
 ///     WaveDomain::Platform,
 ///     "demo",
 ///     vec![WavePhase { id: "phase-1".to_string(), summary: "build".to_string() }],
@@ -160,7 +192,7 @@ pub struct Closed;
 ///     context::{AdversarialSessionId, WaveContext, WaveDomain, WaveId},
 /// };
 /// let ctx = WaveContext::new(
-///     WaveId::new("w"), "", WaveDomain::Platform,
+///     WaveId::new("w"), "internal-ref", WaveDomain::Platform,
 ///     "g", vec![], HashSet::new(), 0,
 /// );
 /// let w = Wave::new(ctx);
@@ -180,7 +212,7 @@ pub struct Closed;
 ///     roles::{WaveRole, WaveRoleAssignment},
 /// };
 /// let ctx = WaveContext::new(
-///     WaveId::new("w"), "", WaveDomain::Platform,
+///     WaveId::new("w"), "internal-ref", WaveDomain::Platform,
 ///     "g", vec![], HashSet::new(), 0,
 /// );
 /// let w = Wave::new(ctx).decompose(vec![WaveRoleAssignment {
@@ -208,14 +240,14 @@ pub struct Closed;
 /// let mut gs = HashSet::new();
 /// gs.insert(GateSurface::SafetyKernel);
 /// let ctx = WaveContext::new(
-///     WaveId::new("w"), "", WaveDomain::Platform,
+///     WaveId::new("w"), "internal-ref", WaveDomain::Platform,
 ///     "g", vec![], gs, 0,
 /// );
 /// let w = Wave::new(ctx)
-///.decompose(vec![WaveRoleAssignment {
+///     .decompose(vec![WaveRoleAssignment {
 ///         role: WaveRole::DEVELOPER, agent_id: "a".to_string(),
 ///     }])
-///.run_adversarial_suite(AdversarialSessionId::new("adv-1"));
+///     .run_adversarial_suite(AdversarialSessionId::new("adv-1"));
 /// // No `run_user_acceptance` on `Wave<Tested>` — must traverse purple-team first.
 /// let _ = w.run_user_acceptance(vec![]);
 /// ```
@@ -232,15 +264,15 @@ pub struct Closed;
 ///     roles::{WaveRole, WaveRoleAssignment},
 /// };
 /// let ctx = WaveContext::new(
-///     WaveId::new("w"), "", WaveDomain::Platform,
+///     WaveId::new("w"), "internal-ref", WaveDomain::Platform,
 ///     "g", vec![], HashSet::new(), 0,
 /// );
 /// let w = Wave::new(ctx)
-///.decompose(vec![WaveRoleAssignment {
+///     .decompose(vec![WaveRoleAssignment {
 ///         role: WaveRole::DEVELOPER, agent_id: "a".to_string(),
 ///     }])
-///.run_adversarial_suite(AdversarialSessionId::new("adv-1"))
-///.run_purple_team(PurpleTeamSessionId::new("pt-1"));
+///     .run_adversarial_suite(AdversarialSessionId::new("adv-1"))
+///     .run_purple_team(PurpleTeamSessionId::new("pt-1"));
 /// // No `closeout` on `Wave<PurpleTeamed>` — UAT must run first.
 /// let _ = w.closeout(0);
 /// ```
@@ -251,14 +283,14 @@ pub struct Closed;
 /// use std::collections::HashSet;
 /// use qorch_domain::wave::{Wave, context::{WaveContext, WaveDomain, WaveId}};
 /// let ctx = WaveContext::new(
-///     WaveId::new("w"), "", WaveDomain::Platform,
+///     WaveId::new("w"), "internal-ref", WaveDomain::Platform,
 ///     "g", vec![], HashSet::new(), 0,
 /// );
 /// let w = Wave::new(ctx);
 /// // No `closeout` on `Wave<Planned>`.
 /// let _ = w.closeout(0);
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Wave<S> {
     /// Wave data — independent of the type-state.
     pub ctx: WaveContext,
@@ -281,10 +313,57 @@ pub struct Wave<S> {
     /// `None` on states before `Accepted`.
     pub uat_verdicts: Option<Vec<UatVerdict>>,
 
-    /// PhantomData carries the type-state at zero cost. Private so
+    /// `PhantomData` carries the type-state at zero cost. Private so
     /// downstream crates cannot synthesize a higher state without
     /// using a transition method.
     _state: PhantomData<S>,
+}
+
+/// Wire form of [`Wave<S>`] — every field `Wave<S>` carries EXCEPT the
+/// `PhantomData<S>` witness, which has no wire representation. Exists
+/// only so [`Wave<S>`]'s hand-written `Deserialize` impl (below) has
+/// something to deserialize *into* before it can run the per-state
+/// [`verifier::WaveStateAuditFields`] check — see the internal-ref module
+/// doc for why `#[derive(Deserialize)]` on `Wave<S>` directly is
+/// unsound.
+#[derive(Deserialize)]
+struct WaveWireForm {
+    ctx: WaveContext,
+    role_assignments: Vec<WaveRoleAssignment>,
+    adversarial_session: Option<AdversarialSessionId>,
+    purple_team_session: Option<PurpleTeamSessionId>,
+    uat_verdicts: Option<Vec<UatVerdict>>,
+}
+
+impl<'de, S: WaveStateAuditFields> Deserialize<'de> for Wave<S> {
+    /// Deserializes into [`WaveWireForm`] and then calls
+    /// `S::validate_wire_fields` — a payload whose fields are
+    /// inconsistent with having honestly reached state `S` is
+    /// rejected here, before any `Wave<S>` value exists. This is the
+    /// internal-ref fix; see the module-level "`PhantomData` does not
+    /// gate `serde`" doc section above for the vulnerability this
+    /// closes, and `verifier.rs` for what it does not close.
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let wire = WaveWireForm::deserialize(deserializer)?;
+        S::validate_wire_fields(
+            &wire.ctx,
+            &wire.adversarial_session,
+            &wire.purple_team_session,
+            &wire.uat_verdicts,
+        )
+        .map_err(SerdeDeError::custom)?;
+        Ok(Self {
+            ctx: wire.ctx,
+            role_assignments: wire.role_assignments,
+            adversarial_session: wire.adversarial_session,
+            purple_team_session: wire.purple_team_session,
+            uat_verdicts: wire.uat_verdicts,
+            _state: PhantomData,
+        })
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -378,6 +457,7 @@ impl Wave<Tested> {
     /// Returns [`GateSurfacePresent`] if `self.ctx.gate_surfaces` is
     /// non-empty. The error carries the original wave back so no
     /// state is lost.
+    #[allow(clippy::result_large_err)] // err intentionally carries the Wave back so callers can recover
     pub fn skip_purple_team_if_no_gate_surface(
         self,
     ) -> Result<Wave<PurpleTeamed>, GateSurfacePresent> {
@@ -431,7 +511,7 @@ impl Wave<Accepted> {
             .adversarial_session
             .clone()
             .unwrap_or_else(|| AdversarialSessionId::new(""));
-        // Per-phase rollups — for the domain layer carries no
+        // Per-phase rollups — for Phase 1 the domain layer carries no
         // per-phase metrics, so each phase is reflected with empty
         // model lists and zero duration. The closeout adapter
         // (ARY-H+) replaces these with real metrics.
@@ -516,7 +596,7 @@ mod tests {
         gs.insert(GateSurface::SafetyKernel);
         WaveContext::new(
             WaveId::new("wave-001"),
-            "",
+            "internal-ref",
             WaveDomain::Platform,
             "demo",
             vec![WavePhase {
@@ -531,7 +611,7 @@ mod tests {
     fn ctx_no_gate_surface() -> WaveContext {
         WaveContext::new(
             WaveId::new("wave-002"),
-            "",
+            "internal-ref",
             WaveDomain::Biotech,
             "demo",
             vec![],
@@ -566,8 +646,8 @@ mod tests {
             record.purple_team_session.as_ref().map(|s| s.as_str()),
             Some("pt-1"),
         );
-        //: populated record exposes the new top-level fields.
-        assert_eq!(record.linear_issue, "");
+        // internal-ref: populated record exposes the new top-level fields.
+        assert_eq!(record.linear_issue, "internal-ref");
         assert_eq!(record.outcome, learning::WaveOutcome::Pass);
         assert_eq!(record.duration_seconds, 500);
         assert_eq!(record.closed_at_epoch, 1_716_400_500);
@@ -625,6 +705,13 @@ mod tests {
 
     #[test]
     fn wave_roundtrips_through_json_at_each_state() {
+        // internal-ref FP-budget proof: a wave that traversed every
+        // transition legitimately (via `.decompose()` /
+        // `.run_adversarial_suite()` / `.run_purple_team()` /
+        // `.run_user_acceptance()` / `.closeout()` — never
+        // hand-constructed) MUST still serialize and deserialize at
+        // every state, including the hardened custom `Deserialize`
+        // on `Wave<S>`. Zero false positives on real waves.
         let w = Wave::<Planned>::new(ctx_with_gate_surface());
         let j = serde_json::to_string(&w).unwrap();
         let _back: Wave<Planned> = serde_json::from_str(&j).unwrap();
@@ -637,14 +724,136 @@ mod tests {
         let j = serde_json::to_string(&w).unwrap();
         let _back: Wave<Accepted> = serde_json::from_str(&j).unwrap();
 
-        let (closed, _) = w.closeout(1_716_400_500);
+        let (closed, record) = w.closeout(1_716_400_500);
         let j = serde_json::to_string(&closed).unwrap();
-        let _back: Wave<Closed> = serde_json::from_str(&j).unwrap();
+        let back: Wave<Closed> = serde_json::from_str(&j).unwrap();
+        // The verifier (belt-and-suspenders re-check) also accepts a
+        // legitimately-closed, round-tripped wave.
+        assert!(verifier::verify_wave_audit_fields(&back).is_ok());
+        let _ = record;
+    }
+
+    // -----------------------------------------------------------------
+    // internal-ref (purple-team finding) — forged terminal-wave rejection.
+    // Mirrors the red-team PoC: a JSON payload shaped exactly like a
+    // freshly-`Planned` wave (`ctx` + `role_assignments`, nothing
+    // else), deserialized directly at a *later* type parameter. Before
+    // this fix, `Wave<S>`'s derived `Deserialize` let this through —
+    // `Option<_>` fields silently default to `None` for an absent
+    // key — synthesizing a "closed" wave that never traversed a
+    // single transition method. These are Rule 8 adversarial
+    // fixtures the deserializer MUST reject.
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn forged_wave_closed_from_planned_shaped_json_is_rejected() {
+        let ctx_json = serde_json::to_value(ctx_with_gate_surface()).unwrap();
+        let forged = serde_json::json!({
+            "ctx": ctx_json,
+            "role_assignments": [],
+        })
+        .to_string();
+        let result: Result<Wave<Closed>, _> = serde_json::from_str(&forged);
+        assert!(
+            result.is_err(),
+            "a Planned-shaped payload must not deserialize as Wave<Closed>"
+        );
+        let err = result.err().unwrap().to_string();
+        assert!(
+            err.contains("FINDING-D3"),
+            "expected FINDING-D3 (missing adversarial_session), got: {err}"
+        );
+    }
+
+    #[test]
+    fn forged_wave_closed_missing_purple_team_despite_gate_surface_is_rejected() {
+        // FINDING-D1: adversarial_session and uat_verdicts are
+        // present (so the D3/D4 checks alone would not catch this),
+        // but the context has a non-empty gate_surfaces and
+        // purple_team_session is absent.
+        let ctx_json = serde_json::to_value(ctx_with_gate_surface()).unwrap();
+        let forged = serde_json::json!({
+            "ctx": ctx_json,
+            "role_assignments": [],
+            "adversarial_session": "adv-fake-totally-legit",
+            "uat_verdicts": [],
+        })
+        .to_string();
+        let result: Result<Wave<Closed>, _> = serde_json::from_str(&forged);
+        assert!(
+            result.is_err(),
+            "gate_surfaces non-empty + no purple_team_session must be rejected"
+        );
+        let err = result.err().unwrap().to_string();
+        assert!(
+            err.contains("FINDING-D1"),
+            "expected FINDING-D1 (missing purple_team_session), got: {err}"
+        );
+    }
+
+    #[test]
+    fn forged_wave_accepted_missing_uat_verdicts_is_rejected() {
+        // FINDING-D4 (Rust-only addition beyond the Python D1/D3
+        // parity set): no gate surface (so D1 does not fire),
+        // adversarial_session present (so D3 does not fire), but
+        // uat_verdicts is absent even though the target state is
+        // `Accepted`.
+        let ctx_json = serde_json::to_value(ctx_no_gate_surface()).unwrap();
+        let forged = serde_json::json!({
+            "ctx": ctx_json,
+            "role_assignments": [],
+            "adversarial_session": "adv-fake",
+        })
+        .to_string();
+        let result: Result<Wave<Accepted>, _> = serde_json::from_str(&forged);
+        assert!(
+            result.is_err(),
+            "Accepted-typed payload without uat_verdicts must be rejected"
+        );
+        let err = result.err().unwrap().to_string();
+        assert!(
+            err.contains("FINDING-D4"),
+            "expected FINDING-D4 (missing uat_verdicts), got: {err}"
+        );
+    }
+
+    #[test]
+    fn forged_wave_tested_missing_adversarial_session_is_rejected() {
+        // Same PoC shape as the Planned-shaped Closed forgery, but
+        // targeting the very first gated state (`Tested`) to prove
+        // the check is not merely a Closed-specific special case.
+        let ctx_json = serde_json::to_value(ctx_no_gate_surface()).unwrap();
+        let forged = serde_json::json!({
+            "ctx": ctx_json,
+            "role_assignments": [],
+        })
+        .to_string();
+        let result: Result<Wave<Tested>, _> = serde_json::from_str(&forged);
+        assert!(result.is_err());
+        let err = result.err().unwrap().to_string();
+        assert!(
+            err.contains("FINDING-D3"),
+            "expected FINDING-D3, got: {err}"
+        );
+    }
+
+    #[test]
+    fn planned_and_decomposed_deserialize_without_extra_fields() {
+        // Sanity check that the hardening does not over-tighten the
+        // early states, which legitimately carry no session data yet.
+        let ctx_json = serde_json::to_value(ctx_no_gate_surface()).unwrap();
+        let payload = serde_json::json!({
+            "ctx": ctx_json,
+            "role_assignments": [],
+        })
+        .to_string();
+        assert!(serde_json::from_str::<Wave<Planned>>(&payload).is_ok());
+        assert!(serde_json::from_str::<Wave<Decomposed>>(&payload).is_ok());
     }
 
     #[test]
     fn closeout_produces_populated_learning_record() {
-        //  AC6: closeout returns a populated WaveLearningRecord
+        // internal-ref AC6: closeout returns a populated WaveLearningRecord
         // (not a stub). The phases_executed list is derived from
         // ctx.phases; gate_verdicts reflects the gate_surfaces set.
         let w = Wave::<Planned>::new(ctx_with_gate_surface())

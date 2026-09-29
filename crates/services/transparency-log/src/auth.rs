@@ -1,5 +1,5 @@
-//! `x-api-key` middleware for the transparency-log service (
-//!  §3,  Step 5).
+//! `x-api-key` middleware for the transparency-log service (ADR-014
+//! Phase 3 §3, internal-ref Step 5).
 //!
 //! Mirrors the kernel's `auth.rs::auth_layer` pattern. Only the kernel
 //! is expected to call this service, so the auth model is "single
@@ -42,8 +42,13 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
 }
 
 /// True if the path is allow-listed for unauthenticated access.
+///
+/// - `/health` — liveness probe (internal-ref).
+/// - `/v1/keys/transparency` — internal-ref publishes the transparency-log
+///   Ed25519 public key. External verifiers MUST be able to fetch this
+///   without any credential — it's a public key by definition.
 fn is_public_path(path: &str) -> bool {
-    matches!(path, "/health")
+    matches!(path, "/health" | "/v1/keys/transparency")
 }
 
 fn deny(status: StatusCode, body: ErrorResponse) -> Response {
@@ -110,7 +115,11 @@ mod tests {
     #[test]
     fn public_paths() {
         assert!(is_public_path("/health"));
+        // internal-ref: published Ed25519 public key is intentionally
+        // unauthenticated — anyone can fetch a public key.
+        assert!(is_public_path("/v1/keys/transparency"));
         assert!(!is_public_path("/v1/append"));
         assert!(!is_public_path("/v1/sth"));
+        assert!(!is_public_path("/v1/wave/session"));
     }
 }

@@ -1,5 +1,5 @@
 //! `GET /v1/sth` — return the current Ed25519-signed tree head
-//! ( Step 5).
+//! (internal-ref Step 5).
 //!
 //! Mints the STH via `qorch_domain::transparency::mint_sth` so the
 //! signing logic stays pure-domain. Timestamp is sourced from the
@@ -54,7 +54,7 @@ mod tests {
     use sha2::{Digest, Sha256};
     use tower::ServiceExt;
 
-    use qorch_adapters::clock::SystemClock;
+    use crate::clock::SystemClock;
     use qorch_domain::safety::Clock;
     use qorch_domain::transparency::verify_sth;
     use qorch_transparency_store::{
