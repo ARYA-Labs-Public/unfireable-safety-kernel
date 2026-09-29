@@ -1,7 +1,7 @@
 //! `WaveSessionRecord` — wire-shape for a single ceremony-stage
 //! session record persisted to the transparency-log.
 //!
-//!. One record per (wave_id, stage, session_id).
+//! internal-ref Phase 1. One record per (`wave_id`, stage, `session_id`).
 //! The transparency-log indexes by `idempotency_key =
 //! SHA-256(wave_id || stage || session_id)`; the field set below is
 //! the *canonical content*, agnostic of HMAC framing (the kernel
@@ -19,7 +19,7 @@
 //!   - HTTP routing.
 //!   - Idempotency-key derivation against the store.
 
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -45,11 +45,17 @@ pub struct WaveSessionRecord {
 
     /// Set of gate surfaces this session record attests to. Required
     /// for stages where gate-surface coverage is the verdict
-    /// (PurpleTeamed); informational on others. An empty set means
+    /// (`PurpleTeamed`); informational on others. An empty set means
     /// "no gate surfaces touched at this stage".
-    pub gate_surfaces: HashSet<GateSurface>,
+    ///
+    /// A `BTreeSet` (not `HashSet`) so `canonical_bytes` serializes the
+    /// surfaces in deterministic, sorted order — see [`GateSurface`]. A
+    /// `HashSet` here would make the append client and the transparency-log
+    /// service HMAC byte-different canonicalizations of the same multi-surface
+    /// record and reject it ~50% of the time.
+    pub gate_surfaces: BTreeSet<GateSurface>,
 
-    /// Originating Linear issue (e.g. `""`). Carried so the
+    /// Originating Linear issue (e.g. `"internal-ref"`). Carried so the
     /// verify route can render a human-readable chain.
     pub linear_issue: String,
 
@@ -89,13 +95,16 @@ impl WaveSessionRecord {
         session_id: impl Into<String>,
         outcome: WaveOutcome,
         evidence: impl Into<String>,
-        gate_surfaces: HashSet<GateSurface>,
+        gate_surfaces: impl IntoIterator<Item = GateSurface>,
         written_by: impl Into<String>,
         occurred_at_epoch_seconds: u64,
     ) -> Self {
         Self {
             evidence: evidence.into(),
-            gate_surfaces,
+            // Collect into the canonical `BTreeSet` regardless of what the
+            // caller passed (`HashSet`, `Vec`, `BTreeSet`, …) so
+            // `canonical_bytes` is always deterministic.
+            gate_surfaces: gate_surfaces.into_iter().collect(),
             linear_issue: linear_issue.into(),
             occurred_at_epoch_seconds,
             outcome,
@@ -197,10 +206,10 @@ pub fn all_required_stages_present(records: &[WaveSessionRecord]) -> bool {
 mod tests {
     use super::*;
 
-    fn rec(stage: WaveStage, gs: HashSet<GateSurface>) -> WaveSessionRecord {
+    fn rec(stage: WaveStage, gs: BTreeSet<GateSurface>) -> WaveSessionRecord {
         WaveSessionRecord::new(
             WaveId::new("wave-001"),
-            "",
+            "internal-ref",
             stage,
             format!("sid-{stage:?}"),
             WaveOutcome::Pass,
@@ -239,7 +248,7 @@ mod tests {
 
     #[test]
     fn canonical_bytes_round_trip() {
-        let r = rec(WaveStage::Tested, HashSet::new());
+        let r = rec(WaveStage::Tested, BTreeSet::new());
         let bytes = r.canonical_bytes().unwrap();
         let back: WaveSessionRecord = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(r, back);
@@ -247,19 +256,53 @@ mod tests {
 
     #[test]
     fn canonical_bytes_byte_stable_across_calls() {
-        let r = rec(WaveStage::Tested, HashSet::new());
+        let r = rec(WaveStage::Tested, BTreeSet::new());
         assert_eq!(r.canonical_bytes().unwrap(), r.canonical_bytes().unwrap());
+    }
+
+    /// Regression for the gate-surfaces canonicalization bug (2026-07-12):
+    /// with a `HashSet` field, `canonical_bytes` serialized ≥2 gate surfaces in
+    /// per-process-random iteration order, so the append client and the
+    /// transparency-log service HMAC'd byte-different canonicalizations of the
+    /// SAME record and rejected it ~50% of the time (`kernel_hmac_mismatch`).
+    /// A `BTreeSet` makes the order canonical (sorted = variant-declaration
+    /// order), so the projection is insertion-order-independent and byte-stable.
+    #[test]
+    fn canonical_bytes_gate_surfaces_are_sorted_and_insertion_order_independent() {
+        // Same surfaces, opposite insertion order.
+        let mut a = BTreeSet::new();
+        a.insert(GateSurface::TransparencyLog);
+        a.insert(GateSurface::GitHooks);
+        let mut b = BTreeSet::new();
+        b.insert(GateSurface::GitHooks);
+        b.insert(GateSurface::TransparencyLog);
+
+        let bytes_a = rec(WaveStage::Tested, a).canonical_bytes().unwrap();
+        let bytes_b = rec(WaveStage::Tested, b).canonical_bytes().unwrap();
+
+        // Insertion order must not change the canonical bytes.
+        assert_eq!(bytes_a, bytes_b);
+
+        // And the surfaces serialize in canonical (Ord = declaration) order —
+        // `GitHooks` precedes `TransparencyLog`. Pinned so a future switch back
+        // to an unordered set (or a variant reorder) trips here. A `HashSet`
+        // field would make this substring assertion flaky (~50%).
+        let json = String::from_utf8(bytes_a).unwrap();
+        assert!(
+            json.contains(r#""gate_surfaces":["GitHooks","TransparencyLog"]"#),
+            "gate_surfaces must serialize in canonical sorted order; got: {json}"
+        );
     }
 
     #[test]
     fn all_required_present_with_purple_team() {
-        let mut gs = HashSet::new();
+        let mut gs = BTreeSet::new();
         gs.insert(GateSurface::SafetyKernel);
         let chain = vec![
             rec(WaveStage::Tested, gs.clone()),
             rec(WaveStage::PurpleTeamed, gs.clone()),
-            rec(WaveStage::Accepted, HashSet::new()),
-            rec(WaveStage::Closed, HashSet::new()),
+            rec(WaveStage::Accepted, BTreeSet::new()),
+            rec(WaveStage::Closed, BTreeSet::new()),
         ];
         assert!(all_required_stages_present(&chain));
     }
@@ -267,23 +310,23 @@ mod tests {
     #[test]
     fn all_required_present_without_purple_team_no_gate_surface() {
         let chain = vec![
-            rec(WaveStage::Tested, HashSet::new()),
-            rec(WaveStage::Accepted, HashSet::new()),
-            rec(WaveStage::Closed, HashSet::new()),
+            rec(WaveStage::Tested, BTreeSet::new()),
+            rec(WaveStage::Accepted, BTreeSet::new()),
+            rec(WaveStage::Closed, BTreeSet::new()),
         ];
         assert!(all_required_stages_present(&chain));
     }
 
     #[test]
     fn all_required_missing_purple_team_with_gate_surface() {
-        let mut gs = HashSet::new();
+        let mut gs = BTreeSet::new();
         gs.insert(GateSurface::SafetyKernel);
         // Rule 8 fixture: gate surface present, no PurpleTeamed
         // record. The predicate MUST reject.
         let chain = vec![
             rec(WaveStage::Tested, gs),
-            rec(WaveStage::Accepted, HashSet::new()),
-            rec(WaveStage::Closed, HashSet::new()),
+            rec(WaveStage::Accepted, BTreeSet::new()),
+            rec(WaveStage::Closed, BTreeSet::new()),
         ];
         assert!(!all_required_stages_present(&chain));
     }
@@ -291,8 +334,8 @@ mod tests {
     #[test]
     fn all_required_missing_tested() {
         let chain = vec![
-            rec(WaveStage::Accepted, HashSet::new()),
-            rec(WaveStage::Closed, HashSet::new()),
+            rec(WaveStage::Accepted, BTreeSet::new()),
+            rec(WaveStage::Closed, BTreeSet::new()),
         ];
         assert!(!all_required_stages_present(&chain));
     }
@@ -300,8 +343,8 @@ mod tests {
     #[test]
     fn all_required_missing_closed() {
         let chain = vec![
-            rec(WaveStage::Tested, HashSet::new()),
-            rec(WaveStage::Accepted, HashSet::new()),
+            rec(WaveStage::Tested, BTreeSet::new()),
+            rec(WaveStage::Accepted, BTreeSet::new()),
         ];
         assert!(!all_required_stages_present(&chain));
     }
@@ -314,7 +357,7 @@ mod tests {
         let bad = r#"{
             "evidence": "x",
             "gate_surfaces": [],
-            "linear_issue": "",
+            "linear_issue": "internal-ref",
             "occurred_at_epoch_seconds": 0,
             "outcome": "PASS",
             "session_id": "s",

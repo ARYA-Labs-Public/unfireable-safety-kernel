@@ -1,4 +1,4 @@
-//!   — Purple-Team adversarial tests against the
+//! internal-ref Phase 3 — Purple-Team adversarial tests against the
 //! transparency-log idempotency surface.
 //!
 //! Campaigns:
@@ -15,7 +15,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #![allow(clippy::doc_markdown, clippy::doc_lazy_continuation)]
-
+#![allow(clippy::bool_assert_comparison)]
 use std::sync::Arc;
 
 use axum::{routing::post, Router};
@@ -27,8 +27,8 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use tower::ServiceExt;
 
-use qorch_adapters::clock::SystemClock;
 use qorch_domain::safety::Clock;
+use qorch_transparency_log::clock::SystemClock;
 use qorch_transparency_log::routes::append::append;
 use qorch_transparency_log::state::AppState;
 use qorch_transparency_store::memory::MemoryTransparencyStore;

@@ -332,10 +332,14 @@ pub fn verify_inclusion_proof(
     Ok(())
 }
 
-/// Build an RFC-6962 consistency proof between trees of size
-/// `from_size` (earlier) and `to_size` (later), given the full leaf
-/// set of the later tree (which is a strict superset of the earlier
-/// one because the ledger is append-only).
+/// Build the RFC-6962 consistency proof from tree size `from_size`
+/// to tree size `to_size` over the leaves in `leaves`.
+///
+/// This is the slice convenience form: it materialises every leaf
+/// hash up to `to_size` and is O(n) in `to_size`. Callers that already
+/// hold a [`HashTree`] (or any other source of subtree roots) should
+/// use [`build_consistency_proof_with`], which touches only the
+/// O(log n) subtree roots the proof actually contains.
 ///
 /// # Errors
 ///
@@ -355,11 +359,48 @@ pub fn build_consistency_proof(
         return Err(VerificationError::LeafIndexOutOfBounds);
     }
     let to_end = usize::try_from(to_size).map_err(|_| VerificationError::LeafIndexOutOfBounds)?;
-    let from_count =
-        usize::try_from(from_size).map_err(|_| VerificationError::LeafIndexOutOfBounds)?;
     let hashes: Vec<[u8; 32]> = leaves[..to_end].iter().map(|l| l.hash).collect();
+    build_consistency_proof_with(from_size, to_size, |start, len| {
+        let s = usize::try_from(start).map_err(|_| VerificationError::LeafIndexOutOfBounds)?;
+        let l = usize::try_from(len).map_err(|_| VerificationError::LeafIndexOutOfBounds)?;
+        let end = s
+            .checked_add(l)
+            .filter(|e| *e <= hashes.len())
+            .ok_or(VerificationError::LeafIndexOutOfBounds)?;
+        Ok(root_of_hashes(&hashes[s..end]))
+    })
+}
+
+/// Build the RFC-6962 consistency proof from tree size `from_size` to
+/// tree size `to_size`, sourcing every subtree root the proof needs
+/// from `subtree_root(start, len)`.
+///
+/// `subtree_root` must return the RFC-6962 Merkle root of the leaves
+/// `start..start + len` (with `len >= 1`). The recursion only ever
+/// asks for the O(log n) subtrees that appear in the proof, so a
+/// backing store that can answer those queries without walking every
+/// leaf (for example a [`HashTree`]) makes proof construction O(log n)
+/// instead of O(n). The proof produced is byte-identical to
+/// [`build_consistency_proof`] over the same leaves.
+///
+/// # Errors
+///
+/// - [`VerificationError::InvalidConsistencyRange`] if `from_size ==
+///   0` or `from_size > to_size`.
+/// - Any error returned by `subtree_root` is propagated unchanged.
+pub fn build_consistency_proof_with<F>(
+    from_size: u64,
+    to_size: u64,
+    mut subtree_root: F,
+) -> Result<ConsistencyProof, VerificationError>
+where
+    F: FnMut(u64, u64) -> Result<[u8; 32], VerificationError>,
+{
+    if from_size == 0 || from_size > to_size {
+        return Err(VerificationError::InvalidConsistencyRange);
+    }
     let mut proof = Vec::new();
-    subproof(from_count, &hashes, true, &mut proof);
+    subproof_with(from_size, 0, to_size, true, &mut subtree_root, &mut proof)?;
     Ok(ConsistencyProof {
         from_size,
         proof,
@@ -367,27 +408,192 @@ pub fn build_consistency_proof(
     })
 }
 
-/// RFC-6962 §2.1.2 `SUBPROOF` recursion. `start_on_path` tracks
-/// whether the current subtree contains the rightmost leaf of the
-/// earlier tree (the "MTH of a complete subtree" optimisation): if
-/// the earlier tree exactly covers the left subtree, we suppress its
-/// hash from the proof because the verifier already has it.
-fn subproof(m: usize, hashes: &[[u8; 32]], start_on_path: bool, out: &mut Vec<[u8; 32]>) {
-    let n = hashes.len();
+/// RFC-6962 §2.1.2 `SUBPROOF` recursion over leaf *ranges* rather
+/// than a materialised slice. `(start, n)` is the current subtree
+/// (leaves `start..start + n`), `m` the number of its leaves that
+/// belong to the earlier tree. `start_on_path` tracks whether the
+/// current subtree contains the rightmost leaf of the earlier tree
+/// (the "MTH of a complete subtree" optimisation): if the earlier tree
+/// exactly covers the left subtree, we suppress its hash from the
+/// proof because the verifier already has it.
+fn subproof_with<F>(
+    m: u64,
+    start: u64,
+    n: u64,
+    start_on_path: bool,
+    subtree_root: &mut F,
+    out: &mut Vec<[u8; 32]>,
+) -> Result<(), VerificationError>
+where
+    F: FnMut(u64, u64) -> Result<[u8; 32], VerificationError>,
+{
     if m == n {
         if !start_on_path {
-            out.push(root_of_hashes(hashes));
+            out.push(subtree_root(start, n)?);
         }
-        return;
+        return Ok(());
     }
     debug_assert!(m < n, "SUBPROOF requires m < n");
-    let k = largest_power_of_two_strictly_less_than(n);
+    let k = largest_power_of_two_strictly_less_than_u64(n);
     if m <= k {
-        subproof(m, &hashes[..k], start_on_path, out);
-        out.push(root_of_hashes(&hashes[k..]));
+        subproof_with(m, start, k, start_on_path, subtree_root, out)?;
+        out.push(subtree_root(start + k, n - k)?);
     } else {
-        subproof(m - k, &hashes[k..], false, out);
-        out.push(root_of_hashes(&hashes[..k]));
+        subproof_with(m - k, start + k, n - k, false, subtree_root, out)?;
+        out.push(subtree_root(start, k)?);
+    }
+    Ok(())
+}
+
+/// `u64` twin of [`largest_power_of_two_strictly_less_than`], for the
+/// range-based recursion. Defined for `n >= 2`.
+fn largest_power_of_two_strictly_less_than_u64(n: u64) -> u64 {
+    debug_assert!(n >= 2, "RFC-6962 split requires n ≥ 2");
+    if n.is_power_of_two() {
+        n / 2
+    } else {
+        n.next_power_of_two() / 2
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Incremental hash tree (cached internal nodes)
+// ---------------------------------------------------------------------------
+
+/// Append-only RFC-6962 Merkle tree that keeps every internal node
+/// hash, so any aligned subtree root is an O(1) lookup and a
+/// consistency proof costs O(log n) instead of a full leaf walk.
+///
+/// `levels[0]` holds the leaf hashes in ledger order; `levels[i][j]`
+/// is `node_hash(levels[i-1][2j], levels[i-1][2j+1])`, filled in as
+/// soon as that pair is complete. Memory is under `2n` hashes (64
+/// bytes per leaf). Pure data structure: no I/O, no locking. The
+/// transparency-log service owns one per process and extends it from
+/// the store on demand, which turns the `/consistency` hot path from
+/// "reload every leaf per request" into "load only the leaves appended
+/// since the last request".
+#[derive(Debug, Clone, Default)]
+pub struct HashTree {
+    levels: Vec<Vec<[u8; 32]>>,
+}
+
+impl HashTree {
+    /// An empty tree.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Number of leaves pushed so far.
+    #[must_use]
+    pub fn len(&self) -> u64 {
+        self.levels.first().map_or(0, |l| l.len() as u64)
+    }
+
+    /// `true` when no leaf has been pushed.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Append a leaf hash (already `leaf_hash(payload)`), completing
+    /// every internal node that pair closes.
+    pub fn push(&mut self, hash: [u8; 32]) {
+        if self.levels.is_empty() {
+            self.levels.push(Vec::new());
+        }
+        self.levels[0].push(hash);
+        let mut level = 0;
+        loop {
+            let len = self.levels[level].len();
+            if len % 2 != 0 {
+                return;
+            }
+            let parent = node_hash(&self.levels[level][len - 2], &self.levels[level][len - 1]);
+            if self.levels.len() == level + 1 {
+                self.levels.push(Vec::new());
+            }
+            self.levels[level + 1].push(parent);
+            level += 1;
+        }
+    }
+
+    /// Append a leaf (its `hash` field).
+    pub fn push_leaf(&mut self, leaf: &MerkleLeaf) {
+        self.push(leaf.hash);
+    }
+
+    /// RFC-6962 Merkle root of the leaves `start..start + len`.
+    ///
+    /// Aligned power-of-two ranges are a single lookup; any other
+    /// range splits at the largest power of two below `len` exactly
+    /// as [`compute_root`] does, so results are identical to hashing
+    /// the slice.
+    ///
+    /// # Errors
+    ///
+    /// - [`VerificationError::EmptyTree`] if `len == 0`.
+    /// - [`VerificationError::LeafIndexOutOfBounds`] if `start + len`
+    ///   exceeds the number of leaves pushed.
+    pub fn subtree_root(&self, start: u64, len: u64) -> Result<[u8; 32], VerificationError> {
+        if len == 0 {
+            return Err(VerificationError::EmptyTree);
+        }
+        let end = start
+            .checked_add(len)
+            .filter(|e| *e <= self.len())
+            .ok_or(VerificationError::LeafIndexOutOfBounds)?;
+        debug_assert!(end <= self.len());
+        if len.is_power_of_two() && start % len == 0 {
+            let level = usize::try_from(len.trailing_zeros())
+                .map_err(|_| VerificationError::LeafIndexOutOfBounds)?;
+            let idx = usize::try_from(start / len)
+                .map_err(|_| VerificationError::LeafIndexOutOfBounds)?;
+            return self
+                .levels
+                .get(level)
+                .and_then(|l| l.get(idx))
+                .copied()
+                .ok_or(VerificationError::LeafIndexOutOfBounds);
+        }
+        let k = largest_power_of_two_strictly_less_than_u64(len);
+        let left = self.subtree_root(start, k)?;
+        let right = self.subtree_root(start + k, len - k)?;
+        Ok(node_hash(&left, &right))
+    }
+
+    /// Root of the tree formed by the first `size` leaves.
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::subtree_root`] with `start = 0`.
+    pub fn root_at(&self, size: u64) -> Result<[u8; 32], VerificationError> {
+        self.subtree_root(0, size)
+    }
+
+    /// RFC-6962 consistency proof from `from_size` to `to_size`, built
+    /// from cached subtree roots in O(log n).
+    ///
+    /// # Errors
+    ///
+    /// - [`VerificationError::InvalidConsistencyRange`] if `from_size
+    ///   == 0` or `from_size > to_size`.
+    /// - [`VerificationError::LeafIndexOutOfBounds`] if `to_size`
+    ///   exceeds the number of leaves pushed.
+    pub fn consistency_proof(
+        &self,
+        from_size: u64,
+        to_size: u64,
+    ) -> Result<ConsistencyProof, VerificationError> {
+        if from_size == 0 || from_size > to_size {
+            return Err(VerificationError::InvalidConsistencyRange);
+        }
+        if to_size > self.len() {
+            return Err(VerificationError::LeafIndexOutOfBounds);
+        }
+        build_consistency_proof_with(from_size, to_size, |start, len| {
+            self.subtree_root(start, len)
+        })
     }
 }
 
@@ -741,5 +947,126 @@ mod tests {
         let mut out = [0u8; 32];
         out.copy_from_slice(&v);
         out
+    }
+
+    #[test]
+    fn hash_tree_root_matches_compute_root_for_every_size() {
+        let leaves = leaves_n(70);
+        let mut tree = HashTree::new();
+        assert!(tree.is_empty());
+        for (i, leaf) in leaves.iter().enumerate() {
+            tree.push_leaf(leaf);
+            let size = i + 1;
+            assert_eq!(tree.len(), size as u64);
+            assert_eq!(
+                tree.root_at(size as u64).unwrap(),
+                compute_root(&leaves[..size]).unwrap(),
+                "root mismatch at size {size}"
+            );
+        }
+    }
+
+    #[test]
+    fn hash_tree_subtree_root_matches_slice_hash_for_every_range() {
+        let leaves = leaves_n(33);
+        let mut tree = HashTree::new();
+        for leaf in &leaves {
+            tree.push_leaf(leaf);
+        }
+        let hashes: Vec<[u8; 32]> = leaves.iter().map(|l| l.hash).collect();
+        for start in 0..hashes.len() {
+            for end in (start + 1)..=hashes.len() {
+                assert_eq!(
+                    tree.subtree_root(start as u64, (end - start) as u64)
+                        .unwrap(),
+                    root_of_hashes(&hashes[start..end]),
+                    "subtree mismatch for {start}..{end}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn hash_tree_subtree_root_bounds() {
+        let mut tree = HashTree::new();
+        assert_eq!(
+            tree.subtree_root(0, 1),
+            Err(VerificationError::LeafIndexOutOfBounds)
+        );
+        for leaf in &leaves_n(5) {
+            tree.push_leaf(leaf);
+        }
+        assert_eq!(tree.subtree_root(0, 0), Err(VerificationError::EmptyTree));
+        assert_eq!(
+            tree.subtree_root(4, 2),
+            Err(VerificationError::LeafIndexOutOfBounds)
+        );
+        assert_eq!(
+            tree.subtree_root(u64::MAX, 2),
+            Err(VerificationError::LeafIndexOutOfBounds)
+        );
+        assert!(tree.subtree_root(4, 1).is_ok());
+    }
+
+    #[test]
+    fn consistency_proof_from_hash_tree_is_byte_identical_and_verifies() {
+        let leaves = leaves_n(40);
+        let mut tree = HashTree::new();
+        for leaf in &leaves {
+            tree.push_leaf(leaf);
+        }
+        for n in 1..=leaves.len() {
+            for m in 1..=n {
+                let via_slice = build_consistency_proof(&leaves, m as u64, n as u64).unwrap();
+                let via_tree = tree.consistency_proof(m as u64, n as u64).unwrap();
+                assert_eq!(via_tree, via_slice, "proof differs for m={m} n={n}");
+                let from_root = compute_root(&leaves[..m]).unwrap();
+                let to_root = compute_root(&leaves[..n]).unwrap();
+                verify_consistency_proof(&via_tree, &from_root, &to_root)
+                    .unwrap_or_else(|e| panic!("m={m} n={n}: {e:?}"));
+            }
+        }
+    }
+
+    #[test]
+    fn consistency_proof_with_only_touches_log_n_subtrees() {
+        let leaves = leaves_n(64);
+        let mut tree = HashTree::new();
+        for leaf in &leaves {
+            tree.push_leaf(leaf);
+        }
+        let mut calls = 0usize;
+        let proof = build_consistency_proof_with(17, 64, |s, l| {
+            calls += 1;
+            tree.subtree_root(s, l)
+        })
+        .unwrap();
+        // RFC-6962: a proof between two sizes has at most 2·log2(n)
+        // elements, and every element is exactly one subtree query.
+        assert_eq!(calls, proof.proof.len());
+        assert!(
+            calls <= 12,
+            "expected O(log n) subtree queries, got {calls}"
+        );
+    }
+
+    #[test]
+    fn hash_tree_consistency_proof_range_errors() {
+        let mut tree = HashTree::new();
+        for leaf in &leaves_n(4) {
+            tree.push_leaf(leaf);
+        }
+        assert_eq!(
+            tree.consistency_proof(0, 4),
+            Err(VerificationError::InvalidConsistencyRange)
+        );
+        assert_eq!(
+            tree.consistency_proof(3, 2),
+            Err(VerificationError::InvalidConsistencyRange)
+        );
+        assert_eq!(
+            tree.consistency_proof(1, 5),
+            Err(VerificationError::LeafIndexOutOfBounds)
+        );
     }
 }

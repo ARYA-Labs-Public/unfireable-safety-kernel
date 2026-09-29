@@ -1,18 +1,18 @@
-//! Postgres-backed `TransparencyStore` ().
+//! Postgres-backed `TransparencyStore` (ADR-014 Phase 3 §5).
 //!
 //! Schema is in `migrations/0001_transparency_log.sql`. Idempotency
 //! is enforced via the `UNIQUE (idempotency_key)` constraint and an
-//! `INSERT... ON CONFLICT (idempotency_key) DO UPDATE SET
-//! leaf_index = transparency_log.leaf_index RETURNING...` pattern
+//! `INSERT ... ON CONFLICT (idempotency_key) DO UPDATE SET
+//! leaf_index = transparency_log.leaf_index RETURNING ...` pattern
 //! that surfaces the **existing** row's index on retry.
 //!
-//! Isolation: per the production store runs at
+//! Isolation: per ADR-014 Phase 3 §5 the production store runs at
 //! `SERIALIZABLE` isolation. We set the isolation level per
 //! transaction (no DB-wide change required) and let Postgres detect
 //! serialization conflicts; the caller decides whether to retry the
 //! outer logical operation.
 //!
-//! The implementation is intentionally minimal — Step 5 of
+//! The implementation is intentionally minimal — Step 5 of internal-ref
 //! is the one that wires routes against this adapter and adds the
 //! integration tests against a real DB. The unit-level confidence
 //! comes from [`crate::memory`].
@@ -24,7 +24,7 @@ use qorch_domain::transparency::{
 };
 use sqlx::PgPool;
 
-use crate::{AppendInput, AppendOutcome, StoreError, TransparencyStore};
+use crate::{AppendInput, AppendOutcome, LeafPayloadRecord, StoreError, TransparencyStore};
 
 /// Postgres-backed transparency-log store.
 #[derive(Clone, Debug)]
@@ -49,7 +49,7 @@ impl PgTransparencyStore {
 
     /// Load every leaf in `leaf_index` order. The in-process Merkle
     /// helpers (`compute_root`, `build_inclusion_proof_pure`) need
-    /// the full leaf list. The transparency-log service is
+    /// the full leaf list. The transparency-log service internal-ref is
     /// sized for O(10^6) appends over the burn-in horizon; for that
     /// scale a single ordered scan + serde is acceptable. Future
     /// work (out of scope here): cache the tree in memory, or
@@ -98,6 +98,31 @@ impl RawLeafRow {
     }
 }
 
+/// Internal row representation for [`PgTransparencyStore::load_all_payloads`].
+/// Extends [`RawLeafRow`] with the verbatim `payload` bytes; hand-decoded
+/// for the same `[u8; 32]`-length validation reason.
+#[derive(sqlx::FromRow)]
+struct RawPayloadRow {
+    leaf_index: i64,
+    leaf_hash: Vec<u8>,
+    payload: Vec<u8>,
+}
+
+impl RawPayloadRow {
+    fn try_into_record(self) -> Result<LeafPayloadRecord, StoreError> {
+        let leaf_index = u64::try_from(self.leaf_index)
+            .map_err(|_| StoreError::Backend("negative leaf_index from DB".into()))?;
+        let leaf_hash: [u8; 32] = self.leaf_hash.try_into().map_err(|v: Vec<u8>| {
+            StoreError::Backend(format!("leaf_hash wrong length: {}", v.len()))
+        })?;
+        Ok(LeafPayloadRecord {
+            leaf_index,
+            leaf_hash,
+            payload: self.payload,
+        })
+    }
+}
+
 #[async_trait]
 impl TransparencyStore for PgTransparencyStore {
     async fn append(&self, payload: AppendInput) -> Result<AppendOutcome, StoreError> {
@@ -128,12 +153,14 @@ impl TransparencyStore for PgTransparencyStore {
         // the idiomatic way to return the existing row's columns
         // via `RETURNING` even on conflict (`DO NOTHING` skips
         // RETURNING).
-        // `(xmax = 0) AS inserted` is the standard idiom for telling a
-        // fresh INSERT from an `ON CONFLICT DO UPDATE`: on a genuine
-        // insert the row's `xmax` system column is 0; a conflict-driven
-        // update stamps it with the updating xid (non-zero). This makes
-        // the fresh/replay decision atomic with the write itself, so it
-        // cannot be raced by a separate `current_size` snapshot.
+        //
+        // `(xmax = 0) AS created` distinguishes a FRESH insert from a
+        // conflict-hit inside the same statement: a newly-inserted
+        // tuple has `xmax = 0`, whereas the DO UPDATE path stamps
+        // `xmax` with the updating xid (non-zero). This lets us report
+        // fresh-vs-replay atomically instead of comparing a separately
+        // read pre-append size (internal-ref: that snapshot races and
+        // mis-reports `201 CREATED` for concurrent replays).
         let row: (i64, Vec<u8>, Vec<u8>, bool) = sqlx::query_as(
             "INSERT INTO transparency_log \
                  (leaf_hash, idempotency_key, payload, \
@@ -141,7 +168,7 @@ impl TransparencyStore for PgTransparencyStore {
              VALUES ($1, $2, $3, $4, extract(epoch from now())::bigint) \
              ON CONFLICT (idempotency_key) DO UPDATE \
                SET leaf_index = transparency_log.leaf_index \
-             RETURNING leaf_index, leaf_hash, payload, (xmax = 0) AS inserted",
+             RETURNING leaf_index, leaf_hash, payload, (xmax = 0) AS created",
         )
         .bind(hash.as_slice())
         .bind(payload.idempotency_key.as_slice())
@@ -158,8 +185,8 @@ impl TransparencyStore for PgTransparencyStore {
             .await
             .map_err(|e| StoreError::Backend(e.to_string()))?;
 
-        let existing_payload = &row.2;
-        if existing_payload != &payload.payload {
+        let existing_payload = row.2;
+        if existing_payload != payload.payload {
             // Same idempotency key but different bytes: the
             // RETURNING clause gave us the *original* row, so we
             // detect divergence here and report Conflict. The
@@ -177,9 +204,7 @@ impl TransparencyStore for PgTransparencyStore {
         Ok(AppendOutcome {
             leaf_index,
             leaf_hash,
-            // `!inserted`: a conflict-driven update means the key was
-            // already present, i.e. an idempotent replay.
-            idempotent_replay: !row.3,
+            created: row.3,
         })
     }
 
@@ -213,6 +238,23 @@ impl TransparencyStore for PgTransparencyStore {
         compute_root(&leaves).map_err(StoreError::Verification)
     }
 
+    async fn load_all_payloads(&self) -> Result<Vec<LeafPayloadRecord>, StoreError> {
+        // Same ordered full-scan shape as `load_all_leaves`, but also
+        // selects the verbatim `payload` column so a consumer can
+        // reconstruct derived indices on boot (internal-ref). `payload` is
+        // `BYTEA`; `leaf_index` / `leaf_hash` decode as in `RawLeafRow`.
+        let rows = sqlx::query_as::<_, RawPayloadRow>(
+            "SELECT leaf_index, leaf_hash, payload \
+             FROM transparency_log ORDER BY leaf_index ASC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| StoreError::Backend(e.to_string()))?;
+        rows.into_iter()
+            .map(RawPayloadRow::try_into_record)
+            .collect()
+    }
+
     async fn build_inclusion_proof(&self, leaf_index: u64) -> Result<InclusionProof, StoreError> {
         let leaves = self.load_all_leaves().await?;
         if leaves.is_empty() {
@@ -231,7 +273,7 @@ impl TransparencyStore for PgTransparencyStore {
 mod tests {
     //! Integration tests against a live Postgres instance. Gated
     //! behind `#[ignore]` so `cargo test` stays green without a DB.
-    //! Step 5 of wires these to CI with an ephemeral
+    //! Step 5 of internal-ref wires these to CI with an ephemeral
     //! container; until then run locally as:
     //!
     //! ```sh

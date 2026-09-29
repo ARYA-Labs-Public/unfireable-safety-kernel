@@ -1,4 +1,5 @@
-//! HTTP error envelope + service-internal error type ( Step 5).
+#![allow(clippy::doc_overindented_list_items, clippy::doc_lazy_continuation)]
+//! HTTP error envelope + service-internal error type (internal-ref Step 5).
 //!
 //! Mirrors the kernel's `dto::ErrorResponse` shape so client SDKs only
 //! have to learn ONE error envelope. `ServiceError` is the local
@@ -22,7 +23,7 @@ use qorch_transparency_store::StoreError;
 #[derive(Debug, Clone, Serialize)]
 pub struct ErrorResponse {
     /// High-level error category (`"invalid_request"`, `"unauthorized"`,
-    /// `"conflict"`, `"server_error"`,...).
+    /// `"conflict"`, `"server_error"`, ...).
     pub error: String,
     /// Always `false`.
     pub ok: bool,
@@ -79,6 +80,12 @@ pub enum ServiceError {
     #[error("entry not found")]
     NotFound,
 
+    /// The wave's leaf exists in the ledger but could not be
+    /// deserialized -- deliberately NOT 404, because it must be
+    /// distinguishable from a wave that never existed.
+    #[error("entry unreadable")]
+    EntryUnreadable,
+
     /// Invalid query-string parameter (e.g. negative tree size). 400
     /// Bad Request.
     #[error("invalid query parameter: {0}")]
@@ -96,15 +103,56 @@ pub enum ServiceError {
 
     /// Kernel HMAC signature on a wave-session record does not verify
     /// against the canonical-bytes projection. 403 Forbidden.
-    /// ( — wave-session-record append.)
+    /// (internal-ref — wave-session-record append.)
     #[error("kernel hmac signature mismatch")]
     KernelHmacMismatch,
 
     /// `record.stage` and the writing skill's `written_by` field
     /// disagree — e.g. `/test` writing a `CLOSED` record. 400 Bad
-    /// Request. ( — wave-session-record append.)
+    /// Request. (internal-ref — wave-session-record append.)
     #[error("stage / written_by mismatch")]
     StageWrittenByMismatch,
+
+    /// internal-ref — caller asked for `signature_type: "ed25519"` but
+    /// the service was started without an Ed25519 keypair (legacy
+    /// pre-internal-ref deployment). 503 Service Unavailable — operator
+    /// needs to configure `QORCH_TRANSPARENCY_LOG_ED25519_PRIVATE`.
+    #[error("ed25519 signing path is not configured on this server")]
+    Ed25519NotConfigured,
+
+    /// internal-ref — caller-announced Ed25519 public key does not match
+    /// the key published by this transparency-log. Always a forged
+    /// (or stale-key) submission — 403 Forbidden. The constant-time
+    /// fingerprint compare prevents trial-and-error key probing.
+    #[error("ed25519 public key fingerprint mismatch")]
+    Ed25519KeyFingerprintMismatch,
+
+    /// internal-ref — Ed25519 signature does not verify against the
+    /// announced public key and `canonical_bytes(record)`. 403
+    /// Forbidden. This is the AC6 adversarial outcome — a forged
+    /// signature under a wrong keypair lands here.
+    #[error("ed25519 signature verification failed")]
+    Ed25519SignatureMismatch,
+
+    /// internal-ref — `signature_type: "ed25519"` requested but one of
+    /// the required `ed25519_*_hex` fields is missing on the wire.
+    /// 400 Bad Request — caller-side schema error.
+    #[error("ed25519 path requires ed25519_public_key_hex and ed25519_signature_hex")]
+    Ed25519MissingFields,
+
+    /// internal-ref — per-skill `x-api-key` enforcement is armed AND the
+    /// caller's `x-api-key` does not match the configured key for the
+    /// `record.stage` they are trying to write. 403 Forbidden, reason
+    /// `stage_key_mismatch`. Catches a `/test` skill attempting to
+    /// write a `Closed` record (the `/closeout` key is not in the
+    /// caller's possession). Covers two failure modes:
+    ///   - Caller supplied a per-skill key bound to a DIFFERENT stage.
+    ///   - The stage has no per-skill key configured at all (operator
+    ///     forgot to set `QORCH_TRANSPARENCY_KEY_<stage>`).
+    /// Both surface as the same 403 — disclosing which one failed
+    /// would help an attacker map the configured-key surface.
+    #[error("per-skill x-api-key does not match record.stage")]
+    StageKeyMismatch,
 }
 
 impl From<StoreError> for ServiceError {
@@ -136,6 +184,10 @@ impl IntoResponse for ServiceError {
                 StatusCode::NOT_FOUND,
                 ErrorResponse::with_reason("not_found", "entry_not_found"),
             ),
+            ServiceError::EntryUnreadable => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                ErrorResponse::with_reason("entry_unreadable", "entry_unreadable"),
+            ),
             ServiceError::Verification(v) => (
                 StatusCode::BAD_REQUEST,
                 ErrorResponse::with_reason("verification_error", v.to_string()),
@@ -147,6 +199,26 @@ impl IntoResponse for ServiceError {
             ServiceError::StageWrittenByMismatch => (
                 StatusCode::BAD_REQUEST,
                 ErrorResponse::with_reason("invalid_request", "stage_written_by_mismatch"),
+            ),
+            ServiceError::Ed25519NotConfigured => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                ErrorResponse::with_reason("service_unavailable", "ed25519_not_configured"),
+            ),
+            ServiceError::Ed25519KeyFingerprintMismatch => (
+                StatusCode::FORBIDDEN,
+                ErrorResponse::with_reason("forbidden", "ed25519_key_fingerprint_mismatch"),
+            ),
+            ServiceError::Ed25519SignatureMismatch => (
+                StatusCode::FORBIDDEN,
+                ErrorResponse::with_reason("forbidden", "ed25519_signature_mismatch"),
+            ),
+            ServiceError::Ed25519MissingFields => (
+                StatusCode::BAD_REQUEST,
+                ErrorResponse::with_reason("invalid_request", "ed25519_missing_fields"),
+            ),
+            ServiceError::StageKeyMismatch => (
+                StatusCode::FORBIDDEN,
+                ErrorResponse::with_reason("forbidden", "stage_key_mismatch"),
             ),
             ServiceError::Backend(msg) => {
                 tracing::warn!(

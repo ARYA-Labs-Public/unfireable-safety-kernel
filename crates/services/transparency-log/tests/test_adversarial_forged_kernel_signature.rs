@@ -1,4 +1,4 @@
-//!   — Rule-8 adversarial fixture: forged
+//! internal-ref Phase 3 — Rule-8 adversarial fixture: forged
 //! `kernel_key_fingerprint_sha256` MUST be rejected by the
 //! transparency-log service.
 //!
@@ -14,7 +14,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #![allow(clippy::similar_names)]
-
+#![allow(clippy::bool_assert_comparison)]
 use std::sync::Arc;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -25,8 +25,8 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use tower::ServiceExt;
 
-use qorch_adapters::clock::SystemClock;
 use qorch_domain::safety::Clock;
+use qorch_transparency_log::clock::SystemClock;
 use qorch_transparency_log::router::build_router;
 use qorch_transparency_log::state::AppState;
 use qorch_transparency_store::memory::MemoryTransparencyStore;

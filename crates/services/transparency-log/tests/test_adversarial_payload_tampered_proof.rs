@@ -1,4 +1,4 @@
-//!   — Rule-8 adversarial fixture: a payload-tampered
+//! internal-ref Phase 3 — Rule-8 adversarial fixture: a payload-tampered
 //! inclusion proof (bytewise mutation of any field except the path
 //! length) MUST be rejected with `RootMismatch`.
 //!
@@ -25,9 +25,9 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use tokio::net::TcpListener;
 
-use qorch_adapters::clock::SystemClock;
 use qorch_domain::safety::Clock;
 use qorch_domain::transparency::{verify_inclusion_proof, InclusionProof, VerificationError};
+use qorch_transparency_log::clock::SystemClock;
 use qorch_transparency_log::router::build_router;
 use qorch_transparency_log::state::AppState;
 use qorch_transparency_store::memory::MemoryTransparencyStore;

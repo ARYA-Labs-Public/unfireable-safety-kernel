@@ -1,5 +1,5 @@
-//! Append-only Merkle transparency-log storage adapter (
-//!  §5,  Step 4).
+//! Append-only Merkle transparency-log storage adapter (ADR-014
+//! Phase 3 §5, internal-ref Step 4).
 //!
 //! Two impls are provided:
 //!
@@ -8,8 +8,8 @@
 //!     tests, by the reconciler in dev, and by anyone who wants to
 //!     wire the trait without standing up Postgres.
 //!   - [`postgres::PgTransparencyStore`] — Postgres-backed production
-//!     store. Uses `SERIALIZABLE` isolation per;
-//!     `INSERT... ON CONFLICT (idempotency_key) DO UPDATE...
+//!     store. Uses `SERIALIZABLE` isolation per ADR-014 Phase 3 §5;
+//!     `INSERT ... ON CONFLICT (idempotency_key) DO UPDATE ...
 //!     RETURNING` guarantees that retried appends return the
 //!     **existing** row's index rather than minting a new one (ADR §6
 //!     idempotency demand).
@@ -36,7 +36,7 @@ use qorch_domain::transparency::{InclusionProof, MerkleLeaf, VerificationError};
 ///
 /// `idempotency_key` is a caller-chosen 32-byte fingerprint that the
 /// store de-duplicates on. The kernel uses SHA-256(token bytes) per
-///; this trait does not enforce that choice — it
+/// ADR-014 Phase 3 §6; this trait does not enforce that choice — it
 /// just requires the key be stable across retries of the same logical
 /// append.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,16 +62,36 @@ pub struct AppendOutcome {
     pub leaf_index: u64,
     /// RFC-6962 leaf hash recorded for this entry.
     pub leaf_hash: [u8; 32],
-    /// `true` when this call hit the idempotency path (the key was
-    /// already present and the existing leaf was returned); `false`
-    /// on a fresh insert. Decided ATOMICALLY inside the store under
-    /// the same lock/transaction as the insert, so concurrent callers
-    /// with the same key never both observe a fresh insert. Callers
-    /// MUST classify 201-CREATED vs 200-OK from this flag, never by
-    /// comparing `leaf_index` against a separately-sampled tree size
-    /// (that check-then-act is racy — two identical requests can each
-    /// snapshot the pre-insert size and both mis-report CREATED).
-    pub idempotent_replay: bool,
+    /// `true` when THIS call minted a fresh leaf; `false` when it hit
+    /// the idempotency path and returned an existing row. Computed
+    /// atomically inside the store's write critical section so callers
+    /// can classify fresh-insert vs replay without a separate,
+    /// race-prone `current_size()` snapshot (see internal-ref concurrency
+    /// fix: two racers reading the same pre-append size both mis-report
+    /// `201 CREATED`).
+    pub created: bool,
+}
+
+/// A single ledger entry's durable bytes, returned by
+/// [`TransparencyStore::load_all_payloads`].
+///
+/// The Merkle ledger records `payload` verbatim (it is hashed per
+/// RFC-6962 to derive `leaf_hash`), so exposing it lets a consumer
+/// reconstruct derived in-memory indices from the *source-of-truth*
+/// ledger on boot rather than persisting those indices separately.
+/// The transparency-log service uses this to rebuild its wave-session
+/// index after a restart (internal-ref): without it, a restart empties the
+/// in-process `wave_id -> [leaf_index]` map and every prior wave's
+/// `GET /v1/wave/{id}/verify` returns 404.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LeafPayloadRecord {
+    /// 0-based ledger position (matches [`MerkleLeaf::leaf_index`]).
+    pub leaf_index: u64,
+    /// RFC-6962 leaf hash recorded for this entry (the side-table
+    /// primary key the service translates the index into).
+    pub leaf_hash: [u8; 32],
+    /// The exact payload bytes recorded at append time.
+    pub payload: Vec<u8>,
 }
 
 /// Errors returned by `TransparencyStore` implementations.
@@ -137,4 +157,15 @@ pub trait TransparencyStore: Send + Sync {
     /// Build the RFC-6962 inclusion proof for `leaf_index` against
     /// the current tree.
     async fn build_inclusion_proof(&self, leaf_index: u64) -> Result<InclusionProof, StoreError>;
+
+    /// Load every leaf's durable `(leaf_index, leaf_hash, payload)` in
+    /// ascending `leaf_index` order.
+    ///
+    /// Used by consumers to reconstruct derived in-memory indices from
+    /// the source-of-truth ledger on boot (the transparency-log service
+    /// rebuilds its wave-session index this way — internal-ref). Same O(n)
+    /// ordered-scan cost profile as the Postgres impl's internal
+    /// `load_all_leaves`; acceptable at the internal-ref burn-in scale (a
+    /// single startup scan, not a hot path).
+    async fn load_all_payloads(&self) -> Result<Vec<LeafPayloadRecord>, StoreError>;
 }

@@ -1,25 +1,25 @@
-//!   — integration tests for the wave-session-record
+//! internal-ref Phase 1 — integration tests for the wave-session-record
 //! routes. Exercises the full router (auth middleware + body-limit +
 //! tracing layer) using axum's `tower::ServiceExt::oneshot` against a
 //! fresh `MemoryTransparencyStore` per test. Six adversarial fixtures
 //! (Rule 8) cover the threat surface called out in the spec.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-
+#![allow(clippy::bool_assert_comparison)]
 use std::collections::HashSet;
 use std::sync::Arc;
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use ed25519_dalek::SigningKey;
-use hmac::{Hmac, KeyInit, Mac};
+use hmac::{digest::KeyInit, Hmac, Mac};
 use http_body_util::BodyExt;
-use qorch_adapters::clock::SystemClock;
 use qorch_domain::safety::Clock;
 use qorch_domain::wave::context::WaveId;
 use qorch_domain::wave::gate_surface::GateSurface;
 use qorch_domain::wave::session_record::WaveSessionRecord;
 use qorch_domain::wave::stage::{WaveOutcome, WaveStage};
+use qorch_transparency_log::clock::SystemClock;
 use qorch_transparency_log::router::build_router;
 use qorch_transparency_log::state::AppState;
 use qorch_transparency_store::memory::MemoryTransparencyStore;
@@ -70,7 +70,7 @@ fn rec(
 ) -> WaveSessionRecord {
     WaveSessionRecord::new(
         WaveId::new(wave),
-        "",
+        "internal-ref",
         stage,
         sid,
         WaveOutcome::Pass,
@@ -261,7 +261,7 @@ async fn adversarial_malformed_stage_rejected() {
         "record": {
             "evidence": "x",
             "gate_surfaces": [],
-            "linear_issue": "",
+            "linear_issue": "internal-ref",
             "occurred_at_epoch_seconds": 0,
             "outcome": "PASS",
             "session_id": "sid",

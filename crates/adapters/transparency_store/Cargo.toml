@@ -1,15 +1,8 @@
-# crates/adapters/transparency_store — append-only Merkle ledger
-# storage adapter (,  Step 4).
-#
-# This is the *only* place I/O is allowed for the transparency-log
-# storage layer. Postgres is the production backend (CLAUDE.md "Rust +
-# Postgres" rule); an in-memory implementation lives alongside for
-# tests + dev wiring. The trait `TransparencyStore` is async; the
-# transparency-log axum service (Step 5) consumes it as `Arc<dyn
-# TransparencyStore>`.
-#
-# Boundary: this crate may import `sqlx`, `tokio`, `tracing`; the
-# `qorch-domain` dependency stays pure (no transitive boundary leak).
+# qorch-transparency-store — append-only Merkle ledger
+# storage adapter (Postgres + in-memory). The only place I/O is allowed
+# for the transparency log; the service consumes it as
+# `Arc<dyn TransparencyStore>`. Relocated from arya-core's
+# `crates/adapters/arya-core-transparency-log` by a mechanical rename.
 [package]
 name = "qorch-transparency-store"
 version.workspace = true
@@ -18,24 +11,15 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
-description = "Append-only Merkle transparency-log storage adapter (Postgres + in-memory) for."
+description = "Append-only Merkle transparency-log storage adapter (Postgres + in-memory) for the safety-kernel."
 
 [lib]
 name = "qorch_transparency_store"
 path = "src/lib.rs"
 
 [dependencies]
-# Pure-types substrate: MerkleLeaf / InclusionProof / VerificationError
-# + proof-construction functions.
-qorch-domain = { path = "../../domain" , version = "0.1.0" }
-
-# async-trait — Step 4 trait is async so the Postgres impl can `.await`
-# `sqlx::query` futures. 0.1.x line is the workspace baseline (see
-# safety_kernel_client/Cargo.toml).
-async-trait = "0.1"
-
-# Workspace-pinned: tokio (sync primitives for the in-memory impl),
-# sqlx (Postgres impl), thiserror (StoreError taxonomy).
+qorch-domain = { path = "../../domain", version = "0.1.0" }
+async-trait = { workspace = true }
 tokio = { workspace = true }
 sqlx = { workspace = true }
 thiserror = { workspace = true }
@@ -43,12 +27,16 @@ tracing = { workspace = true }
 hex = { workspace = true }
 
 [dev-dependencies]
-# Tokio test runtime for the in-memory store concurrency tests.
-tokio = { workspace = true, features = ["full"] }
+tokio = { workspace = true }
+# Used only by tests/migration_checksum_pin.rs to recompute the SHA-384
+# checksum of the shipped migration file (the same digest sqlx records in
+# `_sqlx_migrations` and re-verifies on every boot); the crate's runtime
+# dependency graph is unchanged.
+sha2 = { workspace = true }
 
 [lints.rust]
 unused_imports = "warn"
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }
-pedantic = { level = "warn", priority = -1 }
+pedantic = { level = "allow", priority = -1 }

@@ -1,6 +1,6 @@
 //! Wave-pipeline stage enum + session-outcome.
 //!
-//!. A complementary surface to `Wave<S>` from
+//! internal-ref Phase 1. A complementary surface to `Wave<S>` from
 //! [`super::Wave`]: where `Wave<S>` is the *compile-time* witness that
 //! drives the type-state of an in-flight wave, `WaveStage` is the
 //! *wire-shape* tag the transparency-log persists per session record.
@@ -8,7 +8,7 @@
 //! pin the mapping at compile time.
 //!
 //! The transparency-log stores one [`WaveSessionRecord`] per (wave,
-//! stage, session_id) tuple. A wave is "complete" only when records
+//! stage, `session_id`) tuple. A wave is "complete" only when records
 //! exist for [`WaveStage::Tested`], [`WaveStage::Accepted`], and
 //! [`WaveStage::Closed`] (plus [`WaveStage::PurpleTeamed`] if the wave
 //! touched any gate surface).
@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 /// Stage of the wave ceremony pipeline this session record attests to.
 ///
 /// Ordering of variants is the canonical pipeline order — Planned →
-/// Decomposed → Tested → PurpleTeamed → Accepted → Closed — so the
+/// Decomposed → Tested → `PurpleTeamed` → Accepted → Closed — so the
 /// derived [`PartialOrd`]/[`Ord`] sort agrees with chronological order
 /// for the verify-route response.
 ///

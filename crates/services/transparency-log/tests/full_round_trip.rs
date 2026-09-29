@@ -1,4 +1,4 @@
-//! Full round-trip integration test ( Step 5).
+//! Full round-trip integration test (internal-ref Step 5).
 //!
 //! Spins the full axum router (via `qorch_transparency_log::router::
 //! build_router`) on a 127.0.0.1 ephemeral port backed by the
@@ -18,7 +18,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #![allow(clippy::similar_names)]
-
+#![allow(clippy::bool_assert_comparison)]
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -29,12 +29,12 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use tokio::net::TcpListener;
 
-use qorch_adapters::clock::SystemClock;
 use qorch_domain::safety::Clock;
 use qorch_domain::transparency::{
     compute_root, leaf_hash, verify_consistency_proof, verify_inclusion_proof, verify_sth,
     InclusionProof, MerkleLeaf,
 };
+use qorch_transparency_log::clock::SystemClock;
 use qorch_transparency_log::router::build_router;
 use qorch_transparency_log::state::AppState;
 use qorch_transparency_store::memory::MemoryTransparencyStore;

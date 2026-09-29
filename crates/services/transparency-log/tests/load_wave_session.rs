@@ -1,4 +1,4 @@
-//!   — load test: 100 concurrent wave-session appends.
+//! internal-ref Phase 1 — load test: 100 concurrent wave-session appends.
 //! Spec requirement: p99 latency < 200ms.
 //!
 //! In-process load test against the same router used in production.
@@ -14,13 +14,13 @@ use std::time::Instant;
 use axum::body::Body;
 use axum::http::Request;
 use ed25519_dalek::SigningKey;
-use hmac::{Hmac, KeyInit, Mac};
+use hmac::{digest::KeyInit, Hmac, Mac};
 use http_body_util::BodyExt;
-use qorch_adapters::clock::SystemClock;
 use qorch_domain::safety::Clock;
 use qorch_domain::wave::context::WaveId;
 use qorch_domain::wave::session_record::WaveSessionRecord;
 use qorch_domain::wave::stage::{WaveOutcome, WaveStage};
+use qorch_transparency_log::clock::SystemClock;
 use qorch_transparency_log::router::build_router;
 use qorch_transparency_log::state::AppState;
 use qorch_transparency_store::memory::MemoryTransparencyStore;
@@ -70,7 +70,7 @@ async fn p99_under_200ms_for_100_concurrent_appends() {
         tasks.push(tokio::spawn(async move {
             let r = WaveSessionRecord::new(
                 WaveId::new(format!("wave-load-{i}")),
-                "",
+                "internal-ref",
                 WaveStage::Tested,
                 format!("adv-{i}"),
                 WaveOutcome::Pass,
