@@ -1,5 +1,5 @@
 //! `GET /v1/verify/:entry_id` — return the leaf plus an RFC-6962
-//! inclusion proof against the current tree ( Step 5).
+//! inclusion proof against the current tree (internal-ref Step 5).
 //!
 //! The proof is verified IN-PROCESS against the current root before
 //! the handler returns, so a malformed proof never leaves the
@@ -60,7 +60,7 @@ mod tests {
     use sha2::{Digest, Sha256};
     use tower::ServiceExt;
 
-    use qorch_adapters::clock::SystemClock;
+    use crate::clock::SystemClock;
     use qorch_domain::safety::Clock;
     use qorch_domain::transparency::verify_inclusion_proof;
     use qorch_transparency_store::{

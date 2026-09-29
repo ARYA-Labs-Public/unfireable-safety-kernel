@@ -1,5 +1,5 @@
 //! `POST /v1/append` — append a kernel-signed token to the ledger
-//! ( + §6,  Step 5).
+//! (ADR-014 Phase 3 §3 + §6, internal-ref Step 5).
 //!
 //! Flow:
 //!   1. Validate `kernel_key_fingerprint_sha256` matches the pinned
@@ -14,6 +14,7 @@
 //!      returned `leaf_index` against `current_size` before-shot).
 //!      Fresh insert → 201; retry → 200 with `idempotent_replay: true`.
 
+#![allow(clippy::bool_assert_comparison)]
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -75,12 +76,7 @@ pub async fn append(
     // Step 3: decode idempotency key.
     let idempotency_key = hex_to_32(&body.idempotency_key_hex)?;
 
-    // Step 4: append. The store decides fresh-insert vs idempotent
-    // retry atomically (under its lock/transaction) and reports it on
-    // the outcome — see `AppendOutcome::idempotent_replay`. We must NOT
-    // infer it from a separately-sampled `current_size`: that
-    // check-then-act races (two identical concurrent requests can each
-    // snapshot the pre-insert size and both mis-report 201-CREATED).
+    // Step 4: append.
     let outcome = state
         .store
         .append(AppendInput {
@@ -90,8 +86,10 @@ pub async fn append(
         })
         .await?;
 
-    // Step 5: classify from the atomic outcome flag.
-    let idempotent_replay = outcome.idempotent_replay;
+    // Step 5: classify. The store reports fresh-insert vs idempotent
+    // replay atomically via `outcome.created`; a pre-append size
+    // snapshot would race under concurrent identical appends (internal-ref).
+    let idempotent_replay = !outcome.created;
     let status = if idempotent_replay {
         StatusCode::OK
     } else {
@@ -121,7 +119,7 @@ mod tests {
     use sha2::{Digest, Sha256};
     use tower::ServiceExt;
 
-    use qorch_adapters::clock::SystemClock;
+    use crate::clock::SystemClock;
     use qorch_domain::safety::Clock;
     use qorch_transparency_store::memory::MemoryTransparencyStore;
 

@@ -1,6 +1,6 @@
 //! Wave-role enumeration and per-role tool allow-lists.
 //!
-//! Per. Each role in the wave pipeline has a scoped tool
+//! Per internal-ref. Each role in the wave pipeline has a scoped tool
 //! allow-list. The dispatcher consults this allow-list before
 //! granting any role's invocation, so a wrong-role call is a
 //! dispatch-level reject rather than a runtime debug-only check.
@@ -42,7 +42,7 @@ impl WaveRole {
     /// the dispatcher can do `allow_list.contains(&tool_name)`
     /// without allocating.
     ///
-    /// Tool names use the orchestrator capability namespace (`aara.*`) plus
+    /// Tool names use the capability namespace plus
     /// the existing MCP tool names. The lists are intentionally
     /// minimal — adding a new tool to a role's allow-list is a
     /// reviewable change.

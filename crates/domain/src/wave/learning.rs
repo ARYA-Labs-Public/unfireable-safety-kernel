@@ -1,12 +1,12 @@
-//! `WaveLearningRecord` — full implementation.
+//! `WaveLearningRecord` — full implementation (internal-ref).
 //!
-//! Per. The closeout transition emits a `WaveLearningRecord`
+//! Per internal-ref. The closeout transition emits a `WaveLearningRecord`
 //! that feeds the nine memory lanes (`WorkingLane`, `EpisodicLane`,
 //! `SemanticLane`, `BeliefLane`, `ConceptLane`, `ProceduralLane`,
 //! `EvalLane`, `DistillateLane`, `LTPIndex`). This file defines the
 //! complete, pure-data record type and all its sub-types.
 //!
-//! Design constraints (per  §"Pure data, no I/O"):
+//! Design constraints (per internal-ref §"Pure data, no I/O"):
 //!
 //! - All fields are owned values.
 //! - No references to live services.
@@ -31,14 +31,16 @@ use super::context::{
 
 /// Lessons-learned record emitted at wave closeout.
 ///
-/// Pure data — see module-level docs for the no-I/O contract. This is
-/// the primary learning signal consumed by the `WaveLearningEmitter`
-/// (ARY-H through ARY-L).
+/// Pure data — see module-level docs for the no-I/O contract. This is the
+/// primary learning signal a `WaveLearningEmitter` would consume at wave
+/// closeout — a planned consumer that is **not yet defined**: the learning-via-Wave
+/// runtime path is deferred (see the crate README "Wave learning status" note and
+/// internal-ref).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WaveLearningRecord {
     /// The wave this record belongs to.
     pub wave_id: WaveId,
-    /// Originating Linear issue (e.g. `""`).
+    /// Originating Linear issue (e.g. `"internal-ref"`).
     pub linear_issue: String,
     /// Domain this wave belonged to.
     pub domain: WaveDomain,
@@ -180,7 +182,7 @@ pub struct ConstraintLayerResult {
 
 /// Final wave outcome.
 ///
-/// Maps to FSRS feedback per: `Pass = 2`, `Partial = 1`,
+/// Maps to FSRS feedback per internal-ref: `Pass = 2`, `Partial = 1`,
 /// `Fail = 0`. Use [`Self::to_fsrs_u8`] to get the FSRS code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WaveOutcome {
@@ -197,7 +199,7 @@ impl WaveOutcome {
     /// FSRS feedback code: `Pass = 2`, `Partial = 1`, `Fail = 0`.
     ///
     /// Used downstream by the FSRS scheduler in the LTP index. The
-    /// mapping is fixed by  §"Technical Notes".
+    /// mapping is fixed by internal-ref §"Technical Notes".
     #[must_use]
     pub fn to_fsrs_u8(&self) -> u8 {
         match self {
@@ -213,7 +215,7 @@ impl WaveOutcome {
 // ---------------------------------------------------------------------------
 
 /// Maximum characters for the [`WaveLearningRecord::to_ltp_summary`]
-/// Markdown list-item line. Required by AC5.
+/// Markdown list-item line. Required by internal-ref AC5.
 pub const LTP_SUMMARY_MAX_CHARS: usize = 200;
 
 // ---------------------------------------------------------------------------
@@ -292,7 +294,7 @@ impl WaveLearningRecord {
     /// Format:
     /// `- <wave-id> [<domain>] <outcome>: <goal> (gates p/f/b=N/N/N)`
     ///
-    ///  (L) — newline sanitization (defense-in-depth):
+    /// internal-ref (L) — newline sanitization (defense-in-depth):
     /// ``goal_summary`` is folded so every ASCII and Unicode line-break
     /// (``\n``, ``\r``, ``U+0085``, ``U+2028``, ``U+2029``, vertical
     /// tab, form feed) becomes a single space. Without this an attacker-
@@ -460,7 +462,7 @@ mod tests {
     fn populated_record() -> WaveLearningRecord {
         WaveLearningRecord::new(
             WaveId::new("wave-2184-01"),
-            "",
+            "internal-ref",
             WaveDomain::Platform,
             "WaveLearningRecord full implementation".to_string(),
             AdversarialSessionId::new("adv-001"),
@@ -573,10 +575,10 @@ mod tests {
 
     #[test]
     fn ltp_summary_sanitizes_newlines_ary_2189() {
-        //  (L) defense-in-depth: ASCII + Unicode line breakers
+        // internal-ref (L) defense-in-depth: ASCII + Unicode line breakers
         // in `goal_summary` must be folded to spaces so the Markdown LTP
         // index parser does not see two list items where the producer
-        // intended one. Closes the deferred G purple-team finding.
+        // intended one. Closes the deferred internal-ref G purple-team finding.
         let mut r = populated_record();
         r.goal_summary = "before\nafter\rmore\u{2028}then\u{2029}done\u{85}end".into();
         let s = r.to_ltp_summary();
@@ -678,7 +680,7 @@ mod tests {
     fn build_from_closeout_derives_pass_when_no_failures() {
         let r = build_from_closeout(
             WaveId::new("w"),
-            "".into(),
+            "internal-ref".into(),
             WaveDomain::Platform,
             "g".into(),
             AdversarialSessionId::new("a"),
@@ -703,7 +705,7 @@ mod tests {
         };
         let r = build_from_closeout(
             WaveId::new("w"),
-            "".into(),
+            "internal-ref".into(),
             WaveDomain::Platform,
             "g".into(),
             AdversarialSessionId::new("a"),
@@ -728,7 +730,7 @@ mod tests {
         };
         let r = build_from_closeout(
             WaveId::new("w"),
-            "".into(),
+            "internal-ref".into(),
             WaveDomain::Platform,
             "g".into(),
             AdversarialSessionId::new("a"),
@@ -755,7 +757,7 @@ mod tests {
         };
         let r = build_from_closeout(
             WaveId::new("w"),
-            "".into(),
+            "internal-ref".into(),
             WaveDomain::Platform,
             "g".into(),
             AdversarialSessionId::new("a"),

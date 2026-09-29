@@ -1,10 +1,10 @@
 //! Server-side rustls configuration for the transparency-log service
-//! (,  Step 5).
+//! (ADR-014 Phase 3 §3, internal-ref Step 5).
 //!
 //! Identical pattern to `crates/services/safety-kernel/src/tls.rs` —
 //! `axum-server` with `tls-rustls-no-provider`, `rustls::crypto::ring`
 //! as the crypto provider, optional `WebPkiClientVerifier` for mTLS.
-//! NO `aws-lc-rs`, NO `native-tls`, NO `openssl-sys` ( ban).
+//! NO `aws-lc-rs`, NO `native-tls`, NO `openssl-sys` (internal-ref ban).
 
 use std::fs::File;
 use std::io::BufReader;
@@ -15,7 +15,7 @@ use anyhow::{anyhow, Context, Result};
 use axum_server::tls_rustls::RustlsConfig;
 use rustls::server::WebPkiClientVerifier;
 use rustls::{RootCertStore, ServerConfig};
-use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
+use rustls_pemfile::{certs, ec_private_keys, pkcs8_private_keys, rsa_private_keys};
 
 /// Build the rustls `ServerConfig` and wrap it in `RustlsConfig`.
 ///
@@ -86,8 +86,17 @@ fn load_private_key(path: &Path) -> Result<rustls::pki_types::PrivateKeyDer<'sta
             return Ok(rustls::pki_types::PrivateKeyDer::Pkcs1(k));
         }
     }
+    {
+        let f = File::open(path)?;
+        let mut reader = BufReader::new(f);
+        let ec: Result<Vec<_>, _> = ec_private_keys(&mut reader).collect();
+        let ec = ec.context("parse SEC1 EC key PEM")?;
+        if let Some(k) = ec.into_iter().next() {
+            return Ok(rustls::pki_types::PrivateKeyDer::Sec1(k));
+        }
+    }
     Err(anyhow!(
-        "no PKCS#8 or RSA PRIVATE KEY block in {}",
+        "no PKCS#8, RSA, or SEC1 EC PRIVATE KEY block in {}",
         path.display()
     ))
 }
