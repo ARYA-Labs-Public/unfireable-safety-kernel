@@ -76,13 +76,45 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # On PRs we need the merge commit's first parent (the base) to
+          # diff against; push/schedule/dispatch always run the full check.
+          fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 1 }}
+
+      - name: Decide whether this PR touches the dependency graph
+        # A PR that only bumps a GitHub Action or edits docs cannot change
+        # the cargo dependency graph, so re-running cargo-deny on it only
+        # reports advisories that already exist on main (and were already
+        # reported by the push/schedule run). That made every Dependabot
+        # actions/docker bump go red for a rustls advisory it had nothing
+        # to do with. Gate the PR run on the files that can actually
+        # change what cargo-deny sees; main still gets the full check on
+        # every push and every Monday.
+        id: deps
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed="$(git diff --name-only HEAD^1 HEAD)"
+          echo "$changed"
+          if echo "$changed" | grep -Eq '(^|/)Cargo\.(toml|lock)$|^deny\.toml$|^rust-toolchain\.toml$|^\.cargo/|^\.github/workflows/security\.yml$'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No Cargo.toml/Cargo.lock/deny.toml change in this PR; cargo-deny skipped (main is still checked on push + weekly)."
+          fi
 
       - name: Install Rust toolchain
+        if: steps.deps.outputs.run == 'true'
         uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # stable
         with:
           toolchain: stable
 
       - name: Install cargo-deny
+        if: steps.deps.outputs.run == 'true'
         # Use the latest cargo-deny: older releases (0.16) bundle a rustsec
         # that cannot parse CVSS 4.0 vectors now present in the advisory DB
         # and fail to even load it. Latest is also the right posture for a
@@ -90,5 +122,6 @@ jobs:
         run: cargo install cargo-deny --locked
 
       - name: cargo deny check
+        if: steps.deps.outputs.run == 'true'
         # advisories + bans + licenses + sources, all driven by deny.toml.
         run: cargo deny check
