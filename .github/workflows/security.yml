@@ -59,11 +59,11 @@ jobs:
 
       - name: Run gitleaks (PR — diff)
         if: github.event_name == 'pull_request'
-        run: gitleaks detect --source . --redact --no-banner --log-opts="--no-merges origin/${{ github.base_ref }}..HEAD"
+        run: gitleaks detect --source . --redact --no-banner -v --log-opts="--no-merges origin/${{ github.base_ref }}..HEAD"
 
       - name: Run gitleaks (push/schedule — full history)
         if: github.event_name != 'pull_request'
-        run: gitleaks detect --source . --redact --no-banner
+        run: gitleaks detect --source . --redact --no-banner -v
 
   # ===========================================================
   # Dependency policy — cargo-deny over deny.toml
