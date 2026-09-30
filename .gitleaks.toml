@@ -30,4 +30,12 @@ regexes = [
   #    function-parameter TYPE ANNOTATION flagged by generic-api-key. It
   #    is a type name, never a credential.
   '''signing_key: Ed25519PrivateKey''',
+  # 3) transparency-log `tests/per_skill_keys_purple_team.rs` A2 key-reuse
+  #    test rotated a per-skill writer secret to the literal
+  #    `ary2193-test-key-ROTATED-zzzzz`. generic-api-key flags it: an
+  #    identifier containing "key" next to a high-entropy string. It is a
+  #    test fixture, not a credential. The source renamed it, but the
+  #    string is in this repo's history from the first cut (d80ae1d), and
+  #    the push/schedule scan reads full history.
+  '''ary2193-test-key-ROTATED-zzzzz''',
 ]
