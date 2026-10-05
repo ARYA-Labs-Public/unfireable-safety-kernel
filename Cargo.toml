@@ -36,7 +36,7 @@ authors = ["ARYA Labs <eng@aryalabs.io>"]
 [workspace.dependencies]
 lru = "0.18.2"
 rusqlite = { version = "0.32", features = ["bundled"] }
-rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
+rcgen = { version = "0.14", default-features = false, features = ["ring", "pem"] }
 tempfile = "3"
 http-body-util = "0.1"
 axum-server = { version = "0.8", default-features = false, features = ["tls-rustls-no-provider"] }
