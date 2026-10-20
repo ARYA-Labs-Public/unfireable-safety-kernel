@@ -61,7 +61,7 @@ fn issue_self_signed_chain() -> (String, String, String) {
     leaf_params.extended_key_usages = vec![rcgen::ExtendedKeyUsagePurpose::ServerAuth];
     let leaf_key = KeyPair::generate().expect("leaf keypair");
     let leaf_cert = leaf_params
-        .signed_by(&leaf_key, &ca_cert, &ca_key)
+        .signed_by(&leaf_key, &rcgen::Issuer::from_params(&ca_params, &ca_key))
         .expect("sign leaf");
 
     (ca_pem, leaf_cert.pem(), leaf_key.serialize_pem())
