@@ -220,11 +220,12 @@ function Figure7TwoLevelVerification() {
     <div className="fig">
       <div className="fig-header">
         <div className="fig-eyebrow">TWO-LEVEL PROOF OF THE FAIL-CLOSED INVARIANT</div>
-        <h2 className="fig-title">The proof binds to the shipped code path. There is no separate model that could drift.</h2>
+        <h2 className="fig-title">Both levels bind to the shipped code path. The model is checked against the real breaker, so it cannot drift.</h2>
         <p className="fig-sub">
-          Z3 proves the invariant&apos;s logical structure over a symbolic model. Kani proves that the actual
-          Rust function the production request path executes realizes that structure for every input. Neither
-          is sufficient alone &mdash; together, they take the central safety claim from <em>tested</em> to <em>proved</em>.
+          Z3 proves the circuit breaker&apos;s fail-closed behaviour over time, on a model checked step by step against
+          the shipped Rust <span className="f-mono">CircuitBreaker</span>. Kani proves the Rust decision function the
+          production request path executes for every input. Neither is sufficient alone &mdash; together, they take the
+          central safety claim from <em>tested</em> to <em>proved</em>.
         </p>
       </div>
 
@@ -234,22 +235,29 @@ function Figure7TwoLevelVerification() {
           {/* Z3 column */}
           <ProofColumn
             badge="Z3 · SMT"
-            level="Model level"
-            scope="Logical structure of the gate-composition surface"
+            level="Model level, bound to the code"
+            scope="The circuit breaker over time: before_call, record_success, record_failure"
             content={
             <>
-                <div className="f-eyebrow f-eyebrow--accent" style={{ fontSize: 10 }}>arm A · safety contract (negation-unsat)</div>
+                <div className="f-eyebrow f-eyebrow--accent" style={{ fontSize: 10 }}>arm A · safety properties (negation-unsat)</div>
                 <pre style={texStyle}>
-{`∀σ.  gate_ok(σ) ∧ fail_closed_config(σ)
-    ⟹ allow(σ) ∧ ¬transport_error(σ)`}
+{`∀ traces of 10 events, any order, symbolic clock,
+  cooldown and failure threshold:
+A1  open ∧ ¬cooldown_elapsed  ⟹  refuse
+A2  half_open ∧ probe_in_flight  ⟹  refuse
+A3  opened → closed  ⟹  a kernel success
+A4  kernel unreachable  ⟹  every permit after opening is a probe
+A5  half_open  ⟹  refuse`}
                 </pre>
                 <div className="f-cap" style={{ fontSize: 11.5, lineHeight: 1.5 }}>
-                  Z3 finds the negation unsatisfiable; the implication holds for every state.
+                  Z3 finds each negation unsatisfiable: 5 / 5 properties hold on every 10-event trace.
                 </div>
-                <div className="f-eyebrow f-eyebrow--accent" style={{ fontSize: 10, marginTop: 4 }}>arm B · non-vacuity</div>
+                <div className="f-eyebrow f-eyebrow--accent" style={{ fontSize: 10, marginTop: 4 }}>arm B · non-vacuity &middot; binding</div>
                 <div className="f-cap" style={{ fontSize: 11.5, lineHeight: 1.5 }}>
-                  Direct SAT check confirms the fail-open configuration is reachable — arm A is not vacuously true.
-                  Per-vertical gate non-vacuity and cross-vertical gate independence are proved on the same harness.
+                  SAT checks show every permit path is reachable and a deliberately fail-open gate violates A1.
+                  The symbolic gate equals the Rust <span className="f-mono">gate_decision</span> on all 12 inputs, and the
+                  transition system matches the real <span className="f-mono">CircuitBreaker</span> step by step on 300
+                  randomized event sequences.
                 </div>
               </>
             }
@@ -265,7 +273,7 @@ function Figure7TwoLevelVerification() {
             <>
                 <pre style={texStyle}>
 {`gate_decision(
-  state:             GateState,
+  state:             CircuitState,
   cooldown_elapsed:  bool,
   probe_in_flight:   bool,
 ) -> GateDecision`}
