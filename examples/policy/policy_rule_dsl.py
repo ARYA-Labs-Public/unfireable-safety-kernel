@@ -44,7 +44,7 @@ class PolicyBuilder:
         return self
 
     def supervised(self, method: str, pattern: str, *, action: str) -> Self:
-        """Add a SUPERVISED rule (kernel called, fail-open with audit)."""
+        """Add a SUPERVISED rule (kernel called, fail-closed like GATED)."""
         self._entries.append(
             PolicyEntry(
                 route_pattern=pattern,

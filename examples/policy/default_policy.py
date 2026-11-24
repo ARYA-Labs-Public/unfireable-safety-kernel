@@ -4,11 +4,10 @@ Routes are classified into one of three tiers:
 
 * ``UNRESTRICTED`` — no kernel call. Examples: ``/healthz``, static
   asset routes, ``/metrics``. Never blocks request flow.
-* ``SUPERVISED``  — the kernel is called, but a transport failure
-  fails *open* with an audit-only warning. Examples: read-only
-  introspection endpoints where freshness matters but downtime is
-  not worth a 503. Use sparingly — fail-open is a deliberate
-  reduction in the safety guarantee.
+* ``SUPERVISED``  — the kernel is called and enforced exactly like
+  ``GATED``: a deny is 403 and an unreachable kernel is 503. There is
+  no fail-open tier (no silent allow); the name is kept so existing
+  policies still load and routes can be labelled.
 * ``GATED``       — the kernel is called fail-closed. Any failure
   (kernel unreachable, deny, signature mismatch) terminates the
   request with HTTP 403 (deny) or 503 (unavailable). This is the
@@ -98,7 +97,7 @@ DEFAULT_POLICY: SafetyPolicy = SafetyPolicy(
         # Public docs / openapi schemata.
         PolicyEntry(route_pattern=r"^/docs", method="GET", tier=PolicyTier.UNRESTRICTED),
         PolicyEntry(route_pattern=r"^/openapi\.json$", method="GET", tier=PolicyTier.UNRESTRICTED),
-        # Read-only introspection routes — supervised (fail-open with audit).
+        # Read-only introspection routes — supervised (fail-closed, like gated).
         PolicyEntry(
             route_pattern=r"^/api/v1/status",
             method="GET",

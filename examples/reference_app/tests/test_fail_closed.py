@@ -44,6 +44,30 @@ def test_unrestricted_route_always_200(kernel_app_and_client) -> None:
     assert resp.status_code == 200
 
 
+def test_supervised_route_returns_503_when_kernel_down(kernel_app_and_client) -> None:
+    """``GET /api/v1/status`` is SUPERVISED — kernel down → 503, never allow.
+
+    SUPERVISED used to fail open here (the request went through with a
+    warning). It is now enforced exactly like GATED.
+    """
+    _, _, verifier = kernel_app_and_client
+
+    client = SafetyKernelClient(
+        base_url="http://127.0.0.1:1",  # dead port
+        api_key="x",
+        pinned_verifier=verifier,
+        timeout_s=0.2,
+    )
+    app = build_app(client=client)
+    with TestClient(app) as tc:
+        resp = tc.get("/api/v1/status")
+
+    assert resp.status_code == 503, (
+        f"SUPERVISED route must return 503 when kernel is down; "
+        f"got {resp.status_code} body={resp.text!r}"
+    )
+
+
 def test_gated_route_returns_503_when_kernel_down(kernel_app_and_client) -> None:
     """``POST /api/v1/rsi/apply`` is GATED — kernel down → 503, never allow."""
     _, _, verifier = kernel_app_and_client

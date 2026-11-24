@@ -7,7 +7,7 @@ The interceptor:
 2. Computes a stable params fingerprint over the serialized request.
 3. Calls :meth:`SafetyKernelClient.authorize`.
 4. On deny: aborts the RPC with ``PERMISSION_DENIED``.
-5. On unreachable + ``GATED`` tier: aborts with ``UNAVAILABLE``.
+5. On unreachable (``GATED`` or ``SUPERVISED`` tier): aborts with ``UNAVAILABLE``.
 6. On allow: lets the RPC through and stashes the signed token on
    the servicer context for downstream forwarding.
 
@@ -189,14 +189,13 @@ class SafetyKernelInterceptor(_GrpcInterceptor):  # type: ignore[misc,valid-type
                     )
                     record(decision)
             except KernelDecisionError as exc:
-                if tier == PolicyTier.GATED:
-                    record_bypass_attempt("dispatch")
-                    context.abort(
-                        grpc.StatusCode.UNAVAILABLE,  # type: ignore[attr-defined]
-                        f"safety_kernel_unavailable: {exc}",
-                    )
-                # SUPERVISED — fail-open with audit metadata.
-                return original_behavior(request, context)
+                # Unreachable kernel → abort on every kernel-calling tier
+                # (GATED and SUPERVISED). Never fail open.
+                record_bypass_attempt("dispatch")
+                context.abort(
+                    grpc.StatusCode.UNAVAILABLE,  # type: ignore[attr-defined]
+                    f"safety_kernel_unavailable: {exc}",
+                )
             except KernelClientError as exc:
                 record_bypass_attempt("dispatch")
                 context.abort(

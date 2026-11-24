@@ -6,13 +6,14 @@
 //! | Tier | Kernel call | Failure mode |
 //! |------|-------------|--------------|
 //! | [`MiddlewarePolicy::Unrestricted`] | none | n/a |
-//! | [`MiddlewarePolicy::Supervised`]   | fire-and-forget (best-effort observability) | log only, never block |
+//! | [`MiddlewarePolicy::Supervised`]   | synchronous, fail-closed (same as `Gated`) | 503 (Unavailable) / 403 (Denied / Forged) |
 //! | [`MiddlewarePolicy::Gated`]        | synchronous, fail-closed | 503 (Unavailable) / 403 (Denied / Forged) |
 //!
-//! Only `Gated` routes can reject the request. `Supervised` is for
-//! observability of routes that are too cheap to block on but useful
-//! to attest; `Unrestricted` is the explicit opt-out for static asset
-//! / health-check style endpoints.
+//! Every tier that calls the kernel fails closed: there is no silent
+//! allow. `Supervised` is kept as a name so existing route tables still
+//! compile and routes can be labelled. `Unrestricted` is the explicit
+//! opt-out for static asset / health-check style endpoints, and must be
+//! listed explicitly: an unlisted route is `Gated`.
 
 use http::Method;
 use std::collections::HashMap;
@@ -25,13 +26,13 @@ pub enum MiddlewarePolicy {
     /// reaches the handler unchanged. Use for `/health`, `/metrics`,
     /// static assets, etc.
     Unrestricted,
-    /// Fire-and-forget kernel call. The middleware does not block on
-    /// the result; useful for read-only or low-stakes routes that
-    /// nonetheless deserve a transparency-log entry.
+    /// Enforced exactly like [`MiddlewarePolicy::Gated`]. (It was once a
+    /// fire-and-forget call that never blocked; that was a silent allow
+    /// and was removed.)
     Supervised,
     /// Synchronous kernel call. The middleware awaits
     /// `client.authorize(...)` and rejects the request on any
-    /// `Err`/`Deny`. This is the only tier that can short-circuit.
+    /// `Err`/`Deny`.
     Gated,
 }
 
@@ -45,13 +46,12 @@ pub trait MiddlewarePolicyResolver: Send + Sync + 'static {
 
 /// Convenience resolver that holds a static map of
 /// `(method, path) → policy` pairs and falls back to
-/// [`MiddlewarePolicy::Unrestricted`] on miss.
+/// [`MiddlewarePolicy::Gated`] on miss.
 ///
-/// **Default-Unrestricted is intentional**: the safe-by-default
-/// pattern for a router is to opt routes IN to gating, not OUT. A
-/// route that has no entry here is not protected — production
-/// deployments should pair this with a CI check that fails when a
-/// `Gated` route is missing.
+/// **Default-Gated (fail-closed)**: a route that has no entry here is
+/// gated, so forgetting to register a route can never leave it
+/// unprotected. Routes that must not call the kernel (health checks,
+/// static assets) are opted OUT explicitly with `Unrestricted`.
 ///
 /// Path matching is exact-string only; for prefix or pattern matches
 /// use a custom [`MiddlewarePolicyResolver`].
@@ -82,7 +82,7 @@ impl MiddlewarePolicyResolver for StaticPolicy {
         self.table
             .get(&(method.clone(), path.to_string()))
             .copied()
-            .unwrap_or(MiddlewarePolicy::Unrestricted)
+            .unwrap_or(MiddlewarePolicy::Gated)
     }
 }
 
@@ -112,9 +112,8 @@ mod tests {
     }
 
     #[test]
-    fn static_policy_defaults_unrestricted_on_miss() {
-        // Safe-by-default for routers without an entry. Production
-        // CI must verify all Gated routes are registered.
+    fn static_policy_defaults_gated_on_miss() {
+        // Fail-closed: an unregistered route is gated, never let through.
         let p = StaticPolicy::from_routes([(
             Method::POST,
             "/gated/run".into(),
@@ -122,18 +121,21 @@ mod tests {
         )]);
         assert_eq!(
             p.resolve(&Method::GET, "/no/such/path"),
-            MiddlewarePolicy::Unrestricted
+            MiddlewarePolicy::Gated
         );
     }
 
     #[test]
     fn static_policy_method_sensitive() {
-        let p = StaticPolicy::from_routes([(
-            Method::POST,
-            "/gated/run".into(),
-            MiddlewarePolicy::Gated,
-        )]);
-        // POST is gated; GET on the same path is not.
+        let p = StaticPolicy::from_routes([
+            (Method::POST, "/gated/run".into(), MiddlewarePolicy::Gated),
+            (
+                Method::GET,
+                "/gated/run".into(),
+                MiddlewarePolicy::Unrestricted,
+            ),
+        ]);
+        // POST is gated; GET on the same path is explicitly not.
         assert_eq!(
             p.resolve(&Method::POST, "/gated/run"),
             MiddlewarePolicy::Gated
