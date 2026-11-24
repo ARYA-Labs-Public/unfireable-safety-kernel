@@ -3,7 +3,7 @@
 Demonstrates all three policy tiers in one process:
 
 * ``GET  /healthz`` → UNRESTRICTED — no kernel call
-* ``GET  /api/v1/status`` → SUPERVISED — kernel called, fail-open
+* ``GET  /api/v1/status`` → SUPERVISED — kernel called, fail-closed
 * ``POST /api/v1/rsi/apply`` → GATED — kernel called, fail-closed
 
 Also exposes a ``POST /auth-check`` sidecar that nginx can call via
