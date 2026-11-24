@@ -5,10 +5,11 @@
 //! 1. Resolve the request's [`MiddlewarePolicy`] from
 //!    `(method, path)`.
 //! 2. If `Unrestricted` → call inner immediately, no kernel.
-//! 3. If `Supervised` → spawn a fire-and-forget kernel call, then
-//!    call inner. The kernel call result is logged at `info`/`warn`
-//!    but does NOT block the request.
-//! 4. If `Gated` → buffer the body, build an `AuthorizeRequest` via
+//! 3. `Supervised` is enforced exactly like `Gated` (below). It used to
+//!    make a fire-and-forget kernel call and let the request through
+//!    whatever the answer; that silently allowed denied and unverified
+//!    requests, so it was removed (2026-11-24, no silent allow).
+//! 4. If `Gated` (or `Supervised`) → buffer the body, build an `AuthorizeRequest` via
 //!    the [`crate::RequestClaimsExtractor`], call `client.authorize`
 //!    synchronously, and:
 //!    - `Ok(KernelDecision::Allow { token, claims })` → attach a
@@ -41,7 +42,7 @@ use bytes::Bytes;
 use http_body_util::BodyExt;
 use qorch_safety_kernel_client::{KernelClientError, KernelDecision, KernelDecisionError};
 use tower::Service;
-use tracing::{debug, info, warn};
+use tracing::debug;
 
 use crate::client_trait::SafetyKernelClientTrait;
 use crate::error::MiddlewareError;
@@ -121,51 +122,8 @@ where
             debug!(?method, %path, "safety_middleware: unrestricted, pass-through");
             inner.call(req).await
         }
-        MiddlewarePolicy::Supervised => {
-            debug!(?method, %path, "safety_middleware: supervised, fire-and-forget kernel call");
-            // Build claims best-effort; on extraction error, skip the
-            // kernel call (this tier is observability-only).
-            let (parts, body) = req.into_parts();
-            let bytes = match collect_bytes(body).await {
-                Ok(b) => b,
-                Err(e) => {
-                    // Body collection failed — surface a 503 since we
-                    // cannot reliably forward to inner without owning
-                    // the body bytes.
-                    warn!(error = %e, "safety_middleware: body collection failed");
-                    return Ok(MiddlewareError::KernelUnavailable {
-                        reason: format!("body collection failed: {e}"),
-                    }
-                    .into_response());
-                }
-            };
-            if let Ok(claims) = extractor.extract(&method, &path, &parts.headers, Some(&bytes)) {
-                let client_for_task = Arc::clone(&client);
-                let req_clone = claims.request.clone();
-                // Fire-and-forget: spawn the kernel call but don't
-                // await it. Log the outcome for observability.
-                tokio::spawn(async move {
-                    match client_for_task.authorize(&req_clone).await {
-                        Ok(KernelDecision::Allow { .. }) => {
-                            info!("safety_middleware: supervised allow");
-                        }
-                        Ok(KernelDecision::Deny { reason }) => {
-                            warn!(
-                                reason = reason.as_str(),
-                                "safety_middleware: supervised deny (not blocking)"
-                            );
-                        }
-                        Err(e) => {
-                            warn!(error = %e, "safety_middleware: supervised kernel call failed");
-                        }
-                    }
-                });
-            }
-            let rebuilt = Request::from_parts(parts, Body::from(bytes));
-            inner.call(rebuilt).await
-        }
-        MiddlewarePolicy::Gated => {
-            debug!(?method, %path, "safety_middleware: gated, synchronous kernel call");
+        MiddlewarePolicy::Supervised | MiddlewarePolicy::Gated => {
+            debug!(?method, %path, ?policy_tier, "safety_middleware: synchronous, fail-closed kernel call");
             let (parts, body) = req.into_parts();
             let bytes = match collect_bytes(body).await {
                 Ok(b) => b,
