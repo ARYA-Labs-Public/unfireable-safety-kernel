@@ -25,7 +25,7 @@ The fail-closed invariant is **machine-checked over the production Rust code pat
 
 ## Paper
 
-This implementation accompanies the paper *The Unfireable Safety Kernel: Execution-Time AI Alignment for AI Agents and Other Escapable AI Systems* (Dobrin, ARYA Labs PBC, 2026), posted to arXiv as cs.AI with cs.CR cross-list.
+This implementation accompanies the paper *The Unfireable Safety Kernel: Execution-Time AI Alignment for AI Agents and Other Escapable AI Systems* (Dobrin and Chmiel, ARYA Labs PBC, 2026), posted to arXiv as cs.AI with cs.CR cross-list.
 
 - arXiv: [2606.26057](https://arxiv.org/abs/2606.26057)
 - Title: *The Unfireable Safety Kernel: Execution-Time AI Alignment for AI Agents and Other Escapable AI Systems*
@@ -243,7 +243,7 @@ Several systems shipping in 2026 occupy the agent control plane space. They diff
 | Microsoft Agent Governance Toolkit | MIT | No (framework extension points) | No | No |
 | Microsoft Authorization Fabric (reference pattern) | n/a (blog POC) | Decision out-of-process; enforcement in-process | No | No |
 | Saviynt Identity Security for AI | Closed | (identity layer, orthogonal) | (n/a) | No |
-| **Unfireable Safety Kernel** | **Apache-2.0** | **Yes (separate Rust binary)** | **Yes (deployment construction)** | **Yes (Kani 4/4)** |
+| **Unfireable Safety Kernel** | **Apache-2.0** | **Yes (separate Rust binary)** | **Yes (deployment construction)** | **Yes (Kani 6/6)** |
 
 In each of these systems, the agent is the party that decides whether to invoke the control. In the Unfireable Safety Kernel, the agent does not have that choice: the kernel sits on the only path between agent and consequential action by deployment construction, the wiring checklist rejects deployments that omit a seam, and the agent process refuses to start without the kernel.
 
