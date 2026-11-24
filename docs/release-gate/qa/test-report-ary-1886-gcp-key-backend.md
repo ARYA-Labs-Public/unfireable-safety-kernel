@@ -88,8 +88,8 @@ its assertions are genuine rejections, not pass-by-accident:
 ### Check 4 — Rule 9 live GCP re-derivation → **PASS**
 
 ```
-KERNEL_KEY_GCP_PROJECT=utopian-spring-473613-r7 \
-KERNEL_KEY_GCP_SECRET=safety-kernel-signing-key-test \
+KERNEL_KEY_GCP_PROJECT=<gcp-project-id> \
+KERNEL_KEY_GCP_SECRET=<test-secret-name> \
 GCP_KEY_TEST_EXPECT_SEED_B64="$(cat /tmp/sk_test_seed.txt)" \
   cargo test -p qorch-safety-kernel --test gcp_key_backend_live -- --ignored --nocapture
 → test gcp_backend_fetches_exact_stored_seed ... ok  (1 passed; 0 failed)
