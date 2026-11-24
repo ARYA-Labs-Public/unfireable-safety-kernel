@@ -1,6 +1,6 @@
 # Dependabot config for the safety-kernel public repo.
 #
-# Keeps GitHub Actions, cargo deps, and pip deps current. Actions are
+# Keeps GitHub Actions and pip deps current (cargo: see below). Actions are
 # pinned to commit SHAs per repo security policy; Dependabot proposes
 # both the new SHA and the new comment tag together.
 version: 2
@@ -11,16 +11,10 @@ updates:
       interval: weekly
     labels: [dependencies, ci]
 
-  - package-ecosystem: cargo
-    directory: /
-    schedule:
-      interval: weekly
-    labels: [dependencies, rust]
-    open-pull-requests-limit: 5
-    # Group patch+minor updates so we don't get a PR per crate per week.
-    groups:
-      cargo-minor-patch:
-        update-types: [minor, patch]
+  # No cargo updates here. Cargo.toml and Cargo.lock are published from the
+  # internal canonical repository, and each publish replaces them, so a cargo
+  # bump merged here would be overwritten by the next publish. Rust dependency
+  # updates and the RustSec advisory gate run in the canonical repository.
 
   - package-ecosystem: pip
     directory: /py-defense
