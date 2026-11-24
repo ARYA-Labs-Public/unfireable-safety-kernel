@@ -3,7 +3,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.85%2B-orange)](rust-toolchain.toml)
 [![Status: extraction](https://img.shields.io/badge/status-public%20extraction-yellow)](#status)
-[![paper](https://img.shields.io/badge/paper-arXiv-b31b1b)](#paper)
+[![paper](https://img.shields.io/badge/arXiv-2606.26057-b31b1b)](https://arxiv.org/abs/2606.26057)
 
 A fail-closed, machine-checked authorization service for AI agents and other escapable AI systems.
 
@@ -21,13 +21,13 @@ We treat the agent's runtime as untrusted by construction. The Unfireable Safety
 4. **Externalized signed evidence.** Every ALLOW appends a signed entry to an append-only transparency log. The chain is signed by an operator key held outside the kernel, even a compromised kernel cannot forge log entries that verify under the operator public key.
 5. **Coercive termination, not just denial.** Denial stops an action; it does not reclaim the compute a misbehaving agent is holding. On a signed `RevokeCompute` decision — carried on the same Ed25519 + transparency-log rails — a separate privileged **reaper**, running outside the agent's privilege domain, reclaims the reservation (signal → kill → stop). It fails closed if the kernel signal path is lost past a configured deadline, and the agent holds no permission to disable it. This is the resource-layer authority that authorization alone cannot provide.
 
-The fail-closed invariant is **machine-checked over the production Rust code path** by Kani bounded model checking (4 `#[kani::proof]` harnesses, 0 failures), in addition to an SMT proof of the same property over a symbolic model.
+The fail-closed invariant is **machine-checked over the production Rust code path** at two levels: Kani bounded model checking (6 `#[kani::proof]` harnesses, 0 failures: 4 on the circuit breaker's gate, 2 on the revocation generation fence), and a Z3 (SMT) proof of the circuit breaker's behaviour over time that is bound to the shipped code. See [Verification](#verification).
 
 ## Paper
 
 This implementation accompanies the paper *The Unfireable Safety Kernel: Execution-Time AI Alignment for AI Agents and Other Escapable AI Systems* (Dobrin, ARYA Labs PBC, 2026), posted to arXiv as cs.AI with cs.CR cross-list.
 
-- arXiv: `<arxiv-id-pending>`
+- arXiv: [2606.26057](https://arxiv.org/abs/2606.26057)
 - Title: *The Unfireable Safety Kernel: Execution-Time AI Alignment for AI Agents and Other Escapable AI Systems*
 
 The paper names the architectural layer this implementation occupies: **execution-time AI alignment**, distinct from training-time alignment (RLHF, Constitutional AI) and inference-time alignment (prompts, filters, guardrails). It is the layer at which what the agent is *permitted to do* is constrained by an architecture the agent cannot reach.
@@ -42,7 +42,8 @@ The paper names the architectural layer this implementation occupies: **executio
 | Python-to-Rust migration: byte-equivalent fixtures | 1000 / 1000 |
 | Python-to-Rust migration: adversarial reject parity | 17 / 17 |
 | Shipped Rust adversarial corpus | 80+ tests |
-| Machine-checked fail-closed (Kani harnesses) | 4 / 4 verified |
+| Machine-checked fail-closed (Kani harnesses) | 6 / 6 verified |
+| Fail-closed proof (Z3, bound to the shipped breaker) | 5 / 5 safety properties proved |
 | In production at | ARYA Labs PBC |
 | Threat model | §2 of the paper |
 
@@ -200,7 +201,17 @@ See [`docs/integration/python-fastapi.md`](docs/integration/python-fastapi.md) f
 
 The fail-closed invariant is discharged as a machine-checked theorem at two levels.
 
-**SMT model (Z3).** The fail-closed contract is encoded as a first-order theorem over a symbolic model of the gate. Z3 finds the negation unsatisfiable in Arm A (the safety contract), and confirms the fail-open configuration is reachable in Arm B (non-vacuity), so Arm A is not vacuously true.
+**SMT proof (Z3) of the circuit breaker over time.** [`crates/verification/fail-closed-proof`](crates/verification/fail-closed-proof) encodes the client circuit breaker as an SMT transition system: the decision core `gate_decision` and the state changes of `before_call`, `record_success` and `record_failure`, under any order of events, with a symbolic monotonic clock, cooldown and failure threshold (traces of 10 events). Each safety property is checked by asserting its violation and requiring `unsat`:
+
+| Property (Arm A) | Statement |
+|---|---|
+| A1 | an open breaker refuses every call until its cooldown has elapsed |
+| A2 | a half-open breaker never lets a second call through while a probe is in flight |
+| A3 | only a kernel success closes a breaker that has opened |
+| A4 | with the kernel unreachable, every call permitted after opening is a counted probe |
+| A5 | a half-open breaker refuses every call (the probe that opened it is the only call that goes out) |
+
+Arm B shows the proof is not vacuous: every permit path is reachable, and a deliberately fail-open gate violates A1. The model is bound to the code: the symbolic gate equals the Rust `gate_decision` on all 12 inputs, and the transition system matches the real `CircuitBreaker` step by step on randomized event sequences, so a change to either fails the proof. It runs under plain `cargo test` (needs `libz3`).
 
 **Bounded model checking (Kani) on the actual Rust code path.** The circuit breaker's pre-call decision is factored into a pure function, `gate_decision(state, cooldown_elapsed, probe_in_flight) -> GateDecision`. Four `#[kani::proof]` harnesses verify it exhaustively over the symbolic input domain:
 
@@ -211,9 +222,16 @@ The fail-closed invariant is discharged as a machine-checked theorem at two leve
 | `half_open_with_probe_in_flight_refuses` | the single-probe gate refuses a second concurrent probe |
 | `permit_characterization_is_exhaustive` | a permit is reachable only from `Closed`, `HalfOpen`-without-probe, or `Open`-after-cooldown |
 
-Result: `4 successfully verified harnesses, 0 failures`. The proof binds to the shipped code path because `before_call` delegates to the verified function rather than reimplementing the decision. Run locally with `cargo kani` if you have Kani installed; the same characterization is encoded as a concrete twelve-case exhaustive unit test that runs under plain `cargo test`.
+Two more harnesses prove the revocation generation fence (`crates/domain/src/safety/revoke.rs`) over the full `u64` domain:
 
-![Two-level fail-closed proof. Z3 discharges the safety contract over a symbolic model (Arm A by negation-unsat) plus non-vacuity (Arm B). Kani discharges the production Rust gate_decision function over the full symbolic input domain. The shipped before_call delegates to the verified function, so the proof binds to the production code path.](docs/figures/fig-7-two-level-verification.png)
+| Harness | Property |
+|---|---|
+| `honour_implies_current_generation_and_all_gates` | a kill is honoured only if every gate passed and its generation equals the current grant generation |
+| `older_generation_is_never_honoured` | a kill from a generation older than the current grant is never honoured, for every gate assignment |
+
+Result: `6 successfully verified harnesses, 0 failures`. The proof binds to the shipped code path because `before_call` delegates to the verified function rather than reimplementing the decision. Run locally with `cargo kani` if you have Kani installed; the same characterization is encoded as a concrete twelve-case exhaustive unit test that runs under plain `cargo test`.
+
+![Two-level fail-closed proof. Z3 discharges the safety contract over a model of the circuit breaker bound to the shipped code (Arm A by negation-unsat) plus non-vacuity (Arm B). Kani discharges the production Rust gate_decision function over the full symbolic input domain. The shipped before_call delegates to the verified function, so the proof binds to the production code path.](docs/figures/fig-7-two-level-verification.png)
 
 ## How this relates to other agent control systems
 

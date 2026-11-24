@@ -82,13 +82,14 @@ with `SafetyLayer::new(client, policy).with_extractor(Arc::new(my_extractor))`
 | Tier | Kernel call | On failure |
 |---|---|---|
 | `Unrestricted` | none | n/a — passes through |
-| `Supervised` | best-effort, fire-and-forget | log only, never blocks |
+| `Supervised` | synchronous, fail-closed (same as `Gated`) | 503 (Unavailable) / 403 (Denied or forged token) |
 | `Gated` | synchronous, fail-closed | 503 (Unavailable) / 403 (Denied or forged token) |
 
-Only `Gated` routes can reject a request. **`StaticPolicy` defaults to
-`Unrestricted` on a miss** — safe-by-default for static assets, but it
-means a forgotten `Gated` registration silently leaves a route ungated.
-Treat the route list as a policy surface and verify it on every audit.
+Every tier that calls the kernel fails closed; there is no silent allow.
+`Supervised` is kept as a name so existing route tables compile.
+**`StaticPolicy` defaults to `Gated` on a miss**, so a route you forgot to
+register is gated, not let through. Opt routes that must not call the
+kernel (health checks, static assets) out explicitly with `Unrestricted`.
 
 ## Fail-closed contract
 

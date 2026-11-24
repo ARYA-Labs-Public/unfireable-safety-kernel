@@ -7,11 +7,14 @@ tiers (``UNRESTRICTED`` / ``SUPERVISED`` / ``GATED``) — only
 
 Failure semantics:
 
-* ``GATED`` + kernel deny       → 403 Forbidden
-* ``GATED`` + kernel unreachable → 503 Service Unavailable
-* ``GATED`` + signature failed   → 503 Service Unavailable
-* ``SUPERVISED`` + any failure   → request continues, audit warning emitted
-* ``UNRESTRICTED``               → no kernel call, no audit
+* ``GATED`` / ``SUPERVISED`` + kernel deny        → 403 Forbidden
+* ``GATED`` / ``SUPERVISED`` + kernel unreachable → 503 Service Unavailable
+* ``GATED`` / ``SUPERVISED`` + signature failed   → 503 Service Unavailable
+* ``UNRESTRICTED``                                → no kernel call, no audit
+
+``SUPERVISED`` is enforced exactly like ``GATED``: there is no tier that lets a
+request through when the kernel is unreachable (no silent allow). The name is
+kept so existing policies still load.
 
 Usage::
 
@@ -189,16 +192,12 @@ class SafetyMiddleware(BaseHTTPMiddleware):
                 )
                 record(decision)
         except KernelDecisionError as exc:
-            # Kernel unreachable (transport / 5xx / breaker open).
-            if tier == PolicyTier.GATED:
-                return self._unavailable_response(action=action, reason=str(exc))
-            # Supervised tier — fail open with audit warning.
-            request.state.safety_warning = f"supervised_kernel_unavailable:{exc}"
-            return await call_next(request)
+            # Kernel unreachable (transport / 5xx / breaker open) → 503 on
+            # every tier that calls the kernel. Never fail open.
+            return self._unavailable_response(action=action, reason=str(exc))
         except KernelClientError as exc:
-            # Decode / transport drift / verification failure → always
-            # fail-closed (even on supervised) because these signal a
-            # contract bug or potential tampering.
+            # Decode / transport drift / verification failure → fail-closed:
+            # these signal a contract bug or potential tampering.
             return self._unavailable_response(action=action, reason=str(exc))
 
         if not decision.allowed:
@@ -308,10 +307,8 @@ class WebSocketSafetyDependency:
           HTTP GATED tier semantics).
         * Policy is UNRESTRICTED for the path → no kernel call, the
           dependency returns ``None`` and the handler proceeds.
-        * Policy is SUPERVISED → kernel called; failure is logged but
-          the socket is still accepted (audit-only). This matches the
-          HTTP supervised tier — keep parity to avoid operator
-          confusion.
+        * Policy is SUPERVISED → enforced exactly like GATED (a failure
+          closes the socket with 1008), matching the HTTP tiers.
     """
 
     def __init__(
@@ -401,16 +398,13 @@ async def websocket_safety_dependency(
             )
             record(decision)
     except KernelDecisionError as exc:
-        if tier == PolicyTier.GATED:
-            # WebSocketException causes FastAPI to close with the given
-            # code; we MUST NOT close manually first (Starlette refuses a
-            # second close on the same socket).
-            record_bypass_attempt("websocket")
-            raise WebSocketException(
-                code=1008, reason=f"safety_kernel_unavailable: {exc}"
-            )
-        # SUPERVISED — accept the socket; the caller can introspect the audit trail.
-        return None
+        # Unreachable kernel → close on every kernel-calling tier. Raising
+        # WebSocketException makes FastAPI close with the given code; we MUST
+        # NOT close manually first (Starlette refuses a second close).
+        record_bypass_attempt("websocket")
+        raise WebSocketException(
+            code=1008, reason=f"safety_kernel_unavailable: {exc}"
+        )
     except KernelClientError as exc:
         # Transport / verification failure — always fail-closed.
         record_bypass_attempt("websocket")
