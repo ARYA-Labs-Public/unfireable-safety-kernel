@@ -54,6 +54,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      # crates/verification/fail-closed-proof (the Z3 proof) links the system
+      # libz3 through z3-sys, whose bindgen needs libclang. It is a workspace
+      # member, so `cargo check/test --workspace` below build and run it.
+      - name: Install libz3 + libclang (Z3 fail-closed proof)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libz3-dev libclang-dev
+
       - name: cargo fmt --check
         run: cargo fmt --all -- --check
 
@@ -63,8 +69,14 @@ jobs:
       - name: cargo clippy --workspace (warnings non-blocking)
         run: cargo clippy --workspace --all-targets -- -W warnings
 
+      # The proof crate is new and clean, so its lints gate (the workspace
+      # clippy above is non-blocking). --no-deps lints only this crate.
+      - name: cargo clippy (Z3 fail-closed proof, warnings are errors)
+        run: cargo clippy -p safety-kernel-fail-closed-proof --all-targets --no-deps -- -D warnings
+
       - name: cargo test --workspace
         # We allow this to print test output but failures still gate the build.
+        # Includes the Z3 fail-closed proof (A1-A5 unsat, B1-B3 sat, binding).
         run: cargo test --workspace --no-fail-fast
 
       - name: cargo publish --dry-run (qorch-domain, leaf crate)

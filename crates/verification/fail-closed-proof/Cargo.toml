@@ -1,0 +1,23 @@
+[package]
+name = "safety-kernel-fail-closed-proof"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Z3 (SMT) proof of the client circuit breaker's fail-closed contract, bound to the shipped code."
+publish = false
+
+# The SMT model and the proofs live in this crate's tests; the library only
+# exposes the model encoding so the tests (and anyone re-running the proof)
+# share one definition. Links the system libz3 (`libz3-dev`).
+[dependencies]
+z3 = "0.25"
+qorch-domain = { path = "../../domain", version = "0.1.0" }
+
+[dev-dependencies]
+qorch-safety-kernel-client = { path = "../../adapters/safety_kernel_client", version = "0.1.0" }
+
+[lints.rust]
+unsafe_code = "forbid"
