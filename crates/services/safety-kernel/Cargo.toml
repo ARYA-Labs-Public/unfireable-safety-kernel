@@ -83,7 +83,7 @@ regex = "1"
 # ADR forbids in favor of `rustls::crypto::ring`. `axum-server` is
 # crate-local for now (only this crate binds TLS); promote to the
 # workspace pin if another service crate ever needs it.
-axum-server = { version = "0.8", default-features = false, features = ["tls-rustls-no-provider"] }
+axum-server = { version = "0.9", default-features = false, features = ["tls-rustls-no-provider"] }
 # Explicit pin matching what reqwest already brings in transitively;
 # the `ring` feature is the ADR's required crypto provider. `std` is
 # the rustls default minus aws-lc-rs.
